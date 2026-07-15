@@ -7,61 +7,73 @@ import 'measure_view.dart';
 
 /// Renders a whole section: a bordered/highlighted card with a label + repeat indicator, and one
 /// or more lines of measures wrapped and centered.
+///
+/// Sizing is computed on the fly from the real width Flutter measures via [LayoutBuilder] —
+/// already net of every ancestor's padding/borders — rather than estimated from the window width
+/// with a guessed overhead and snapped to one of a handful of presets. [widestLine] is the
+/// beats/measures shape of the widest line across the whole drill (not just this section), so
+/// every section in a drill renders at the same size instead of each fitting only itself.
 class SectionView extends StatelessWidget {
   final Section section;
   final bool isHighlighted;
-  final String? repeatDisplay;
+  final int? repeatDotsFilled;
   final Pos? highlight;
-  final SizeLevel sizeLevel;
+  final LineShape widestLine;
 
   const SectionView({
     super.key,
     required this.section,
     required this.isHighlighted,
-    this.repeatDisplay,
+    this.repeatDotsFilled,
     this.highlight,
-    this.sizeLevel = 5,
+    required this.widestLine,
   });
 
   @override
   Widget build(BuildContext context) {
-    final config = sizeConfigs[sizeLevel]!;
     return HighlightedCard(
       isHighlighted: isHighlighted,
-      child: Padding(
-        padding: EdgeInsets.all(config.cardPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SectionHeader(
-              label: section.label,
-              repeatDisplay: repeatDisplay,
-              labelFontSize: config.labelFontSize,
-              repeatFontSize: config.repeatFontSize,
-            ),
-            SizedBox(height: config.cardPadding * 0.6),
-            for (var ll = 0; ll < section.lines.length; ll++)
-              Padding(
-                padding: EdgeInsets.only(top: ll == 0 ? 0 : config.measureGap),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: config.measureGap,
-                  runSpacing: config.measureGap,
-                  children: [
-                    for (var mm = 0; mm < section.lines[ll].measures.length; mm++)
-                      MeasureView(
-                        measure: section.lines[ll].measures[mm],
-                        strokeSize: config.strokeSize,
-                        highlightBeat: (isHighlighted && highlight != null && highlight!.line == ll && highlight!.measure == mm)
-                            ? highlight!.offset
-                            : null,
-                      ),
-                  ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final config = computeFittedSizeConfig(widestLine: widestLine, availableWidth: constraints.maxWidth);
+          return Padding(
+            padding: EdgeInsets.all(config.cardPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionHeader(
+                  label: section.label,
+                  repeatDotsTotal: section.repeat > 1 ? section.repeat : null,
+                  repeatDotsFilled: repeatDotsFilled,
+                  labelFontSize: config.labelFontSize,
+                  repeatFontSize: config.repeatFontSize,
                 ),
-              ),
-          ],
-        ),
+                SizedBox(height: config.cardPadding * 0.6),
+                for (var ll = 0; ll < section.lines.length; ll++)
+                  Padding(
+                    padding: EdgeInsets.only(top: ll == 0 ? 0 : config.measureGap),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: config.measureGap,
+                      runSpacing: config.measureGap,
+                      children: [
+                        for (var mm = 0; mm < section.lines[ll].measures.length; mm++)
+                          MeasureView(
+                            measure: section.lines[ll].measures[mm],
+                            strokeSize: config.strokeSize,
+                            highlightBeat:
+                                (isHighlighted && highlight != null && highlight!.line == ll && highlight!.measure == mm)
+                                    ? highlight!.offset
+                                    : null,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

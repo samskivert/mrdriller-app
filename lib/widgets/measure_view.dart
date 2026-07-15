@@ -61,7 +61,7 @@ class MeasureView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasAnyLabels = measure.any((b) => b?.label != null);
-    return Row(
+    final row = Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -76,5 +76,11 @@ class MeasureView extends StatelessWidget {
                 ),
       ],
     );
+    // A measure's beats are never meant to wrap onto a new line (unlike the measures within a
+    // line, which can). SectionView computes strokeSize to fit this row exactly, but the result
+    // is clamped to a legible min/max size — so on a pathologically narrow screen with a
+    // many-beat measure, the exact fit could still be smaller than that floor. A scroll view
+    // turns that edge case into a horizontal scroll instead of a hard layout overflow.
+    return SingleChildScrollView(scrollDirection: Axis.horizontal, child: row);
   }
 }

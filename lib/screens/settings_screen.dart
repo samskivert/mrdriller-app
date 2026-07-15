@@ -41,43 +41,47 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const AppHeader(title: 'Settings', showSettings: false),
-              const SizedBox(height: 24),
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: AnimatedBuilder(
-                    animation: settings,
-                    builder: (context, _) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SettingRow(
-                          label: 'Bouncing dot',
-                          description:
-                              'Highlight the active beat while a drill plays. When off, only the active section is highlighted.',
-                          checked: settings.showBouncingDot,
-                          onChanged: settings.setShowBouncingDot,
-                        ),
-                        const SizedBox(height: 20),
-                        _SettingRow(
-                          label: 'Replay intro on BPM increase',
-                          description:
-                              'When the BPM goes up mid-drill, replay the "Ichi, Ni, So, Re" intro. When off, the repeat starts straight away.',
-                          checked: settings.replayIntroOnBpmIncrease,
-                          onChanged: settings.setReplayIntroOnBpmIncrease,
-                        ),
-                      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: AppHeader(title: 'Settings', showSettings: false),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: AnimatedBuilder(
+                      animation: settings,
+                      builder: (context, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _SettingRow(
+                            label: 'Bouncing dot',
+                            description:
+                                'Highlight the active beat while a drill plays. When off, only the active section is highlighted.',
+                            checked: settings.showBouncingDot,
+                            onChanged: settings.setShowBouncingDot,
+                          ),
+                          const SizedBox(height: 20),
+                          _SettingRow(
+                            label: 'Replay intro on BPM increase',
+                            description:
+                                'When the BPM goes up mid-drill, replay the "Ichi, Ni, So, Re" intro. When off, the repeat starts straight away.',
+                            checked: settings.replayIntroOnBpmIncrease,
+                            onChanged: settings.setReplayIntroOnBpmIncrease,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

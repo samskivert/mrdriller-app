@@ -109,14 +109,15 @@ class NumberInputField extends StatelessWidget {
         Text('$label: ', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
         SizedBox(
           width: width,
-          height: 32,
+          height: 40,
           child: TextField(
             controller: controller,
             textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
             onSubmitted: (text) => onChanged(int.tryParse(text)?.clamp(min, max) ?? min),
@@ -131,10 +132,55 @@ class NumberInputField extends StatelessWidget {
   }
 }
 
-/// Section label on the left, repeat-dot display on the right.
+/// A row of fixed-size circles indicating repeat progress: [filled] of [total] are solid, the
+/// rest are just outlined. Both states use the exact same box size (diameter + border width) so
+/// a dot filling in never changes the row's height/width — unlike using "●"/"○" text glyphs,
+/// whose font metrics differ enough to shift the surrounding layout by a few pixels each time.
+class RepeatDots extends StatelessWidget {
+  final int total;
+  final int filled;
+  final double size;
+  final Color color;
+
+  const RepeatDots({
+    super.key,
+    required this.total,
+    required this.filled,
+    this.size = 10,
+    this.color = AppColors.textGray,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderWidth = (size * 0.12).clamp(1.2, 3.0);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < total; i++)
+          Padding(
+            padding: EdgeInsets.only(left: i == 0 ? 0 : size * 0.3),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < filled ? color : Colors.transparent,
+                border: Border.all(color: color, width: borderWidth),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Section label on the left, repeat indicator on the right — either a plain string (e.g. "x4",
+/// used in the static drill overview) or a [RepeatDots] progress indicator (used while playing).
 class SectionHeader extends StatelessWidget {
   final String? label;
   final String? repeatDisplay;
+  final int? repeatDotsTotal;
+  final int? repeatDotsFilled;
   final double labelFontSize;
   final double repeatFontSize;
 
@@ -142,13 +188,17 @@ class SectionHeader extends StatelessWidget {
     super.key,
     this.label,
     this.repeatDisplay,
+    this.repeatDotsTotal,
+    this.repeatDotsFilled,
     this.labelFontSize = 14,
     this.repeatFontSize = 14,
   });
 
   @override
   Widget build(BuildContext context) {
-    if ((label == null || label!.isEmpty) && (repeatDisplay == null || repeatDisplay!.isEmpty)) {
+    final hasRepeatDots = repeatDotsTotal != null && repeatDotsTotal! > 0;
+    final hasRepeatText = repeatDisplay != null && repeatDisplay!.isNotEmpty;
+    if ((label == null || label!.isEmpty) && !hasRepeatDots && !hasRepeatText) {
       return const SizedBox.shrink();
     }
     return Row(
@@ -156,7 +206,9 @@ class SectionHeader extends StatelessWidget {
       children: [
         if (label != null && label!.isNotEmpty)
           Text(label!, style: TextStyle(fontSize: labelFontSize, fontWeight: FontWeight.bold)),
-        if (repeatDisplay != null && repeatDisplay!.isNotEmpty)
+        if (hasRepeatDots)
+          RepeatDots(total: repeatDotsTotal!, filled: repeatDotsFilled ?? 0, size: repeatFontSize * 0.9)
+        else if (hasRepeatText)
           Text(
             repeatDisplay!,
             style: TextStyle(fontSize: repeatFontSize, fontWeight: FontWeight.bold, color: AppColors.textGray),

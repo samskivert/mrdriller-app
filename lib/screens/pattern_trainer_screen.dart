@@ -7,6 +7,7 @@ import '../model/model.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
+import '../util/size_config.dart';
 import '../widgets/app_header.dart';
 import '../widgets/components.dart';
 import '../widgets/section_view.dart';
@@ -316,7 +317,12 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
           )
         : null;
     final displayPattern = _swapHands ? swapSectionHands(pattern) : pattern;
-    return SectionView(section: displayPattern, isHighlighted: isHighlighted, highlight: highlight);
+    return SectionView(
+      section: displayPattern,
+      isHighlighted: isHighlighted,
+      highlight: highlight,
+      widestLine: widestLineShape([displayPattern]),
+    );
   }
 
   @override
@@ -324,15 +330,16 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const AppHeader(title: 'Pattern Trainer', showSettings: false),
-              const SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: AppHeader(title: 'Pattern Trainer', showSettings: false),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: SingleChildScrollView(
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 900),
@@ -461,8 +468,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

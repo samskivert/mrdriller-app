@@ -37,11 +37,22 @@ class _OverviewSectionView extends StatelessWidget {
               for (final line in section.lines)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
+                  // The 4px gaps between measures are inserted as explicit SizedBox children
+                  // rather than Wrap's `spacing` property: RenderWrap.computeMaxIntrinsicWidth
+                  // sums each child's width but omits `spacing`, so with `spacing` alone the
+                  // ancestor IntrinsicWidth above computes a width a few pixels narrower than a
+                  // single row actually needs — just enough to make the Wrap wrap early even
+                  // when there's plenty of room, while still occupying the wider (wrong) width.
+                  // Making the gaps real children keeps them in that sum, so the two agree.
                   child: Wrap(
                     alignment: WrapAlignment.center,
-                    spacing: 4,
                     runSpacing: 4,
-                    children: [for (final measure in line.measures) MeasureView(measure: measure)],
+                    children: [
+                      for (var i = 0; i < line.measures.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 4),
+                        MeasureView(measure: line.measures[i]),
+                      ],
+                    ],
                   ),
                 ),
             ],
