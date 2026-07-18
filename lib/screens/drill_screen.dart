@@ -428,6 +428,13 @@ class _DrillScreenState extends State<DrillScreen> {
     final safeAreaPadding = MediaQuery.of(context).padding;
     final hasHorizontalSafeArea =
         safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
+    // Short-and-wide, like a phone held sideways — as opposed to a desktop/web window that
+    // happens to be wider than tall but still has plenty of vertical room to spare. Only the
+    // former is cramped enough to be worth reclaiming the status row's height for.
+    final screenSize = MediaQuery.of(context).size;
+    final isCompactLandscape =
+        screenSize.width > screenSize.height && screenSize.height < 500;
+    final mergeStatusIntoHeader = _state.playing && isCompactLandscape;
 
     Widget mkSectionView(Section section, bool isHighlighted) {
       return SectionView(
@@ -520,7 +527,18 @@ class _DrillScreenState extends State<DrillScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: AppHeader(title: drill.title),
+              child: AppHeader(
+                title: drill.title,
+                trailing: mergeStatusIntoHeader
+                    ? _HeaderStatus(
+                        bpm: _state.bpm,
+                        bpmIncrease: _state.bpmIncrease,
+                        drillRepeat: _drillRepeat,
+                        drillRepeatCount: _state.drillRepeat,
+                        onStop: _handleStop,
+                      )
+                    : null,
+              ),
             ),
             Expanded(
               // Only the non-playing overview scrolls (it can be arbitrarily long). While a drill
@@ -586,14 +604,16 @@ class _DrillScreenState extends State<DrillScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _StatusView(
-                                  bpm: _state.bpm,
-                                  bpmIncrease: _state.bpmIncrease,
-                                  drillRepeat: _drillRepeat,
-                                  drillRepeatCount: _state.drillRepeat,
-                                  onStop: _handleStop,
-                                ),
-                                const SizedBox(height: 16),
+                                if (!mergeStatusIntoHeader) ...[
+                                  _StatusView(
+                                    bpm: _state.bpm,
+                                    bpmIncrease: _state.bpmIncrease,
+                                    drillRepeat: _drillRepeat,
+                                    drillRepeatCount: _state.drillRepeat,
+                                    onStop: _handleStop,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
                                 // Mirrors the web version's persistent-slot animation: content swaps
                                 // instantly (like a Solid re-render), and a pure slide transform carries
                                 // the already-updated slot up from roughly where the bottom preview card
@@ -770,6 +790,64 @@ class _StatusView extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.btnRed,
             foregroundColor: Colors.white,
+          ),
+          child: const Text('Stop'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact stand-in for [_StatusView], shown inline in the header (in place of the settings
+/// gear) instead of in its own row when the screen is too short to spare that row's height.
+class _HeaderStatus extends StatelessWidget {
+  final int bpm;
+  final int bpmIncrease;
+  final int drillRepeat;
+  final int drillRepeatCount;
+  final VoidCallback onStop;
+
+  const _HeaderStatus({
+    required this.bpm,
+    required this.bpmIncrease,
+    required this.drillRepeat,
+    required this.drillRepeatCount,
+    required this.onStop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$bpm bpm${bpmIncrease > 0 ? ' (+$bpmIncrease)' : ''}',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textGray,
+          ),
+        ),
+        if (drillRepeat > 1) ...[
+          const SizedBox(width: 12),
+          Text(
+            '${drillRepeatCount + 1} / $drillRepeat',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textGray,
+            ),
+          ),
+        ],
+        const SizedBox(width: 12),
+        ElevatedButton(
+          onPressed: onStop,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.btnRed,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: const Text('Stop'),
         ),
