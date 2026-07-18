@@ -425,6 +425,9 @@ class _DrillScreenState extends State<DrillScreen> {
     final isLastSection = idx == allSections.length - 1;
     final widestLine = _widestLineFor(activeDrill);
     final currentSection = allSections[idx].section;
+    final safeAreaPadding = MediaQuery.of(context).padding;
+    final hasHorizontalSafeArea =
+        safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
 
     Widget mkSectionView(Section section, bool isHighlighted) {
       return SectionView(
@@ -563,48 +566,57 @@ class _DrillScreenState extends State<DrillScreen> {
                     )
                   : Align(
                       alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1200),
-                        // The drill controls what's on screen now, not a scroll view, so it's
-                        // expected that the current section + preview sometimes won't all fit
-                        // (e.g. a tall section on a short landscape phone). Clipping here tells
-                        // Flutter that's intentional: clip the excess instead of raising the
-                        // debug-only "RenderFlex overflowed" warning for expected behavior.
-                        // (Column doesn't expose clipBehavior itself, so wrap it in ClipRect.)
-                        child: ClipRect(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _StatusView(
-                                bpm: _state.bpm,
-                                bpmIncrease: _state.bpmIncrease,
-                                drillRepeat: _drillRepeat,
-                                drillRepeatCount: _state.drillRepeat,
-                                onStop: _handleStop,
-                              ),
-                              const SizedBox(height: 16),
-                              // Mirrors the web version's persistent-slot animation: content swaps
-                              // instantly (like a Solid re-render), and a pure slide transform carries
-                              // the already-updated slot up from roughly where the bottom preview card
-                              // sat into its resting position. The changing `key` mounts a fresh SlideIn
-                              // instance, which is what makes the animation restart each time (see
-                              // widgets/slide_in.dart for why TweenAnimationBuilder can't do this).
-                              SlideIn(
-                                key: ValueKey(topKey),
-                                child: topContent(),
-                              ),
-                              const SizedBox(height: 16),
-                              // Bottom preview fades in only after the top slide above finishes (a
-                              // 400ms delay, then a 300ms fade), matching the original timing.
-                              FadeInDelayed(
-                                key: ValueKey(bottomKey),
-                                child: bottomContent(),
-                              ),
-                              if (showRepeatPreview) ...[
+                      // On devices with no horizontal safe-area inset (no notch/rounded-corner
+                      // cutout to clear in landscape), content otherwise runs flush to the screen
+                      // edge; add a little breathing room ourselves. Devices that already have a
+                      // horizontal safe-area inset are left as-is.
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: hasHorizontalSafeArea ? 0 : 10,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          // The drill controls what's on screen now, not a scroll view, so it's
+                          // expected that the current section + preview sometimes won't all fit
+                          // (e.g. a tall section on a short landscape phone). Clipping here tells
+                          // Flutter that's intentional: clip the excess instead of raising the
+                          // debug-only "RenderFlex overflowed" warning for expected behavior.
+                          // (Column doesn't expose clipBehavior itself, so wrap it in ClipRect.)
+                          child: ClipRect(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _StatusView(
+                                  bpm: _state.bpm,
+                                  bpmIncrease: _state.bpmIncrease,
+                                  drillRepeat: _drillRepeat,
+                                  drillRepeatCount: _state.drillRepeat,
+                                  onStop: _handleStop,
+                                ),
                                 const SizedBox(height: 16),
-                                mkSectionView(allSections[0].section, false),
+                                // Mirrors the web version's persistent-slot animation: content swaps
+                                // instantly (like a Solid re-render), and a pure slide transform carries
+                                // the already-updated slot up from roughly where the bottom preview card
+                                // sat into its resting position. The changing `key` mounts a fresh SlideIn
+                                // instance, which is what makes the animation restart each time (see
+                                // widgets/slide_in.dart for why TweenAnimationBuilder can't do this).
+                                SlideIn(
+                                  key: ValueKey(topKey),
+                                  child: topContent(),
+                                ),
+                                const SizedBox(height: 16),
+                                // Bottom preview fades in only after the top slide above finishes (a
+                                // 400ms delay, then a 300ms fade), matching the original timing.
+                                FadeInDelayed(
+                                  key: ValueKey(bottomKey),
+                                  child: bottomContent(),
+                                ),
+                                if (showRepeatPreview) ...[
+                                  const SizedBox(height: 16),
+                                  mkSectionView(allSections[0].section, false),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),
