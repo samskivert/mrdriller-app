@@ -901,27 +901,27 @@ final Drill kihon = Drill(
     [oneLineSection("Right (Eighth)", 8, [measure([R, R, R, R, R, R, R, R])])],
     [oneLineSection("Left (Eighth)", 8, [measure([L, L, L, L, L, L, L, L])])],
     [
-      oneLineSection("Alternate (Whole)", 8, [
-        measure([R, null, null, null, null, null, null, null]),
-        measure([L, null, null, null, null, null, null, null]),
+      section("Alternate (Whole)", 8, [
+        line([measure([R, null, null, null, null, null, null, null])]),
+        line([measure([L, null, null, null, null, null, null, null])]),
       ]),
     ],
     [
-      oneLineSection("Alternate (Half)", 8, [
-        measure([R, null, null, null, L, null, null, null]),
-        measure([R, null, null, null, L, null, null, null]),
+      section("Alternate (Half)", 8, [
+        line([measure([R, null, null, null, L, null, null, null])]),
+        line([measure([R, null, null, null, L, null, null, null])]),
       ]),
     ],
     [
-      oneLineSection("Alternate (Quarter)", 8, [
-        measure([R, null, L, null, R, null, L, null]),
-        measure([R, null, L, null, R, null, L, null]),
+      section("Alternate (Quarter)", 8, [
+        line([measure([R, null, L, null, R, null, L, null])]),
+        line([measure([R, null, L, null, R, null, L, null])]),
       ]),
     ],
     [
-      oneLineSection("Alternate (Eighth)", 8, [
-        measure([R, L, R, L, R, L, R, L]),
-        measure([R, L, R, L, R, L, R, L]),
+      section("Alternate (Eighth)", 8, [
+        line([measure([R, L, R, L, R, L, R, L])]),
+        line([measure([R, L, R, L, R, L, R, L])]),
       ]),
     ],
     [
