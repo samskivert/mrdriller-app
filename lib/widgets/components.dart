@@ -90,8 +90,11 @@ class CenteredContainer extends StatelessWidget {
   }
 }
 
-/// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc).
-class NumberInputField extends StatelessWidget {
+/// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc). Min/max clamping only
+/// happens once the field loses focus (or on submit) -- not on every keystroke -- so typing a new
+/// value doesn't get fought over while it's still passing through invalid/out-of-range
+/// intermediate states (e.g. clearing "60" to type "45" reads as empty, then "4", then "45").
+class NumberInputField extends StatefulWidget {
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
@@ -110,20 +113,57 @@ class NumberInputField extends StatelessWidget {
   });
 
   @override
+  State<NumberInputField> createState() => _NumberInputFieldState();
+}
+
+class _NumberInputFieldState extends State<NumberInputField> {
+  late final _controller = TextEditingController(text: '${widget.value}');
+  late final _focusNode = FocusNode()..addListener(_handleFocusChange);
+
+  @override
+  void didUpdateWidget(NumberInputField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only resync from the outside while the field isn't focused -- otherwise this would stomp
+    // over whatever the user is currently in the middle of typing.
+    if (!_focusNode.hasFocus && widget.value != oldWidget.value) {
+      _controller.text = '${widget.value}';
+    }
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus) _commit();
+  }
+
+  void _commit() {
+    final n =
+        int.tryParse(_controller.text)?.clamp(widget.min, widget.max) ??
+        widget.value;
+    _controller.text = '$n';
+    if (n != widget.value) widget.onChanged(n);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final controller = TextEditingController(text: '$value');
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '$label: ',
+          '${widget.label}: ',
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
         SizedBox(
-          width: width,
+          width: widget.width,
           height: 40,
           child: TextField(
-            controller: controller,
+            controller: _controller,
+            focusNode: _focusNode,
             textAlign: TextAlign.center,
             textAlignVertical: TextAlignVertical.center,
             keyboardType: TextInputType.number,
@@ -137,12 +177,7 @@ class NumberInputField extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            onSubmitted: (text) =>
-                onChanged(int.tryParse(text)?.clamp(min, max) ?? min),
-            onChanged: (text) {
-              final n = int.tryParse(text);
-              if (n != null) onChanged(n.clamp(min, max));
-            },
+            onSubmitted: (_) => _commit(),
           ),
         ),
       ],
