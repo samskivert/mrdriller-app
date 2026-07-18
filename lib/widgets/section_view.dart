@@ -35,7 +35,12 @@ class SectionView extends StatelessWidget {
       isHighlighted: isHighlighted,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final config = computeFittedSizeConfig(widestLine: widestLine, availableWidth: constraints.maxWidth);
+          final config = computeFittedSizeConfig(
+            widestLine: widestLine,
+            availableWidth: constraints.maxWidth,
+            availableHeight: constraints.maxHeight,
+            section: section,
+          );
           return Padding(
             padding: EdgeInsets.all(config.cardPadding),
             child: Column(
@@ -52,20 +57,29 @@ class SectionView extends StatelessWidget {
                 SizedBox(height: config.cardPadding * 0.6),
                 for (var ll = 0; ll < section.lines.length; ll++)
                   Padding(
-                    padding: EdgeInsets.only(top: ll == 0 ? 0 : config.measureGap),
+                    padding: EdgeInsets.only(
+                      top: ll == 0 ? 0 : config.measureGap,
+                    ),
                     child: Wrap(
                       alignment: WrapAlignment.center,
                       spacing: config.measureGap,
                       runSpacing: config.measureGap,
                       children: [
-                        for (var mm = 0; mm < section.lines[ll].measures.length; mm++)
+                        for (
+                          var mm = 0;
+                          mm < section.lines[ll].measures.length;
+                          mm++
+                        )
                           MeasureView(
                             measure: section.lines[ll].measures[mm],
                             strokeSize: config.strokeSize,
                             highlightBeat:
-                                (isHighlighted && highlight != null && highlight!.line == ll && highlight!.measure == mm)
-                                    ? highlight!.offset
-                                    : null,
+                                (isHighlighted &&
+                                    highlight != null &&
+                                    highlight!.line == ll &&
+                                    highlight!.measure == mm)
+                                ? highlight!.offset
+                                : null,
                           ),
                       ],
                     ),
