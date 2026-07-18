@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../model/model.dart';
+import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
@@ -44,8 +43,7 @@ class _PState {
 
 const _notPlaying = _PState();
 
-/// Advances the drill state machine by exactly one tick (one sixteenth-note-ish subdivision),
-/// mirroring the reducer in the web app's PracticeView.tsx.
+/// Advances the drill state machine by exactly one tick (one sixteenth-note-ish subdivision).
 _PState _tick(
   _PState prev,
   Drill drill,
@@ -266,8 +264,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
   late _PState _state;
 
   MetronomeSounds? _sounds;
-  Timer? _timer;
-  int? _timerBpm;
+  late final _metronome = Metronome(onDue: _handleBeatsDue);
 
   // widget.drill never changes for the lifetime of this screen (swapHands, if requested, was
   // already applied by the caller before it was ever navigated to), so unlike the overview screen
@@ -277,20 +274,27 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
   @override
   void initState() {
     super.initState();
-    _sounds = MetronomeSounds();
-    _sounds?.resume();
+    final sounds = MetronomeSounds();
+    _sounds = sounds;
     _state = _PState(
       playing: true,
       intro: true,
       bpm: widget.bpm,
       bpmIncrease: widget.bpmIncrease,
     );
-    _afterStateChange();
+    // Wait for the tones to finish loading before processing the very first beat -- otherwise
+    // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
+    // silently gets dropped, which is why the drill would seem to start on its *second* audible
+    // tick instead of its first.
+    sounds.ready.then((_) {
+      if (!mounted) return;
+      _afterStateChange();
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _metronome.dispose();
     _sounds?.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -330,32 +334,32 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
       // behavior of returning to the overview the instant the drill finishes on its own.
       if (mounted) Navigator.of(context).pop();
     }
-    _ensureTimer();
+    if (s.playing) {
+      _metronome.ensureRunning(bpm: s.bpm, scale: widget.drill.scale);
+    } else {
+      _metronome.stop();
+    }
   }
 
-  void _ensureTimer() {
-    if (!_state.playing) {
-      _timer?.cancel();
-      _timer = null;
-      _timerBpm = null;
-      return;
-    }
-    if (_timer != null && _timerBpm == _state.bpm) return;
-    _timer?.cancel();
-    final delayMs = (60000 / _state.bpm / 4) * widget.drill.scale;
-    _timerBpm = _state.bpm;
-    _timer = Timer.periodic(Duration(microseconds: (delayMs * 1000).round()), (
-      _,
-    ) {
-      _applyState(
-        _tick(
-          _state,
-          widget.drill,
-          widget.drillRepeat,
-          settings.replayIntroOnBpmIncrease,
-        ),
+  // Applies as many ticks as [beatsDue] says are actually due (usually one), and applies the
+  // resulting state exactly once. This is what keeps the drill from permanently lagging behind
+  // after something delays a beat (a GC pause, a slow frame, background/foreground switching on
+  // some platforms): Metronome notices multiple beats are due and reports them all at once here,
+  // so this catches all the way up in one step rather than the drill quietly falling further and
+  // further behind. Sound only plays for the final, caught-up state -- catching up by replaying
+  // every skipped beat's sound in a rapid burst would be worse than just skipping ahead silently.
+  void _handleBeatsDue(int beatsDue) {
+    var next = _state;
+    for (var i = 0; i < beatsDue; i++) {
+      next = _tick(
+        next,
+        widget.drill,
+        widget.drillRepeat,
+        settings.replayIntroOnBpmIncrease,
       );
-    });
+      if (!next.playing) break;
+    }
+    _applyState(next);
   }
 
   // For now, Stop does the same thing as the back button: abandon the session and return to the

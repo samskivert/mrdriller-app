@@ -1,9 +1,9 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
+import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
@@ -207,8 +207,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
   List<Section> _patterns = [];
 
   MetronomeSounds? _sounds;
-  Timer? _timer;
-  int? _timerBpm;
+  late final _metronome = Metronome(onDue: _handleBeatsDue);
 
   @override
   void initState() {
@@ -228,7 +227,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _metronome.dispose();
     _sounds?.dispose();
     super.dispose();
   }
@@ -270,38 +269,45 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
       }
     }
     if (!s.playing) _sounds?.pause();
-    _ensureTimer();
+    if (s.playing && _patterns.isNotEmpty) {
+      _metronome.ensureRunning(bpm: s.bpm);
+    } else {
+      _metronome.stop();
+    }
   }
 
-  void _ensureTimer() {
-    if (!_state.playing || _patterns.isEmpty) {
-      _timer?.cancel();
-      _timer = null;
-      _timerBpm = null;
-      return;
+  // See drill_practice_screen.dart's _handleBeatsDue for why this catches up on however many
+  // beats Metronome says are newly due instead of assuming it's always exactly one, and why only
+  // the final caught-up beat's stroke gets played.
+  void _handleBeatsDue(int beatsDue) {
+    var next = _state;
+    Stroke? strokeToPlay;
+    for (var i = 0; i < beatsDue; i++) {
+      final result = _tickPT(next, _patterns);
+      next = result.state;
+      strokeToPlay = result.strokeToPlay;
+      if (!next.playing) break;
     }
-    if (_timer != null && _timerBpm == _state.bpm) return;
-    _timer?.cancel();
-    final delayMs = 60000 / _state.bpm / 4;
-    _timerBpm = _state.bpm;
-    _timer = Timer.periodic(Duration(microseconds: (delayMs * 1000).round()), (
-      _,
-    ) {
-      final result = _tickPT(_state, _patterns);
-      _applyState(result.state);
-      _playStroke(result.strokeToPlay);
-    });
+    _applyState(next);
+    _playStroke(strokeToPlay);
   }
 
   void _handleStart() {
-    _sounds?.resume();
     final pool = _MeasurePool();
     final newPatterns = [
       for (var i = 0; i < _numPatterns; i++)
         _generatePattern(_difficulty, pool),
     ];
     setState(() => _patterns = newPatterns);
-    _applyState(const _PTState(playing: true, intro: true, mode: _Mode.listen));
+    // Wait for the tones to finish loading before processing the very first beat -- otherwise
+    // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
+    // silently gets dropped.
+    _sounds?.ready.then((_) {
+      if (!mounted) return;
+      _applyState(
+        const _PTState(playing: true, intro: true, mode: _Mode.listen),
+      );
+    });
   }
 
   void _handleStop() => _applyState(_ptNotPlaying);

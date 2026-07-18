@@ -1,4 +1,3 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -14,9 +13,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
   await settings.load();
-  // respectSilence: false maps to AVAudioSessionCategory.playback on iOS, bypassing the silent
-  // switch (equivalent to the web app's "unlock via silent WAV" trick).
-  await AudioPlayer.global.setAudioContext(AudioContextConfig(respectSilence: false).build());
   runApp(const MrDrillerApp());
 }
 
@@ -44,10 +40,16 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
   final segments = uri.pathSegments;
 
   if (segments.isEmpty) {
-    return MaterialPageRoute(settings: routeSettings, builder: (_) => const MenuScreen());
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => const MenuScreen(),
+    );
   }
   if (segments[0] == 'settings') {
-    return MaterialPageRoute(settings: routeSettings, builder: (_) => const SettingsScreen());
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => const SettingsScreen(),
+    );
   }
   if (segments[0] == 'drill' && segments.length > 1) {
     final id = segments[1];
@@ -60,16 +62,25 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
     }
     if (drill != null) {
       final resolvedDrill = drill;
-      return MaterialPageRoute(settings: routeSettings, builder: (_) => DrillScreen(drill: resolvedDrill));
+      return MaterialPageRoute(
+        settings: routeSettings,
+        builder: (_) => DrillScreen(drill: resolvedDrill),
+      );
     }
   }
   if (segments[0] == 'tool' && segments.length > 1) {
     final id = segments[1];
     if (id == 'pattern-trainer') {
-      return MaterialPageRoute(settings: routeSettings, builder: (_) => const PatternTrainerScreen());
+      return MaterialPageRoute(
+        settings: routeSettings,
+        builder: (_) => const PatternTrainerScreen(),
+      );
     }
   }
-  return MaterialPageRoute(settings: routeSettings, builder: (_) => _UnknownRoute(id: routeSettings.name ?? ''));
+  return MaterialPageRoute(
+    settings: routeSettings,
+    builder: (_) => _UnknownRoute(id: routeSettings.name ?? ''),
+  );
 }
 
 class _UnknownRoute extends StatelessWidget {
@@ -87,7 +98,10 @@ class _UnknownRoute extends StatelessWidget {
           children: [
             Text('Unknown drill or tool: $id'),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('← Back')),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('← Back'),
+            ),
           ],
         ),
       ),
