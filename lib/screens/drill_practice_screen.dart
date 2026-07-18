@@ -7,7 +7,6 @@ import '../model/model.dart';
 import '../services/metronome_sounds.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
-import '../util/size_config.dart';
 import '../widgets/app_header.dart';
 import '../widgets/components.dart';
 import '../widgets/section_view.dart';
@@ -272,9 +271,8 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
 
   // widget.drill never changes for the lifetime of this screen (swapHands, if requested, was
   // already applied by the caller before it was ever navigated to), so unlike the overview screen
-  // these only need to be computed once.
+  // this only needs to be computed once.
   late final List<_FlatSection> _allSections = _flattenSections(widget.drill);
-  late final LineShape _widestLine = drillWidestLineShape(widget.drill);
 
   @override
   void initState() {
@@ -379,7 +377,6 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
     final willAnnounceRepeat =
         willRepeatDrill && (_state.bpmIncrease > 0 || drill.forceIntro);
     final isLastSection = idx == allSections.length - 1;
-    final widestLine = _widestLine;
     final currentSection = allSections[idx].section;
     final safeAreaPadding = MediaQuery.of(context).padding;
     final hasHorizontalSafeArea =
@@ -397,7 +394,6 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
         section: section,
         isHighlighted: isHighlighted,
         repeatDotsFilled: isHighlighted ? _state.repeat + 1 : 0,
-        widestLine: widestLine,
         highlight: (isHighlighted && _state.playing && settings.showBouncingDot)
             ? Pos(
                 row: _state.row,

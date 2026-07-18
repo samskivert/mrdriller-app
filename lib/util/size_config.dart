@@ -45,31 +45,24 @@ const double _labelRowHeightRatio = 0.84;
 // Approximate line-height factor for the section header's bold text (label / repeat dots).
 const double _headerLineHeightRatio = 1.3;
 
-/// The shape (in beats and measures) of the widest line across a set of sections — the only
-/// thing that determines how large strokes can be drawn, independent of any particular screen
-/// width. Beats are what actually take up horizontal room; measures matter only for the gaps
-/// between them.
+/// The shape (in beats and measures) of the widest line within a section — the only thing that
+/// determines how large strokes can be drawn for that section, independent of any particular
+/// screen width or of how other sections in the same drill are sized. Beats are what actually
+/// take up horizontal room; measures matter only for the gaps between them.
 typedef LineShape = ({int beats, int measures});
 
-LineShape widestLineShape(Iterable<Section> sections) {
+LineShape widestLineShape(Section section) {
   var widestBeats = 0;
   var widestMeasures = 0;
-  for (final section in sections) {
-    for (final line in section.lines) {
-      final lineBeats = line.measures.fold<int>(0, (sum, m) => sum + m.length);
-      if (lineBeats > widestBeats) {
-        widestBeats = lineBeats;
-        widestMeasures = line.measures.length;
-      }
+  for (final line in section.lines) {
+    final lineBeats = line.measures.fold<int>(0, (sum, m) => sum + m.length);
+    if (lineBeats > widestBeats) {
+      widestBeats = lineBeats;
+      widestMeasures = line.measures.length;
     }
   }
   return (beats: widestBeats, measures: widestMeasures);
 }
-
-/// The widest line across an entire drill, used so every section in the drill renders at the
-/// same, consistent size rather than each section sizing independently to its own content.
-LineShape drillWidestLineShape(Drill drill) =>
-    widestLineShape(drill.rows.expand((row) => row));
 
 /// The vertical shape of one section that determines how tall it renders at a given strokeSize:
 /// how many lines stack, whether any beat anywhere in the section shows a label above it (which
@@ -106,20 +99,23 @@ SectionVerticalShape sectionVerticalShape(Section section) {
   );
 }
 
-/// Solves for the exact stroke size that makes the widest line fit within [availableWidth], and
-/// (when [availableHeight] is finite) that also makes [section] itself fit within that height —
-/// the smaller of the two wins. Both are the real sizes Flutter measured via LayoutBuilder at the
-/// actual render point (i.e. already net of every ancestor's padding/borders), not an estimate
-/// from the window size minus a guessed overhead.
+/// Solves for the exact stroke size that makes [section]'s own widest line fit within
+/// [availableWidth], and (when [availableHeight] is finite) that also makes [section] fit within
+/// that height — the smaller of the two wins. Sized entirely from [section]'s own content: two
+/// sections in the same drill can end up different sizes if one has more room to work with or
+/// simply needs less space, rather than every section being squeezed to fit whichever section in
+/// the drill happens to be the widest. Both dimensions are the real sizes Flutter measured via
+/// LayoutBuilder at the actual render point (i.e. already net of every ancestor's
+/// padding/borders), not an estimate from the window size minus a guessed overhead.
 ///
 /// Width: [availableWidth] is measured *before* this section's own cardPadding is applied, so the
 /// equation must subtract that padding too (it isn't free space the beat row gets to use):
 ///   availableWidth = beats*(strokeSize + margin) + (measures-1)*(strokeSize*gapRatio)
 ///                    + 2*(strokeSize*paddingRatio)
+/// where beats/measures come from [section]'s own widest line (see [widestLineShape]).
 ///
 /// Height: analogous, built from [section]'s own [SectionVerticalShape] (line count, whether any
-/// line needs a label row, and the deepest simultaneous stroke stack) rather than [widestLine] --
-/// a section's height depends on its own content, not the drill-wide widest line:
+/// line needs a label row, and the deepest simultaneous stroke stack):
 ///   availableHeight = (hasHeader ? strokeSize*fontRatio*headerLineHeightRatio : 0)
 ///                    + strokeSize*paddingRatio*0.6                      (gap below header)
 ///                    + lines*((hasLabelRow ? strokeSize*labelRowRatio : 0)
@@ -130,11 +126,11 @@ SectionVerticalShape sectionVerticalShape(Section section) {
 /// Each is a single linear equation in strokeSize, solved directly — no presets, no fudge factor,
 /// and (up to the min/max legibility clamp) no possibility of the section overflowing its card.
 SizeConfig computeFittedSizeConfig({
-  required LineShape widestLine,
   required double availableWidth,
   required Section section,
   double availableHeight = double.infinity,
 }) {
+  final widestLine = widestLineShape(section);
   final beats = widestLine.beats;
   final measures = widestLine.measures;
   if (beats == 0) {

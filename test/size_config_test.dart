@@ -2,9 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/model/model.dart';
 import 'package:mrdriller/util/size_config.dart';
 
-// A single-line, unlabeled, single-stroke-per-beat section: has no bearing on the width equation
-// (that's driven by widestLine), and its vertical shape is as small as possible, so it never binds
-// the height equation in tests that are only exercising the width side.
+// A single-line, unlabeled, single-stroke-per-beat section with the given beats/measures shape.
+// Its vertical shape is as small as possible, so it never binds the height equation in tests that
+// are only exercising the width side.
 Section _plainSection(int beats, int measures) => oneLineSection('', 1, [
   for (var m = 0; m < measures; m++)
     measure([for (var b = 0; b < beats; b++) r]),
@@ -14,13 +14,12 @@ void main() {
   test(
     'computeFittedSizeConfig solves for a strokeSize that exactly fits availableWidth',
     () {
-      const widestLine = (beats: 4, measures: 2);
+      final section = _plainSection(4, 2);
       const availableWidth = 302.0;
 
       final config = computeFittedSizeConfig(
-        widestLine: widestLine,
         availableWidth: availableWidth,
-        section: _plainSection(widestLine.beats, widestLine.measures),
+        section: section,
       );
 
       // Re-derive the width the resulting config would actually consume, and confirm it fits
@@ -29,6 +28,7 @@ void main() {
       // real space subtracted from availableWidth by the actual widget tree (LayoutBuilder measures
       // width *before* cardPadding is applied), so a check that only re-derives the beat row's own
       // width would pass even with cardPadding missing from the solved equation entirely.
+      final widestLine = widestLineShape(section);
       const strokeMargin = 8.0;
       final beatsRowWidth =
           widestLine.beats * (config.strokeSize + strokeMargin) +
@@ -46,15 +46,15 @@ void main() {
       // small beat count solves for a large strokeSize, which makes cardPadding (proportional to
       // strokeSize) large too. Omitting 2*cardPadding from the equation caused the total card width
       // to visibly overflow its measured space specifically at this large-stroke end of the range.
-      const widestLine = (beats: 4, measures: 1);
+      final section = _plainSection(4, 1);
       const availableWidth = 850.0;
 
       final config = computeFittedSizeConfig(
-        widestLine: widestLine,
         availableWidth: availableWidth,
-        section: _plainSection(widestLine.beats, widestLine.measures),
+        section: section,
       );
 
+      final widestLine = widestLineShape(section);
       const strokeMargin = 8.0;
       final beatsRowWidth =
           widestLine.beats * (config.strokeSize + strokeMargin);
@@ -70,11 +70,9 @@ void main() {
     // rather than clamp up to the smallest legible size and have it wrap anyway, this should
     // fall back to a comfortable, legible size and just accept the wrap -- matching what the
     // static drill-overview does unconditionally.
-    const widestLine = (beats: 16, measures: 4);
     final config = computeFittedSizeConfig(
-      widestLine: widestLine,
       availableWidth: 50,
-      section: _plainSection(widestLine.beats, widestLine.measures),
+      section: _plainSection(16, 4),
     );
     expect(config.strokeSize, wrapFallbackStrokeSize);
   });
@@ -82,20 +80,50 @@ void main() {
   test(
     'clamps to the maximum stroke size when there is far more room than needed',
     () {
-      const widestLine = (beats: 1, measures: 1);
       final config = computeFittedSizeConfig(
-        widestLine: widestLine,
         availableWidth: 5000,
-        section: _plainSection(widestLine.beats, widestLine.measures),
+        section: _plainSection(1, 1),
       );
       expect(config.strokeSize, maxStrokeSize);
     },
   );
 
-  test('widestLineShape finds the widest line across sections by beat count', () {
-    // Uses the public model DSL indirectly via drillWidestLineShape callers in the app; here we
-    // just check the zero-sections edge case falls back sanely.
-    final shape = widestLineShape(const []);
+  test(
+    'widestLineShape finds the widest line within a section by beat count',
+    () {
+      final section = Section(
+        repeat: 1,
+        lines: [
+          Line(
+            measures: [
+              measure([r, r]),
+            ],
+          ),
+          Line(
+            measures: [
+              measure([r, r, r, r]),
+              measure([r, r]),
+            ],
+          ),
+          Line(
+            measures: [
+              measure([r, r, r]),
+            ],
+          ),
+        ],
+      );
+
+      final shape = widestLineShape(section);
+
+      // The second line has the most total beats (4 + 2 = 6), even though neither individual
+      // measure in it is the widest on its own.
+      expect(shape.beats, 6);
+      expect(shape.measures, 2);
+    },
+  );
+
+  test('widestLineShape falls back sanely for a section with no lines', () {
+    final shape = widestLineShape(const Section(repeat: 1, lines: []));
     expect(shape.beats, 0);
     expect(shape.measures, 0);
   });
@@ -146,15 +174,11 @@ void main() {
 
   test('computeFittedSizeConfig solves for a strokeSize that fits availableHeight when it is the '
       'binding constraint', () {
-    const widestLine = (beats: 2, measures: 1);
     // Plenty of width, but a section with 4 lines and a header, squeezed into a short height --
     // a landscape phone scenario, where width alone would pick a strokeSize far too tall to fit.
-    final section = oneLineSection('Section', 3, [
-      measure([r, r]),
-    ]);
     final tallSection = Section(
-      label: section.label,
-      repeat: section.repeat,
+      label: 'Section',
+      repeat: 3,
       lines: [
         for (var i = 0; i < 4; i++)
           Line(
@@ -167,7 +191,6 @@ void main() {
     const availableHeight = 220.0;
 
     final config = computeFittedSizeConfig(
-      widestLine: widestLine,
       availableWidth: 2000,
       availableHeight: availableHeight,
       section: tallSection,
@@ -197,7 +220,6 @@ void main() {
     'falls back to a comfortable size instead of an unreadably tiny one when the height is '
     'impossibly small',
     () {
-      const widestLine = (beats: 2, measures: 1);
       final tallSection = Section(
         repeat: 1,
         lines: [
@@ -211,7 +233,6 @@ void main() {
       );
 
       final config = computeFittedSizeConfig(
-        widestLine: widestLine,
         availableWidth: 2000,
         availableHeight: 50,
         section: tallSection,
@@ -227,15 +248,15 @@ void main() {
     // at a generous available width, the row can't fit at minStrokeSize -- it needs a
     // comfortable size and to just accept wrapping, like the static overview does, rather than
     // shrinking to the floor and *still* wrapping.
-    const widestLine = (beats: 64, measures: 8);
+    final section = _plainSection(64, 8);
     final config = computeFittedSizeConfig(
-      widestLine: widestLine,
       availableWidth: 1200,
-      section: _plainSection(widestLine.beats, widestLine.measures),
+      section: section,
     );
 
     expect(config.strokeSize, wrapFallbackStrokeSize);
 
+    final widestLine = widestLineShape(section);
     const strokeMargin = 8.0;
     final beatsRowWidth =
         widestLine.beats * (config.strokeSize + strokeMargin) +
@@ -247,9 +268,29 @@ void main() {
   });
 
   test(
+    'a section that needs less room than its neighbors can render at its own, larger size',
+    () {
+      // The whole point of sizing per-section instead of drill-wide: a short, simple section
+      // (few beats) shouldn't be squeezed down just because some other section in the same drill
+      // is much denser. Same generous availableWidth as the "far more room than needed" case,
+      // but this asserts the point of comparison directly -- a sparse section's own fit isn't
+      // held back by a dense one.
+      final sparse = computeFittedSizeConfig(
+        availableWidth: 400,
+        section: _plainSection(2, 1),
+      );
+      final dense = computeFittedSizeConfig(
+        availableWidth: 400,
+        section: _plainSection(32, 4),
+      );
+
+      expect(sparse.strokeSize, greaterThan(dense.strokeSize));
+    },
+  );
+
+  test(
     'an infinite availableHeight (e.g. inside a scroll view) never constrains sizing',
     () {
-      const widestLine = (beats: 1, measures: 1);
       final tallSection = Section(
         repeat: 1,
         lines: [
@@ -263,7 +304,6 @@ void main() {
       );
 
       final config = computeFittedSizeConfig(
-        widestLine: widestLine,
         availableWidth: 5000,
         section: tallSection,
       );

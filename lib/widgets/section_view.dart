@@ -8,17 +8,16 @@ import 'measure_view.dart';
 /// Renders a whole section: a bordered/highlighted card with a label + repeat indicator, and one
 /// or more lines of measures wrapped and centered.
 ///
-/// Sizing is computed on the fly from the real width Flutter measures via [LayoutBuilder] —
-/// already net of every ancestor's padding/borders — rather than estimated from the window width
-/// with a guessed overhead and snapped to one of a handful of presets. [widestLine] is the
-/// beats/measures shape of the widest line across the whole drill (not just this section), so
-/// every section in a drill renders at the same size instead of each fitting only itself.
+/// Sizing is computed on the fly from the real width/height Flutter measures via [LayoutBuilder]
+/// — already net of every ancestor's padding/borders — rather than estimated from the window size
+/// with a guessed overhead and snapped to one of a handful of presets. It's fit to this section's
+/// own content alone, so a section with more room to work with (or that simply needs less space)
+/// can render larger or smaller than its neighbors -- see [computeFittedSizeConfig].
 class SectionView extends StatelessWidget {
   final Section section;
   final bool isHighlighted;
   final int? repeatDotsFilled;
   final Pos? highlight;
-  final LineShape widestLine;
 
   const SectionView({
     super.key,
@@ -26,7 +25,6 @@ class SectionView extends StatelessWidget {
     required this.isHighlighted,
     this.repeatDotsFilled,
     this.highlight,
-    required this.widestLine,
   });
 
   @override
@@ -36,7 +34,6 @@ class SectionView extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final config = computeFittedSizeConfig(
-            widestLine: widestLine,
             availableWidth: constraints.maxWidth,
             availableHeight: constraints.maxHeight,
             section: section,
