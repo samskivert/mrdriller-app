@@ -20,7 +20,10 @@ class EmptyBeatPlaceholder extends StatelessWidget {
           height: size / 2,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.black.withValues(alpha: 0.10), width: 2),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.10),
+              width: 2,
+            ),
           ),
         ),
       ),
@@ -28,30 +31,33 @@ class EmptyBeatPlaceholder extends StatelessWidget {
   }
 }
 
-/// A card whose border/background flips to a highlighted (yellow, blue outline) style when
-/// active, used for the currently-playing section and the countdown/status cards.
+/// A card whose background flips to a highlighted (yellow) style when active, used for the
+/// currently-playing section and the countdown/status cards.
 class HighlightedCard extends StatelessWidget {
   final Widget child;
   final bool isHighlighted;
   final double? minHeight;
 
-  const HighlightedCard({super.key, required this.child, required this.isHighlighted, this.minHeight});
+  const HighlightedCard({
+    super.key,
+    required this.child,
+    required this.isHighlighted,
+    this.minHeight,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
+      constraints: minHeight != null
+          ? BoxConstraints(minHeight: minHeight!)
+          : null,
       padding: const EdgeInsets.all(12),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: isHighlighted ? AppColors.highlightBg : AppColors.normalBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isHighlighted ? AppColors.highlightBorder : AppColors.normalBorder,
-            width: isHighlighted ? 3 : 2),
-        boxShadow: isHighlighted
-            ? [BoxShadow(color: AppColors.highlightShadow, spreadRadius: 3, blurRadius: 0)]
-            : null,
+        border: Border.all(color: AppColors.normalBorder, width: 2),
       ),
       child: child,
     );
@@ -74,7 +80,10 @@ class CenteredContainer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [for (final c in children) Padding(padding: const EdgeInsets.only(bottom: 16), child: c)],
+          children: [
+            for (final c in children)
+              Padding(padding: const EdgeInsets.only(bottom: 16), child: c),
+          ],
         ),
       ),
     );
@@ -106,7 +115,10 @@ class NumberInputField extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('$label: ', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
         SizedBox(
           width: width,
           height: 40,
@@ -117,10 +129,16 @@ class NumberInputField extends StatelessWidget {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 8,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
             ),
-            onSubmitted: (text) => onChanged(int.tryParse(text)?.clamp(min, max) ?? min),
+            onSubmitted: (text) =>
+                onChanged(int.tryParse(text)?.clamp(min, max) ?? min),
             onChanged: (text) {
               final n = int.tryParse(text);
               if (n != null) onChanged(n.clamp(min, max));
@@ -205,13 +223,27 @@ class SectionHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         if (label != null && label!.isNotEmpty)
-          Text(label!, style: TextStyle(fontSize: labelFontSize, fontWeight: FontWeight.bold)),
+          Text(
+            label!,
+            style: TextStyle(
+              fontSize: labelFontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         if (hasRepeatDots)
-          RepeatDots(total: repeatDotsTotal!, filled: repeatDotsFilled ?? 0, size: repeatFontSize * 0.9)
+          RepeatDots(
+            total: repeatDotsTotal!,
+            filled: repeatDotsFilled ?? 0,
+            size: repeatFontSize * 0.9,
+          )
         else if (hasRepeatText)
           Text(
             repeatDisplay!,
-            style: TextStyle(fontSize: repeatFontSize, fontWeight: FontWeight.bold, color: AppColors.textGray),
+            style: TextStyle(
+              fontSize: repeatFontSize,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textGray,
+            ),
           ),
       ],
     );
@@ -240,7 +272,9 @@ class CountdownSection extends StatelessWidget {
     final measureIndex = beat ~/ beatsPerMeasure;
     final text = !intro
         ? (preText ?? 'Get ready...')
-        : (measureIndex >= introText.length ? introText.last : introText[measureIndex]);
+        : (measureIndex >= introText.length
+              ? introText.last
+              : introText[measureIndex]);
     return HighlightedCard(
       isHighlighted: intro,
       minHeight: 100,

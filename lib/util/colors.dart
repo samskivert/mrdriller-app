@@ -17,9 +17,7 @@ class AppColors {
 
   static const textGray = Color(0xFF6B7280);
 
-  static const highlightBorder = Color(0xFF0090FF);
   static const highlightBg = Color(0xFFFFF3C4);
-  static const highlightShadow = Color(0xFF70B8FF);
   static const normalBorder = Color(0xFF999999);
   static const normalBg = Color(0xFFF9F9FB);
 
