@@ -64,18 +64,20 @@ void main() {
     },
   );
 
-  test(
-    'clamps to the minimum legible stroke size when the width is impossibly small',
-    () {
-      const widestLine = (beats: 16, measures: 4);
-      final config = computeFittedSizeConfig(
-        widestLine: widestLine,
-        availableWidth: 50,
-        section: _plainSection(widestLine.beats, widestLine.measures),
-      );
-      expect(config.strokeSize, minStrokeSize);
-    },
-  );
+  test('falls back to a comfortable size instead of an unreadably tiny one when the width is '
+      'impossibly small', () {
+    // Wrapping is unavoidable here even at minStrokeSize (the row still wouldn't fit), so
+    // rather than clamp up to the smallest legible size and have it wrap anyway, this should
+    // fall back to a comfortable, legible size and just accept the wrap -- matching what the
+    // static drill-overview does unconditionally.
+    const widestLine = (beats: 16, measures: 4);
+    final config = computeFittedSizeConfig(
+      widestLine: widestLine,
+      availableWidth: 50,
+      section: _plainSection(widestLine.beats, widestLine.measures),
+    );
+    expect(config.strokeSize, wrapFallbackStrokeSize);
+  });
 
   test(
     'clamps to the maximum stroke size when there is far more room than needed',
@@ -192,7 +194,8 @@ void main() {
   });
 
   test(
-    'clamps to the minimum legible stroke size when the height is impossibly small',
+    'falls back to a comfortable size instead of an unreadably tiny one when the height is '
+    'impossibly small',
     () {
       const widestLine = (beats: 2, measures: 1);
       final tallSection = Section(
@@ -214,9 +217,34 @@ void main() {
         section: tallSection,
       );
 
-      expect(config.strokeSize, minStrokeSize);
+      expect(config.strokeSize, wrapFallbackStrokeSize);
     },
   );
+
+  test('falls back to a comfortable size for a pathologically dense line (regression: Sixteens '
+      'drill, 64 beats in one line)', () {
+    // Mirrors the real "Sixteens" drill: a single line with 64 beats across 8 measures. Even
+    // at a generous available width, the row can't fit at minStrokeSize -- it needs a
+    // comfortable size and to just accept wrapping, like the static overview does, rather than
+    // shrinking to the floor and *still* wrapping.
+    const widestLine = (beats: 64, measures: 8);
+    final config = computeFittedSizeConfig(
+      widestLine: widestLine,
+      availableWidth: 1200,
+      section: _plainSection(widestLine.beats, widestLine.measures),
+    );
+
+    expect(config.strokeSize, wrapFallbackStrokeSize);
+
+    const strokeMargin = 8.0;
+    final beatsRowWidth =
+        widestLine.beats * (config.strokeSize + strokeMargin) +
+        (widestLine.measures - 1) * config.measureGap;
+    final totalCardWidth = beatsRowWidth + 2 * config.cardPadding;
+    // Confirms this really is the "wraps anyway" scenario the fallback is for, not something
+    // that now accidentally fits.
+    expect(totalCardWidth, greaterThan(1200));
+  });
 
   test(
     'an infinite availableHeight (e.g. inside a scroll view) never constrains sizing',

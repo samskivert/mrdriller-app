@@ -34,6 +34,11 @@ const double maxStrokeSize = 200;
 const double _minFontSize = 12;
 const double _maxFontSize = 40;
 
+// Used when a line is too dense to ever fit in one row/column even at minStrokeSize (wrapping
+// is unavoidable either way, so there's no reason to also make it tiny) -- matches the fixed
+// default MeasureView.strokeSize the static drill-overview always renders at.
+const double wrapFallbackStrokeSize = 28;
+
 // A labeled beat adds a text row above its strokes (see _BeatView): a strokeSize*0.7 box plus
 // strokeSize*0.14 of padding beneath it.
 const double _labelRowHeightRatio = 0.84;
@@ -174,7 +179,14 @@ SizeConfig computeFittedSizeConfig({
   }
 
   final rawStrokeSize = math.min(widthStrokeSize, heightStrokeSize);
-  final strokeSize = rawStrokeSize.clamp(minStrokeSize, maxStrokeSize);
+  // Below minStrokeSize means even the smallest legible stroke can't make this line fit in one
+  // row/column (a pathologically dense line -- e.g. 64 beats in one line) -- clamping up to
+  // minStrokeSize wouldn't actually prevent wrapping there, it would just make the wrapped
+  // result tiny *and* wrapped. Once wrapping is unavoidable anyway, a comfortable, legible size
+  // (matching the static drill-overview's fixed default) beats the smallest possible one.
+  final strokeSize = rawStrokeSize < minStrokeSize
+      ? wrapFallbackStrokeSize
+      : rawStrokeSize.clamp(minStrokeSize, maxStrokeSize);
   final fontSize = (strokeSize * _fontRatio).clamp(_minFontSize, _maxFontSize);
 
   return SizeConfig(
