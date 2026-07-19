@@ -10,6 +10,7 @@ import '../widgets/components.dart';
 import '../widgets/screen_scaffold.dart';
 import 'configure_plan_entry_screen.dart';
 import 'daily_practice_screen.dart';
+import 'practice_log_screen.dart';
 import 'select_drill_for_plan_screen.dart';
 
 /// Lists the drills in the user's practice plan (drag the handle to reorder), each with an Edit
@@ -38,8 +39,25 @@ class PracticePlanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenScaffold(
-      title: 'Practice Plan',
+      title: 'Daily Practice',
       contentMaxWidth: 512,
+      headerTrailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const PracticeLogScreen())),
+            icon: const Icon(Icons.history),
+            tooltip: 'Practice Log',
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/settings'),
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+          ),
+        ],
+      ),
       child: AnimatedBuilder(
         animation: practicePlan,
         builder: (context, _) {

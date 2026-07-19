@@ -9,20 +9,6 @@ import '../util/colors.dart';
 import '../widgets/components.dart';
 import '../widgets/screen_scaffold.dart';
 
-/// A [TableRow] pairing a left-aligned label with a field, for a form where every label lines up
-/// in its own column regardless of how long the other labels in the table are.
-TableRow _fieldRow(String label, Widget field) {
-  return TableRow(
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(right: 12, bottom: 12),
-        child: Text('$label:', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      ),
-      Padding(padding: const EdgeInsets.only(bottom: 12), child: field),
-    ],
-  );
-}
-
 /// The last step of adding a drill to the practice plan (reached from
 /// [SelectDrillForPlanScreen]), or the sole screen for editing an existing entry in place: set the
 /// starting bpm/bpm-increase/repeat-count/swap-hands, then "Add to Plan" (or "Save", when
@@ -65,7 +51,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
   }
 
   void _returnToPlan() {
-    Navigator.of(context).popUntil((route) => route.settings.name == '/practice-plan');
+    Navigator.of(context).popUntil((route) => route.settings.name == '/daily-practice');
   }
 
   void _save() {
@@ -129,7 +115,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               columnWidths: const {0: IntrinsicColumnWidth(), 1: IntrinsicColumnWidth()},
               children: [
-                _fieldRow(
+                fieldRow(
                   bpmFieldLabel,
                   bpmField(
                     value: _config.bpm,
@@ -137,7 +123,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
                     showLabel: false,
                   ),
                 ),
-                _fieldRow(
+                fieldRow(
                   bpmIncreaseFieldLabel,
                   bpmIncreaseField(
                     value: _config.bpmIncrease,
@@ -145,7 +131,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
                     showLabel: false,
                   ),
                 ),
-                _fieldRow(
+                fieldRow(
                   drillRepeatFieldLabel,
                   drillRepeatField(
                     value: _config.drillRepeat,
@@ -153,11 +139,18 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
                     showLabel: false,
                   ),
                 ),
-                _fieldRow(
+                fieldRow(
                   'Swap L/R',
-                  Switch(
-                    value: _config.swapHands,
-                    onChanged: (v) => setState(() => _config = _config.copyWith(swapHands: v)),
+                  // See the matching comment in pattern_trainer_screen.dart -- Switch centers its
+                  // track within whatever width Table's column stretches its cell to, so it needs
+                  // an explicit left-align (unlike the other fields, which pack left by default).
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Switch(
+                      value: _config.swapHands,
+                      onChanged: (v) => setState(() => _config = _config.copyWith(swapHands: v)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                   ),
                 ),
               ],

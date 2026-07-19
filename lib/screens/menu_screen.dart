@@ -71,8 +71,8 @@ class _DesktopMenu extends StatelessWidget {
               ActivityGrid(
                 items: [
                   buildNavButton(context, 'Drills', '/drills'),
+                  buildNavButton(context, 'Daily Practice', '/daily-practice'),
                   for (final tool in tools) buildNavButton(context, tool.title, '/tool/${tool.id}'),
-                  buildNavButton(context, 'Practice Plan', '/practice-plan'),
                 ],
               ),
               const SizedBox(height: 24),
@@ -129,10 +129,10 @@ class _CompactMenu extends StatelessWidget {
                   children: [
                     buildNavButton(context, 'Drills', '/drills'),
                     const SizedBox(height: 16),
+                    buildNavButton(context, 'Daily Practice', '/daily-practice'),
+                    const SizedBox(height: 16),
                     for (final tool in tools)
                       buildNavButton(context, tool.title, '/tool/${tool.id}'),
-                    const SizedBox(height: 16),
-                    buildNavButton(context, 'Practice Plan', '/practice-plan'),
                     const SizedBox(height: 16),
                     const Center(child: _FooterText()),
                   ],

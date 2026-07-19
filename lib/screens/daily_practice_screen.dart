@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/drills.dart' as data;
 import '../model/model.dart';
 import '../state/drill_config.dart';
+import '../state/practice_log.dart';
 import '../state/practice_plan.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
@@ -189,9 +190,43 @@ class _OutroView extends StatelessWidget {
 
   const _OutroView({required this.entries});
 
+  // Only entries that actually resolved to a real drill (and so actually got practiced) count
+  // toward the log -- an entry whose drill no longer exists was silently skipped, not completed.
+  Iterable<({Drill drill, DrillConfig config})> get _completed sync* {
+    for (final entry in entries) {
+      final drill = data.findDrillById(entry.drillId);
+      if (drill != null) yield (drill: drill, config: entry.config);
+    }
+  }
+
+  // The drill's own computed duration, not wall-clock time actually spent -- this way pausing
+  // mid-drill (or the 5-second intro between drills) doesn't affect the logged total.
+  void _handleLogIt(BuildContext context) {
+    var totalSeconds = 0.0;
+    var count = 0;
+    for (final c in _completed) {
+      count++;
+      totalSeconds += computeDrillDuration(
+        c.drill,
+        c.config.bpm,
+        c.config.bpmIncrease,
+        c.config.drillRepeat,
+        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
+      );
+    }
+    practiceLog.add(
+      PracticeLogEntry(
+        completedAt: DateTime.now(),
+        drillCount: count,
+        totalSeconds: totalSeconds.round(),
+      ),
+    );
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final completed = entries.map((e) => data.findDrillById(e.drillId)).whereType<Drill>().toList();
+    final completed = _completed.map((c) => c.drill).toList();
 
     return Center(
       child: SingleChildScrollView(
@@ -227,13 +262,13 @@ class _OutroView extends StatelessWidget {
                 ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => _handleLogIt(context),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
                   backgroundColor: AppColors.btnGreen,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Done'),
+                child: const Text('Log it!'),
               ),
             ],
           ),

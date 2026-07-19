@@ -191,7 +191,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
 }
 
 // The bpm/bpm-increase/repeat-count fields a drill is configured with, shared by the drill
-// overview screen and the practice-plan entry screen (each lays them out differently, but the
+// overview screen and the daily-practice entry screen (each lays them out differently, but the
 // labels/ranges/widths -- easy to let drift out of sync if hand-copied -- stay defined once).
 const bpmFieldLabel = 'BPM';
 const bpmIncreaseFieldLabel = 'Increase';
@@ -238,6 +238,20 @@ NumberInputField drillRepeatField({
   max: 10,
   width: 50,
 );
+
+/// A [TableRow] pairing a left-aligned label with a field, for a form where every label lines up
+/// in its own column regardless of how long the other labels in the table are.
+TableRow fieldRow(String label, Widget field) {
+  return TableRow(
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(right: 12, bottom: 12),
+        child: Text('$label:', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      ),
+      Padding(padding: const EdgeInsets.only(bottom: 12), child: field),
+    ],
+  );
+}
 
 /// A row of fixed-size circles indicating repeat progress: [filled] of [total] are solid, the
 /// rest are just outlined. Both states use the exact same box size (diameter + border width) so
