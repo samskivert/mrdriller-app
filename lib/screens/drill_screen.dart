@@ -21,24 +21,20 @@ class DrillScreen extends StatefulWidget {
 }
 
 class _DrillScreenState extends State<DrillScreen> {
-  int _bpm = 60;
-  int _bpmIncrease = 0;
-  int _drillRepeat = 1;
-  bool _swapHandsEnabled = false;
+  DrillConfig _config = const DrillConfig();
 
-  // The overview re-renders on every config tweak (bpm/bpmIncrease/drillRepeat/swap), but
-  // swapHands() deep-clones the whole drill -- only worth redoing when the swap flag itself
-  // actually changes.
+  // The overview re-renders on every config tweak, but swapHands() deep-clones the whole drill --
+  // only worth redoing when config.swapHands itself actually changes.
   Drill? _cachedActiveDrill;
   bool? _cachedActiveDrillSwapFlag;
 
   Drill _activeDrillFor(Drill drill) {
-    if (_cachedActiveDrill != null && _cachedActiveDrillSwapFlag == _swapHandsEnabled) {
+    if (_cachedActiveDrill != null && _cachedActiveDrillSwapFlag == _config.swapHands) {
       return _cachedActiveDrill!;
     }
-    final result = _swapHandsEnabled ? swapHands(drill) : drill;
+    final result = _config.swapHands ? swapHands(drill) : drill;
     _cachedActiveDrill = result;
-    _cachedActiveDrillSwapFlag = _swapHandsEnabled;
+    _cachedActiveDrillSwapFlag = _config.swapHands;
     return result;
   }
 
@@ -47,30 +43,18 @@ class _DrillScreenState extends State<DrillScreen> {
     super.initState();
     loadDrillConfig(widget.drill.id).then((config) {
       if (!mounted) return;
-      setState(() {
-        _bpm = config.bpm;
-        _bpmIncrease = config.bpmIncrease;
-        _drillRepeat = config.drillRepeat;
-      });
+      setState(() => _config = config);
     });
   }
 
   void _saveConfig() {
-    saveDrillConfig(
-      widget.drill.id,
-      DrillConfig(bpm: _bpm, bpmIncrease: _bpmIncrease, drillRepeat: _drillRepeat),
-    );
+    saveDrillConfig(widget.drill.id, _config);
   }
 
   void _handleStart() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DrillPracticeScreen(
-          drill: _activeDrillFor(widget.drill),
-          bpm: _bpm,
-          bpmIncrease: _bpmIncrease,
-          drillRepeat: _drillRepeat,
-        ),
+        builder: (_) => DrillPracticeScreen(drill: _activeDrillFor(widget.drill), config: _config),
       ),
     );
   }
@@ -90,23 +74,11 @@ class _DrillScreenState extends State<DrillScreen> {
         children: [
           _DrillControls(
             drill: drill,
-            bpm: _bpm,
-            onBpmChanged: (v) => setState(() {
-              _bpm = v;
+            config: _config,
+            onConfigChanged: (c) => setState(() {
+              _config = c;
               _saveConfig();
             }),
-            bpmIncrease: _bpmIncrease,
-            onBpmIncreaseChanged: (v) => setState(() {
-              _bpmIncrease = v;
-              _saveConfig();
-            }),
-            drillRepeat: _drillRepeat,
-            onDrillRepeatChanged: (v) => setState(() {
-              _drillRepeat = v;
-              _saveConfig();
-            }),
-            swapHands: _swapHandsEnabled,
-            onSwapHandsChanged: (v) => setState(() => _swapHandsEnabled = v),
             onStart: _handleStart,
           ),
           const SizedBox(height: 24),
@@ -119,26 +91,14 @@ class _DrillScreenState extends State<DrillScreen> {
 
 class _DrillControls extends StatelessWidget {
   final Drill drill;
-  final int bpm;
-  final ValueChanged<int> onBpmChanged;
-  final int bpmIncrease;
-  final ValueChanged<int> onBpmIncreaseChanged;
-  final int drillRepeat;
-  final ValueChanged<int> onDrillRepeatChanged;
-  final bool swapHands;
-  final ValueChanged<bool> onSwapHandsChanged;
+  final DrillConfig config;
+  final ValueChanged<DrillConfig> onConfigChanged;
   final VoidCallback onStart;
 
   const _DrillControls({
     required this.drill,
-    required this.bpm,
-    required this.onBpmChanged,
-    required this.bpmIncrease,
-    required this.onBpmIncreaseChanged,
-    required this.drillRepeat,
-    required this.onDrillRepeatChanged,
-    required this.swapHands,
-    required this.onSwapHandsChanged,
+    required this.config,
+    required this.onConfigChanged,
     required this.onStart,
   });
 
@@ -147,9 +107,9 @@ class _DrillControls extends StatelessWidget {
     final duration = formatDrillDuration(
       computeDrillDuration(
         drill,
-        bpm,
-        bpmIncrease,
-        drillRepeat,
+        config.bpm,
+        config.bpmIncrease,
+        config.drillRepeat,
         replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
       ),
     );
@@ -160,13 +120,25 @@ class _DrillControls extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        bpmField(value: bpm, onChanged: onBpmChanged),
-        bpmIncreaseField(value: bpmIncrease, onChanged: onBpmIncreaseChanged),
-        drillRepeatField(value: drillRepeat, onChanged: onDrillRepeatChanged),
+        bpmField(
+          value: config.bpm,
+          onChanged: (v) => onConfigChanged(config.copyWith(bpm: v)),
+        ),
+        bpmIncreaseField(
+          value: config.bpmIncrease,
+          onChanged: (v) => onConfigChanged(config.copyWith(bpmIncrease: v)),
+        ),
+        drillRepeatField(
+          value: config.drillRepeat,
+          onChanged: (v) => onConfigChanged(config.copyWith(drillRepeat: v)),
+        ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Switch(value: swapHands, onChanged: onSwapHandsChanged),
+            Switch(
+              value: config.swapHands,
+              onChanged: (v) => onConfigChanged(config.copyWith(swapHands: v)),
+            ),
             const Text('L↔︎R'),
           ],
         ),

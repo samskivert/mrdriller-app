@@ -4,6 +4,7 @@ import '../data/drills.dart' as data;
 import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
+import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/components.dart';
 import '../widgets/screen_scaffold.dart';
@@ -18,6 +19,20 @@ class PracticePlanScreen extends StatelessWidget {
   const PracticePlanScreen({super.key});
 
   String _titleFor(String drillId) => data.findDrillById(drillId)?.title ?? drillId;
+
+  String? _durationFor(PracticePlanEntry entry) {
+    final drill = data.findDrillById(entry.drillId);
+    if (drill == null) return null;
+    return formatDrillDuration(
+      computeDrillDuration(
+        drill,
+        entry.config.bpm,
+        entry.config.bpmIncrease,
+        entry.config.drillRepeat,
+        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +74,7 @@ class PracticePlanScreen extends StatelessWidget {
                       child: _PlanEntryTile(
                         title: _titleFor(entry.drillId),
                         config: entry.config,
+                        duration: _durationFor(entry),
                         dragHandle: ReorderableDragStartListener(
                           index: i,
                           child: Icon(Icons.drag_handle, color: AppColors.textGray),
@@ -101,12 +117,14 @@ class PracticePlanScreen extends StatelessWidget {
 class _PlanEntryTile extends StatelessWidget {
   final String title;
   final DrillConfig config;
+  final String? duration;
   final Widget dragHandle;
   final VoidCallback onEdit;
 
   const _PlanEntryTile({
     required this.title,
     required this.config,
+    required this.duration,
     required this.dragHandle,
     required this.onEdit,
   });
@@ -126,7 +144,9 @@ class _PlanEntryTile extends StatelessWidget {
                 Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
-                  '${formatBpmSummary(config.bpm, config.bpmIncrease)} · x${config.drillRepeat}',
+                  '${formatBpmSummary(config.bpm, config.bpmIncrease)} · x${config.drillRepeat}'
+                  '${config.swapHands ? ' · R↔︎L' : ''}'
+                  '${duration != null ? ' · $duration' : ''}',
                   style: TextStyle(color: AppColors.textGray, fontSize: 13),
                 ),
               ],

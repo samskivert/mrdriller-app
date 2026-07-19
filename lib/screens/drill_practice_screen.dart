@@ -4,6 +4,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../model/model.dart';
 import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
+import '../state/drill_config.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/app_header.dart';
@@ -231,24 +232,16 @@ List<_FlatSection> _flattenSections(Drill drill) => [
       (section: drill.rows[r][s], rowIndex: r, sectionIndex: s),
 ];
 
-/// Runs an active practice session for [drill] at the given starting [bpm]/[bpmIncrease]/
-/// [drillRepeat] -- the metronome, the state machine driving which section is current, and the
-/// section/countdown visuals. [drill] is expected to already be the one the user will actually
-/// see (e.g. with swapHands already applied), since this screen has no notion of that config --
-/// it just plays whatever [Drill] it's handed.
+/// Runs an active practice session for [drill] at the given starting [config] -- the metronome,
+/// the state machine driving which section is current, and the section/countdown visuals. [drill]
+/// is expected to already be the one the user will actually see (e.g. with swapHands already
+/// applied), since this screen has no notion of that config -- it just plays whatever [Drill] it's
+/// handed.
 class DrillPracticeScreen extends StatefulWidget {
   final Drill drill;
-  final int bpm;
-  final int bpmIncrease;
-  final int drillRepeat;
+  final DrillConfig config;
 
-  const DrillPracticeScreen({
-    super.key,
-    required this.drill,
-    required this.bpm,
-    required this.bpmIncrease,
-    required this.drillRepeat,
-  });
+  const DrillPracticeScreen({super.key, required this.drill, required this.config});
 
   @override
   State<DrillPracticeScreen> createState() => _DrillPracticeScreenState();
@@ -270,7 +263,12 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
     super.initState();
     final sounds = MetronomeSounds();
     _sounds = sounds;
-    _state = _PState(playing: true, intro: true, bpm: widget.bpm, bpmIncrease: widget.bpmIncrease);
+    _state = _PState(
+      playing: true,
+      intro: true,
+      bpm: widget.config.bpm,
+      bpmIncrease: widget.config.bpmIncrease,
+    );
     // Wait for the tones to finish loading before processing the very first beat -- otherwise
     // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
     // silently gets dropped, which is why the drill would seem to start on its *second* audible
@@ -340,7 +338,12 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
   void _handleBeatsDue(int beatsDue) {
     var next = _state;
     for (var i = 0; i < beatsDue; i++) {
-      next = _tick(next, widget.drill, widget.drillRepeat, settings.replayIntroOnBpmIncrease);
+      next = _tick(
+        next,
+        widget.drill,
+        widget.config.drillRepeat,
+        settings.replayIntroOnBpmIncrease,
+      );
       if (!next.playing) break;
     }
     _applyState(next);
@@ -361,7 +364,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
       (s) => s.rowIndex == _state.row && s.sectionIndex == _state.section,
     );
     final idx = currentFlatIndex >= 0 ? currentFlatIndex : 0;
-    final willRepeatDrill = _state.drillRepeat + 1 < widget.drillRepeat;
+    final willRepeatDrill = _state.drillRepeat + 1 < widget.config.drillRepeat;
     final willAnnounceRepeat = willRepeatDrill && (_state.bpmIncrease > 0 || drill.forceIntro);
     final isLastSection = idx == allSections.length - 1;
     final currentSection = allSections[idx].section;
@@ -467,7 +470,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
                     ? _HeaderStatus(
                         bpm: _state.bpm,
                         bpmIncrease: _state.bpmIncrease,
-                        drillRepeat: widget.drillRepeat,
+                        drillRepeat: widget.config.drillRepeat,
                         drillRepeatCount: _state.drillRepeat,
                         onStop: _handleStop,
                       )
@@ -499,7 +502,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
                             _StatusView(
                               bpm: _state.bpm,
                               bpmIncrease: _state.bpmIncrease,
-                              drillRepeat: widget.drillRepeat,
+                              drillRepeat: widget.config.drillRepeat,
                               drillRepeatCount: _state.drillRepeat,
                               onStop: _handleStop,
                             ),

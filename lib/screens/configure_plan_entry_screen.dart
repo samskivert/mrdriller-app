@@ -25,7 +25,8 @@ TableRow _fieldRow(String label, Widget field) {
 
 /// The last step of adding a drill to the practice plan (reached from
 /// [SelectDrillForPlanScreen]), or the sole screen for editing an existing entry in place: set the
-/// starting bpm/bpm-increase/repeat-count, then "Add to Plan" (or "Save", when editing). When
+/// starting bpm/bpm-increase/repeat-count/swap-hands, then "Add to Plan" (or "Save", when
+/// editing). When
 /// adding, "Cancel" backs out without creating an entry; when editing, that slot is instead a
 /// "Delete" button (with a confirmation) that removes the entry from the plan. The drill itself
 /// can't be changed here -- editing only ever touches the config.
@@ -51,9 +52,7 @@ class ConfigurePlanEntryScreen extends StatefulWidget {
 }
 
 class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
-  late int _bpm;
-  late int _bpmIncrease;
-  late int _drillRepeat;
+  late DrillConfig _config;
 
   bool get _isEditing => widget.editIndex != null;
 
@@ -62,9 +61,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
   @override
   void initState() {
     super.initState();
-    _bpm = widget.initialConfig?.bpm ?? 60;
-    _bpmIncrease = widget.initialConfig?.bpmIncrease ?? 0;
-    _drillRepeat = widget.initialConfig?.drillRepeat ?? 1;
+    _config = widget.initialConfig ?? const DrillConfig();
   }
 
   void _returnToPlan() {
@@ -72,10 +69,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
   }
 
   void _save() {
-    final entry = PracticePlanEntry(
-      drillId: widget.drillId,
-      config: DrillConfig(bpm: _bpm, bpmIncrease: _bpmIncrease, drillRepeat: _drillRepeat),
-    );
+    final entry = PracticePlanEntry(drillId: widget.drillId, config: _config);
     if (_isEditing) {
       practicePlan.updateAt(widget.editIndex!, entry);
     } else {
@@ -116,9 +110,9 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
         : formatDrillDuration(
             computeDrillDuration(
               drill,
-              _bpm,
-              _bpmIncrease,
-              _drillRepeat,
+              _config.bpm,
+              _config.bpmIncrease,
+              _config.drillRepeat,
               replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
             ),
           );
@@ -138,25 +132,32 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
                 _fieldRow(
                   bpmFieldLabel,
                   bpmField(
-                    value: _bpm,
-                    onChanged: (v) => setState(() => _bpm = v),
+                    value: _config.bpm,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(bpm: v)),
                     showLabel: false,
                   ),
                 ),
                 _fieldRow(
                   bpmIncreaseFieldLabel,
                   bpmIncreaseField(
-                    value: _bpmIncrease,
-                    onChanged: (v) => setState(() => _bpmIncrease = v),
+                    value: _config.bpmIncrease,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(bpmIncrease: v)),
                     showLabel: false,
                   ),
                 ),
                 _fieldRow(
                   drillRepeatFieldLabel,
                   drillRepeatField(
-                    value: _drillRepeat,
-                    onChanged: (v) => setState(() => _drillRepeat = v),
+                    value: _config.drillRepeat,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(drillRepeat: v)),
                     showLabel: false,
+                  ),
+                ),
+                _fieldRow(
+                  'Swap L/R',
+                  Switch(
+                    value: _config.swapHands,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(swapHands: v)),
                   ),
                 ),
               ],

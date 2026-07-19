@@ -8,19 +8,35 @@ class DrillConfig {
   final int bpm;
   final int bpmIncrease;
   final int drillRepeat;
+  final bool swapHands;
 
-  const DrillConfig({this.bpm = 60, this.bpmIncrease = 0, this.drillRepeat = 1});
+  const DrillConfig({
+    this.bpm = 60,
+    this.bpmIncrease = 0,
+    this.drillRepeat = 1,
+    this.swapHands = false,
+  });
+
+  DrillConfig copyWith({int? bpm, int? bpmIncrease, int? drillRepeat, bool? swapHands}) =>
+      DrillConfig(
+        bpm: bpm ?? this.bpm,
+        bpmIncrease: bpmIncrease ?? this.bpmIncrease,
+        drillRepeat: drillRepeat ?? this.drillRepeat,
+        swapHands: swapHands ?? this.swapHands,
+      );
 
   Map<String, dynamic> toJson() => {
     'bpm': bpm,
     'bpmIncrease': bpmIncrease,
     'drillRepeat': drillRepeat,
+    'swapHands': swapHands,
   };
 
   factory DrillConfig.fromJson(Map<String, dynamic> json) => DrillConfig(
     bpm: json['bpm'] as int? ?? 60,
     bpmIncrease: json['bpmIncrease'] as int? ?? 0,
     drillRepeat: json['drillRepeat'] as int? ?? 1,
+    swapHands: json['swapHands'] as bool? ?? false,
   );
 }
 

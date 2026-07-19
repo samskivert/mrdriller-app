@@ -120,7 +120,8 @@ class _CompactMenu extends StatelessWidget {
                   children: [
                     buildNavButton(context, 'Drills', '/drills'),
                     const SizedBox(height: 16),
-                    for (final tool in tools) buildNavButton(context, tool.title, '/tool/${tool.id}'),
+                    for (final tool in tools)
+                      buildNavButton(context, tool.title, '/tool/${tool.id}'),
                     const SizedBox(height: 16),
                     buildNavButton(context, 'Practice Plan', '/practice-plan'),
                   ],
