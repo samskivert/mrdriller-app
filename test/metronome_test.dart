@@ -122,4 +122,116 @@ void main() {
       expect(due, isEmpty);
     });
   });
+
+  test('isActive reflects whether ticks are currently being delivered', () {
+    fakeAsync((async) {
+      final metronome = Metronome(onDue: (_) {});
+      expect(metronome.isActive, isFalse);
+
+      metronome.ensureRunning(bpm: 60);
+      expect(metronome.isActive, isTrue);
+
+      metronome.stop();
+      expect(metronome.isActive, isFalse);
+
+      metronome.dispose();
+    });
+  });
+
+  test('notifies listeners when isActive changes, but not on a same-activeness rebase', () {
+    fakeAsync((async) {
+      final metronome = Metronome(onDue: (_) {});
+      var notifications = 0;
+      metronome.addListener(() => notifications++);
+
+      metronome.ensureRunning(bpm: 60); // false -> true
+      expect(notifications, 1);
+
+      metronome.ensureRunning(bpm: 120); // still active, just rebased
+      expect(notifications, 1);
+
+      metronome.stop(); // true -> false
+      expect(notifications, 2);
+
+      metronome.stop(); // already inactive, no-op
+      expect(notifications, 2);
+
+      metronome.dispose();
+    });
+  });
+
+  test('pause() halts ticking without losing the schedule, and marks isActive false', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
+
+      metronome.ensureRunning(bpm: 60); // 250ms per beat
+      async.elapse(const Duration(milliseconds: 200));
+      expect(due, isEmpty);
+
+      metronome.pause();
+      expect(metronome.isActive, isFalse);
+      expect(metronome.isPaused, isTrue);
+      async.elapse(const Duration(seconds: 5));
+      expect(due, isEmpty); // no ticks while paused, no matter how long
+
+      metronome.dispose();
+    });
+  });
+
+  test('resume() rebases from the moment of resume rather than firing a catch-up burst for the '
+      'paused duration', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
+
+      metronome.ensureRunning(bpm: 60); // 250ms per beat
+      async.elapse(const Duration(milliseconds: 200));
+      metronome.pause();
+      async.elapse(const Duration(seconds: 5)); // long pause -- would be "20 beats due" if counted
+
+      metronome.resume();
+      expect(metronome.isActive, isTrue);
+      expect(metronome.isPaused, isFalse);
+      async.elapse(const Duration(milliseconds: 200));
+      expect(due, isEmpty); // next beat is 250ms from resume, not from the old 200ms mark
+      async.elapse(const Duration(milliseconds: 50));
+      expect(due, [1]);
+
+      metronome.dispose();
+    });
+  });
+
+  test('ensureRunning while paused remembers the new bpm/scale for resume without ticking', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
+
+      metronome.ensureRunning(bpm: 60);
+      metronome.pause();
+      metronome.ensureRunning(bpm: 120); // e.g. a bpm-increase applied while paused
+      async.elapse(const Duration(seconds: 1));
+      expect(due, isEmpty);
+
+      metronome.resume();
+      async.elapse(const Duration(milliseconds: 125)); // 120 bpm -> 125ms per beat
+      expect(due, [1]);
+
+      metronome.dispose();
+    });
+  });
+
+  test('pause() before ensureRunning was ever called is a harmless no-op', () {
+    fakeAsync((async) {
+      final metronome = Metronome(onDue: (_) {});
+
+      metronome.pause();
+      expect(metronome.isPaused, isTrue);
+      metronome.resume();
+      expect(metronome.isPaused, isFalse);
+      expect(metronome.isActive, isFalse);
+
+      metronome.dispose();
+    });
+  });
 }

@@ -9,6 +9,7 @@ import '../util/colors.dart';
 import '../widgets/components.dart';
 import '../widgets/screen_scaffold.dart';
 import 'configure_plan_entry_screen.dart';
+import 'daily_practice_screen.dart';
 import 'select_drill_for_plan_screen.dart';
 
 /// Lists the drills in the user's practice plan (drag the handle to reorder), each with an Edit
@@ -46,6 +47,21 @@ class PracticePlanScreen extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (entries.isNotEmpty) ...[
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const DailyPracticeScreen())),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppColors.btnGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Practice'),
+                ),
+                const SizedBox(height: 16),
+              ],
               if (entries.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
