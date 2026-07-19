@@ -44,12 +44,7 @@ class _PState {
 const _notPlaying = _PState();
 
 /// Advances the drill state machine by exactly one tick (one sixteenth-note-ish subdivision).
-_PState _tick(
-  _PState prev,
-  Drill drill,
-  int drillRepeatTarget,
-  bool replayIntroOnBpmIncrease,
-) {
+_PState _tick(_PState prev, Drill drill, int drillRepeatTarget, bool replayIntroOnBpmIncrease) {
   final row = drill.rows[prev.row];
   final section = row[prev.section];
   final line = section.lines[prev.line];
@@ -208,8 +203,7 @@ _PState _tick(
   final drillRepeat = prev.drillRepeat + 1;
   if (drillRepeat < drillRepeatTarget) {
     final bpm = (prev.bpm + prev.bpmIncrease).clamp(0, maxBpm);
-    final restart =
-        (prev.bpmIncrease > 0 && replayIntroOnBpmIncrease) || drill.forceIntro;
+    final restart = (prev.bpmIncrease > 0 && replayIntroOnBpmIncrease) || drill.forceIntro;
     return _PState(
       playing: true,
       intro: restart ? true : intro,
@@ -276,12 +270,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
     super.initState();
     final sounds = MetronomeSounds();
     _sounds = sounds;
-    _state = _PState(
-      playing: true,
-      intro: true,
-      bpm: widget.bpm,
-      bpmIncrease: widget.bpmIncrease,
-    );
+    _state = _PState(playing: true, intro: true, bpm: widget.bpm, bpmIncrease: widget.bpmIncrease);
     // Wait for the tones to finish loading before processing the very first beat -- otherwise
     // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
     // silently gets dropped, which is why the drill would seem to start on its *second* audible
@@ -351,12 +340,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
   void _handleBeatsDue(int beatsDue) {
     var next = _state;
     for (var i = 0; i < beatsDue; i++) {
-      next = _tick(
-        next,
-        widget.drill,
-        widget.drillRepeat,
-        settings.replayIntroOnBpmIncrease,
-      );
+      next = _tick(next, widget.drill, widget.drillRepeat, settings.replayIntroOnBpmIncrease);
       if (!next.playing) break;
     }
     _applyState(next);
@@ -378,19 +362,16 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
     );
     final idx = currentFlatIndex >= 0 ? currentFlatIndex : 0;
     final willRepeatDrill = _state.drillRepeat + 1 < widget.drillRepeat;
-    final willAnnounceRepeat =
-        willRepeatDrill && (_state.bpmIncrease > 0 || drill.forceIntro);
+    final willAnnounceRepeat = willRepeatDrill && (_state.bpmIncrease > 0 || drill.forceIntro);
     final isLastSection = idx == allSections.length - 1;
     final currentSection = allSections[idx].section;
     final safeAreaPadding = MediaQuery.of(context).padding;
-    final hasHorizontalSafeArea =
-        safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
+    final hasHorizontalSafeArea = safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
     // Short-and-wide, like a phone held sideways — as opposed to a desktop/web window that
     // happens to be wider than tall but still has plenty of vertical room to spare. Only the
     // former is cramped enough to be worth reclaiming the status row's height for.
     final screenSize = MediaQuery.of(context).size;
-    final isCompactLandscape =
-        screenSize.width > screenSize.height && screenSize.height < 500;
+    final isCompactLandscape = screenSize.width > screenSize.height && screenSize.height < 500;
     final mergeStatusIntoHeader = isCompactLandscape;
 
     Widget mkSectionView(Section section, bool isHighlighted) {
@@ -418,9 +399,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
         beat: _state.beat,
         beatsPerMeasure: drill.bpm,
         intro: _state.intro,
-        preText: isBpmUp
-            ? 'BPM up!'
-            : (isRepeat ? 'Back to the start!' : 'Get ready...'),
+        preText: isBpmUp ? 'BPM up!' : (isRepeat ? 'Back to the start!' : 'Get ready...'),
       );
     }
 
@@ -442,9 +421,8 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
       bottomKey = 'section-$nextIdx-$nextDR-preview';
     }
 
-    Widget topContent() => _state.intro
-        ? countdownSectionEl()
-        : mkSectionView(currentSection, true);
+    Widget topContent() =>
+        _state.intro ? countdownSectionEl() : mkSectionView(currentSection, true);
 
     Widget bottomContent() {
       if (bottomKey == 'all-done') {
@@ -504,9 +482,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
                 // little breathing room ourselves. Devices that already have a horizontal
                 // safe-area inset are left as-is.
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: hasHorizontalSafeArea ? 0 : 10,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: hasHorizontalSafeArea ? 0 : 10),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1200),
                     // The drill controls what's on screen now, not a scroll view, so it's
@@ -540,10 +516,7 @@ class _DrillPracticeScreenState extends State<DrillPracticeScreen> {
                           const SizedBox(height: 16),
                           // Bottom preview fades in only after the top slide above finishes (a
                           // 400ms delay, then a 300ms fade), matching the original timing.
-                          FadeInDelayed(
-                            key: ValueKey(bottomKey),
-                            child: bottomContent(),
-                          ),
+                          FadeInDelayed(key: ValueKey(bottomKey), child: bottomContent()),
                           if (showRepeatPreview) ...[
                             const SizedBox(height: 16),
                             mkSectionView(allSections[0].section, false),
@@ -586,21 +559,13 @@ class _StatusView extends StatelessWidget {
       runSpacing: 8,
       children: [
         Text(
-          '$bpm bpm${bpmIncrease > 0 ? ' (+$bpmIncrease)' : ''}',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGray,
-          ),
+          formatBpmSummary(bpm, bpmIncrease),
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textGray),
         ),
         if (drillRepeat > 1)
           Text(
             '${drillRepeatCount + 1} / $drillRepeat',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textGray,
-            ),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textGray),
           ),
         ElevatedButton(
           onPressed: onStop,
@@ -638,22 +603,14 @@ class _HeaderStatus extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '$bpm bpm${bpmIncrease > 0 ? ' (+$bpmIncrease)' : ''}',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGray,
-          ),
+          formatBpmSummary(bpm, bpmIncrease),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textGray),
         ),
         if (drillRepeat > 1) ...[
           const SizedBox(width: 12),
           Text(
             '${drillRepeatCount + 1} / $drillRepeat',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textGray,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textGray),
           ),
         ],
         const SizedBox(width: 12),

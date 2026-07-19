@@ -54,19 +54,13 @@ class SectionView extends StatelessWidget {
                 SizedBox(height: config.cardPadding * 0.6),
                 for (var ll = 0; ll < section.lines.length; ll++)
                   Padding(
-                    padding: EdgeInsets.only(
-                      top: ll == 0 ? 0 : config.measureGap,
-                    ),
+                    padding: EdgeInsets.only(top: ll == 0 ? 0 : config.measureGap),
                     child: Wrap(
                       alignment: WrapAlignment.center,
                       spacing: config.measureGap,
                       runSpacing: config.measureGap,
                       children: [
-                        for (
-                          var mm = 0;
-                          mm < section.lines[ll].measures.length;
-                          mm++
-                        )
+                        for (var mm = 0; mm < section.lines[ll].measures.length; mm++)
                           MeasureView(
                             measure: section.lines[ll].measures[mm],
                             strokeSize: config.strokeSize,

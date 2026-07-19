@@ -20,21 +20,18 @@ void main() {
     });
   });
 
-  test(
-    'scale stretches the interval (e.g. a drill with scale: 0.5 ticks twice as fast)',
-    () {
-      fakeAsync((async) {
-        final due = <int>[];
-        final metronome = Metronome(onDue: due.add);
+  test('scale stretches the interval (e.g. a drill with scale: 0.5 ticks twice as fast)', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
 
-        metronome.ensureRunning(bpm: 60, scale: 0.5);
-        async.elapse(const Duration(milliseconds: 125));
-        expect(due, [1]);
+      metronome.ensureRunning(bpm: 60, scale: 0.5);
+      async.elapse(const Duration(milliseconds: 125));
+      expect(due, [1]);
 
-        metronome.dispose();
-      });
-    },
-  );
+      metronome.dispose();
+    });
+  });
 
   test('reports more than one beat per callback when the beat interval is faster than the poll '
       'interval, instead of firing once per beat', () {
@@ -75,50 +72,44 @@ void main() {
     });
   });
 
-  test(
-    'calling ensureRunning again with the same bpm/scale does not reset the schedule',
-    () {
-      fakeAsync((async) {
-        final due = <int>[];
-        final metronome = Metronome(onDue: due.add);
+  test('calling ensureRunning again with the same bpm/scale does not reset the schedule', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
 
-        metronome.ensureRunning(bpm: 60);
-        async.elapse(const Duration(milliseconds: 200));
-        // Re-affirming the same bpm (as every _afterStateChange-style call does on every tick) must
-        // not push the next beat further out -- it should still land at the original 250ms mark,
-        // not 250ms from this call.
-        metronome.ensureRunning(bpm: 60);
-        async.elapse(const Duration(milliseconds: 50));
-        expect(due, [1]);
+      metronome.ensureRunning(bpm: 60);
+      async.elapse(const Duration(milliseconds: 200));
+      // Re-affirming the same bpm (as every _afterStateChange-style call does on every tick) must
+      // not push the next beat further out -- it should still land at the original 250ms mark,
+      // not 250ms from this call.
+      metronome.ensureRunning(bpm: 60);
+      async.elapse(const Duration(milliseconds: 50));
+      expect(due, [1]);
 
-        metronome.dispose();
-      });
-    },
-  );
+      metronome.dispose();
+    });
+  });
 
-  test(
-    'changing bpm rebases the schedule to start counting from the change, not from zero',
-    () {
-      fakeAsync((async) {
-        final due = <int>[];
-        final metronome = Metronome(onDue: due.add);
+  test('changing bpm rebases the schedule to start counting from the change, not from zero', () {
+    fakeAsync((async) {
+      final due = <int>[];
+      final metronome = Metronome(onDue: due.add);
 
-        metronome.ensureRunning(bpm: 60); // 250ms per beat
-        async.elapse(const Duration(milliseconds: 200));
-        expect(due, isEmpty);
+      metronome.ensureRunning(bpm: 60); // 250ms per beat
+      async.elapse(const Duration(milliseconds: 200));
+      expect(due, isEmpty);
 
-        // Speeding up mid-flight: the next beat should be 125ms from *now* (120 bpm), not measured
-        // against the 200ms already elapsed under the old bpm.
-        metronome.ensureRunning(bpm: 120);
-        async.elapse(const Duration(milliseconds: 100));
-        expect(due, isEmpty);
-        async.elapse(const Duration(milliseconds: 25));
-        expect(due, [1]);
+      // Speeding up mid-flight: the next beat should be 125ms from *now* (120 bpm), not measured
+      // against the 200ms already elapsed under the old bpm.
+      metronome.ensureRunning(bpm: 120);
+      async.elapse(const Duration(milliseconds: 100));
+      expect(due, isEmpty);
+      async.elapse(const Duration(milliseconds: 25));
+      expect(due, [1]);
 
-        metronome.dispose();
-      });
-    },
-  );
+      metronome.dispose();
+    });
+  });
 
   test('dispose stops any further ticking', () {
     fakeAsync((async) {

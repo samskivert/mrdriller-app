@@ -38,10 +38,15 @@ class _SlideInState extends State<SlideIn> with SingleTickerProviderStateMixin {
     // otherwise makes AnimationController silently run at 5% of its configured duration. The web
     // version never checked prefers-reduced-motion, so this keeps the two in parity; a future
     // pass could instead honor it (e.g. skip straight to Offset.zero) if that's preferred.
-    _controller = AnimationController(vsync: this, duration: widget.duration, animationBehavior: AnimationBehavior.preserve)
-      ..forward();
-    _offset = Tween<Offset>(begin: widget.begin, end: Offset.zero)
-        .animate(CurvedAnimation(parent: _controller, curve: widget.curve));
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+      animationBehavior: AnimationBehavior.preserve,
+    )..forward();
+    _offset = Tween<Offset>(
+      begin: widget.begin,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: widget.curve));
   }
 
   @override
@@ -54,8 +59,11 @@ class _SlideInState extends State<SlideIn> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _offset,
-      builder: (context, child) =>
-          FractionalTranslation(key: const ValueKey('slide-in'), translation: _offset.value, child: child),
+      builder: (context, child) => FractionalTranslation(
+        key: const ValueKey('slide-in'),
+        translation: _offset.value,
+        child: child,
+      ),
       child: widget.child,
     );
   }

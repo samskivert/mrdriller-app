@@ -12,11 +12,11 @@ void main() {
     late StateSetter setter;
 
     Widget slot() => SlideIn(
-          key: ValueKey(keyValue),
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-          child: Text(keyValue),
-        );
+      key: ValueKey(keyValue),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      child: Text(keyValue),
+    );
 
     await tester.pumpWidget(
       MaterialApp(
@@ -36,8 +36,13 @@ void main() {
     expect(ft().translation, Offset.zero, reason: 'settled state should be at rest');
 
     setter(() => keyValue = 'b');
-    await tester.pump(); // first frame after key change: animation should start at `begin`, not `end`
-    expect(ft().translation, const Offset(0, 1), reason: 'should start the slide from below, not snap to rest');
+    await tester
+        .pump(); // first frame after key change: animation should start at `begin`, not `end`
+    expect(
+      ft().translation,
+      const Offset(0, 1),
+      reason: 'should start the slide from below, not snap to rest',
+    );
 
     await tester.pump(const Duration(milliseconds: 200)); // halfway through the 400ms animation
     final atMid = ft().translation;
@@ -61,14 +66,19 @@ void main() {
         home: StatefulBuilder(
           builder: (context, setState) {
             setter = setState;
-            return SlideIn(key: ValueKey(keyValue), duration: const Duration(milliseconds: 400), child: Text(content));
+            return SlideIn(
+              key: ValueKey(keyValue),
+              duration: const Duration(milliseconds: 400),
+              child: Text(content),
+            );
           },
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    FractionalTranslation ft() => tester.widget<FractionalTranslation>(find.byKey(const ValueKey('slide-in')));
+    FractionalTranslation ft() =>
+        tester.widget<FractionalTranslation>(find.byKey(const ValueKey('slide-in')));
 
     setter(() {
       keyValue = 'b';
@@ -85,7 +95,11 @@ void main() {
     // 320ms of real time has elapsed (8 * 40ms); the animation should have progressed
     // continuously rather than being reset back to Offset(0, 1) by any of those rebuilds.
     final atNearEnd = ft().translation;
-    expect(atNearEnd.dy, lessThan(0.1), reason: 'should be nearly settled, not reset by content-only rebuilds');
+    expect(
+      atNearEnd.dy,
+      lessThan(0.1),
+      reason: 'should be nearly settled, not reset by content-only rebuilds',
+    );
 
     await tester.pump(const Duration(milliseconds: 100));
     expect(ft().translation, Offset.zero);

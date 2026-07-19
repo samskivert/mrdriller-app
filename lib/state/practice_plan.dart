@@ -14,16 +14,12 @@ class PracticePlanEntry {
 
   const PracticePlanEntry({required this.drillId, required this.config});
 
-  Map<String, dynamic> toJson() => {
-    'drillId': drillId,
-    'config': config.toJson(),
-  };
+  Map<String, dynamic> toJson() => {'drillId': drillId, 'config': config.toJson()};
 
-  factory PracticePlanEntry.fromJson(Map<String, dynamic> json) =>
-      PracticePlanEntry(
-        drillId: json['drillId'] as String,
-        config: DrillConfig.fromJson(json['config'] as Map<String, dynamic>),
-      );
+  factory PracticePlanEntry.fromJson(Map<String, dynamic> json) => PracticePlanEntry(
+    drillId: json['drillId'] as String,
+    config: DrillConfig.fromJson(json['config'] as Map<String, dynamic>),
+  );
 }
 
 class PracticePlan extends ChangeNotifier {
@@ -42,8 +38,7 @@ class PracticePlan extends ChangeNotifier {
       try {
         final list = jsonDecode(saved) as List<dynamic>;
         _entries = [
-          for (final item in list)
-            PracticePlanEntry.fromJson(item as Map<String, dynamic>),
+          for (final item in list) PracticePlanEntry.fromJson(item as Map<String, dynamic>),
         ];
       } catch (_) {
         _entries = [];

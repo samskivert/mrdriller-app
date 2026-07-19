@@ -7,8 +7,8 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
-import '../widgets/app_header.dart';
 import '../widgets/components.dart';
+import '../widgets/screen_scaffold.dart';
 import '../widgets/section_view.dart';
 
 enum _Mode { listen, repeat }
@@ -48,9 +48,7 @@ class _TickResult {
   const _TickResult(this.state, this.strokeToPlay);
 }
 
-List<Measure> _flatMeasures(Section pattern) => [
-  for (final l in pattern.lines) ...l.measures,
-];
+List<Measure> _flatMeasures(Section pattern) => [for (final l in pattern.lines) ...l.measures];
 
 List<Measure> _generateAllPossibleMeasures() {
   final measures = <Measure>[];
@@ -89,12 +87,7 @@ Section _generatePattern(Difficulty difficulty, _MeasurePool pool) {
     final m2 = pool.getMeasure();
     measures = [m1, m2, m1, m2];
   } else {
-    measures = [
-      pool.getMeasure(),
-      pool.getMeasure(),
-      pool.getMeasure(),
-      pool.getMeasure(),
-    ];
+    measures = [pool.getMeasure(), pool.getMeasure(), pool.getMeasure(), pool.getMeasure()];
   }
   return section('', 1, [
     line([measures[0], measures[1]]),
@@ -134,9 +127,7 @@ _TickResult _tickPT(_PTState prev, List<Section> patterns) {
       repeat: prev.repeat,
       bpm: prev.bpm,
     );
-    final strokeToPlay = _flatMeasures(
-      patterns[prev.pattern],
-    )[0][0]?.strokes[0];
+    final strokeToPlay = _flatMeasures(patterns[prev.pattern])[0][0]?.strokes[0];
     return _TickResult(next, strokeToPlay);
   }
 
@@ -295,8 +286,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
   void _handleStart() {
     final pool = _MeasurePool();
     final newPatterns = [
-      for (var i = 0; i < _numPatterns; i++)
-        _generatePattern(_difficulty, pool),
+      for (var i = 0; i < _numPatterns; i++) _generatePattern(_difficulty, pool),
     ];
     setState(() => _patterns = newPatterns);
     // Wait for the tones to finish loading before processing the very first beat -- otherwise
@@ -304,9 +294,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
     // silently gets dropped.
     _sounds?.ready.then((_) {
       if (!mounted) return;
-      _applyState(
-        const _PTState(playing: true, intro: true, mode: _Mode.listen),
-      );
+      _applyState(const _PTState(playing: true, intro: true, mode: _Mode.listen));
     });
   }
 
@@ -338,198 +326,150 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
           )
         : null;
     final displayPattern = _swapHands ? swapSectionHands(pattern) : pattern;
-    return SectionView(
-      section: displayPattern,
-      isHighlighted: isHighlighted,
-      highlight: highlight,
-    );
+    return SectionView(section: displayPattern, isHighlighted: isHighlighted, highlight: highlight);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: AppHeader(title: 'Pattern Trainer', showSettings: false),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 24,
-                          runSpacing: 12,
-                          children: [
-                            NumberInputField(
-                              label: 'BPM',
-                              value: _bpm,
-                              onChanged: (v) => setState(() {
-                                _bpm = v;
-                                _saveConfig();
-                              }),
-                              min: 30,
-                              max: 120,
-                              width: 60,
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('Difficulty: '),
-                                DropdownButton<Difficulty>(
-                                  value: _difficulty,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: Difficulty.easy,
-                                      child: Text('Easy'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: Difficulty.medium,
-                                      child: Text('Medium'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: Difficulty.hard,
-                                      child: Text('Hard'),
-                                    ),
-                                  ],
-                                  onChanged: (v) {
-                                    if (v == null) return;
-                                    setState(() {
-                                      _difficulty = v;
-                                      _saveConfig();
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                            NumberInputField(
-                              label: 'Patterns',
-                              value: _numPatterns,
-                              onChanged: (v) => setState(() {
-                                _numPatterns = v;
-                                _saveConfig();
-                              }),
-                              min: 1,
-                              max: 20,
-                              width: 60,
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Switch(
-                                  value: _swapHands,
-                                  onChanged: (v) => setState(() {
-                                    _swapHands = v;
-                                    _saveConfig();
-                                  }),
-                                ),
-                                const Text('L↔︎R'),
-                              ],
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('Show: '),
-                                DropdownButton<SectionVisibility>(
-                                  value: _sectionVisibility,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: SectionVisibility.showAll,
-                                      child: Text('All'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SectionVisibility.showListen,
-                                      child: Text('Listen'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SectionVisibility.showRepeat,
-                                      child: Text('Repeat'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: SectionVisibility.dontShow,
-                                      child: Text('Never'),
-                                    ),
-                                  ],
-                                  onChanged: (v) {
-                                    if (v == null) return;
-                                    setState(() {
-                                      _sectionVisibility = v;
-                                      _saveConfig();
-                                    });
-                                  },
-                                ),
-                              ],
-                            ),
-                            ElevatedButton(
-                              onPressed: _state.playing ? null : _handleStart,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.btnGreen,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Start'),
-                            ),
-                            if (_state.playing)
-                              ElevatedButton(
-                                onPressed: _handleStop,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.btnRed,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('Stop'),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        if (!_state.playing || _state.intro)
-                          CountdownSection(
-                            beat: _state.beat,
-                            beatsPerMeasure: _beatsPerMeasure,
-                            intro: _state.intro,
-                          )
-                        else if (_patterns.isNotEmpty &&
-                            _state.pattern < _patterns.length) ...[
-                          HighlightedCard(
-                            isHighlighted: true,
-                            minHeight: 100,
-                            child: Center(
-                              child: Text(
-                                _state.mode == _Mode.listen
-                                    ? 'Listen'
-                                    : 'Repeat',
-                                style: TextStyle(
-                                  fontSize: 60,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.btnBlue,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_visibilityOk)
-                            _mkPatternView(
-                              _patterns[_state.pattern],
-                              _state.pattern,
-                            ),
-                        ],
-                      ],
-                    ),
+    return ScreenScaffold(
+      title: 'Pattern Trainer',
+      showSettings: false,
+      headerPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      headerBottomSpacing: 24,
+      contentPadding: EdgeInsets.zero,
+      contentMaxWidth: 900,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 24,
+            runSpacing: 12,
+            children: [
+              NumberInputField(
+                label: 'BPM',
+                value: _bpm,
+                onChanged: (v) => setState(() {
+                  _bpm = v;
+                  _saveConfig();
+                }),
+                min: 30,
+                max: 120,
+                width: 60,
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Difficulty: '),
+                  DropdownButton<Difficulty>(
+                    value: _difficulty,
+                    items: const [
+                      DropdownMenuItem(value: Difficulty.easy, child: Text('Easy')),
+                      DropdownMenuItem(value: Difficulty.medium, child: Text('Medium')),
+                      DropdownMenuItem(value: Difficulty.hard, child: Text('Hard')),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _difficulty = v;
+                        _saveConfig();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              NumberInputField(
+                label: 'Patterns',
+                value: _numPatterns,
+                onChanged: (v) => setState(() {
+                  _numPatterns = v;
+                  _saveConfig();
+                }),
+                min: 1,
+                max: 20,
+                width: 60,
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: _swapHands,
+                    onChanged: (v) => setState(() {
+                      _swapHands = v;
+                      _saveConfig();
+                    }),
+                  ),
+                  const Text('L↔︎R'),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Show: '),
+                  DropdownButton<SectionVisibility>(
+                    value: _sectionVisibility,
+                    items: const [
+                      DropdownMenuItem(value: SectionVisibility.showAll, child: Text('All')),
+                      DropdownMenuItem(value: SectionVisibility.showListen, child: Text('Listen')),
+                      DropdownMenuItem(value: SectionVisibility.showRepeat, child: Text('Repeat')),
+                      DropdownMenuItem(value: SectionVisibility.dontShow, child: Text('Never')),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        _sectionVisibility = v;
+                        _saveConfig();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: _state.playing ? null : _handleStart,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.btnGreen,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Start'),
+              ),
+              if (_state.playing)
+                ElevatedButton(
+                  onPressed: _handleStop,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.btnRed,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Stop'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          if (!_state.playing || _state.intro)
+            CountdownSection(
+              beat: _state.beat,
+              beatsPerMeasure: _beatsPerMeasure,
+              intro: _state.intro,
+            )
+          else if (_patterns.isNotEmpty && _state.pattern < _patterns.length) ...[
+            HighlightedCard(
+              isHighlighted: true,
+              minHeight: 100,
+              child: Center(
+                child: Text(
+                  _state.mode == _Mode.listen ? 'Listen' : 'Repeat',
+                  style: TextStyle(
+                    fontSize: 60,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.btnBlue,
                   ),
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            if (_visibilityOk) _mkPatternView(_patterns[_state.pattern], _state.pattern),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -3,6 +3,10 @@
 
 import 'package:mrdriller/model/model.dart';
 
+// dart format off
+//
+// We don't want dart format making our drills ultra verbose.
+
 final Drill paradiddles = Drill(
   id: "paradiddles",
   title: "Paradiddles",
@@ -454,9 +458,7 @@ final Drill dondoko = Drill(
         line([ddkL, ddkLs]),
       ]),
     ],
-    [
-      section("2s", 4, [line([ddkR, ddkRs]), line([ddkL, ddkLs])]),
-    ],
+    [section("2s", 4, [line([ddkR, ddkRs]), line([ddkL, ddkLs])])],
   ],
 );
 
@@ -467,12 +469,8 @@ final Drill threeAgainstTwo = Drill(
   beeps: [1, 3, 5],
   rows: [
     [
-      oneLineSection("A", 8, [
-        [beat([r, l]), null, beat([r]), beat([null, l]), beat([r]), null],
-      ]),
-      oneLineSection("B", 8, [
-        [beat([r]), beat([null, l]), beat([r]), null, beat([r, l]), null],
-      ]),
+      oneLineSection("A", 8, [[beat([r, l]), null, beat([r]), beat([null, l]), beat([r]), null]]),
+      oneLineSection("B", 8, [[beat([r]), beat([null, l]), beat([r]), null, beat([r, l]), null]]),
     ],
     [
       oneLineSection("C", 8, [
@@ -572,39 +570,24 @@ final Drill dexter = Drill(
   rows: [
     [
       oneLineSection("Right 8s", 2, [dright8]),
-      oneLineSection("Right 4s", 2, [
-        [...dright4, ...dright4],
-      ]),
+      oneLineSection("Right 4s", 2, [[...dright4, ...dright4]]),
     ],
     [
-      oneLineSection("Right 2s", 2, [
-        [...dright2, ...dright2, ...dright2],
-      ]),
+      oneLineSection("Right 2s", 2, [[...dright2, ...dright2, ...dright2]]),
       oneLineSection("Jan Jan Jan", 1, [djan3]),
     ],
     [
       oneLineSection("Left 8s", 2, [dleft8]),
-      oneLineSection("Left 4s", 2, [
-        [...dleft4, ...dleft4],
-      ]),
+      oneLineSection("Left 4s", 2, [[...dleft4, ...dleft4]]),
     ],
     [
-      oneLineSection("Left 2s", 2, [
-        [...dleft2, ...dleft2, ...dleft2],
-      ]),
+      oneLineSection("Left 2s", 2, [[...dleft2, ...dleft2, ...dleft2]]),
       oneLineSection("Jan Jan Jan", 1, [djan3]),
     ],
+    [oneLineSection("Right 8", 1, [dright8]), oneLineSection("Left 8", 1, [dleft8])],
     [
-      oneLineSection("Right 8", 1, [dright8]),
-      oneLineSection("Left 8", 1, [dleft8]),
-    ],
-    [
-      oneLineSection("Alt 4s", 2, [
-        [...dright4, ...dleft4],
-      ]),
-      oneLineSection("Alt 2s", 3, [
-        [...dright2, ...dleft2],
-      ]),
+      oneLineSection("Alt 4s", 2, [[...dright4, ...dleft4]]),
+      oneLineSection("Alt 2s", 3, [[...dright2, ...dleft2]]),
       oneLineSection("Jan Jan Jan", 1, [djan3]),
     ],
   ],
@@ -863,16 +846,8 @@ final Drill oneFourSeven = Drill(
   title: "One Four Seven",
   bpm: 4,
   rows: [
-    [
-      oneLineSection("Right", 4, [
-        [beatRLA, beatR, beatR, beatRLA, beatR, beatR, beatRLA, beatR],
-      ]),
-    ],
-    [
-      oneLineSection("Left", 4, [
-        [beatRAL, beatL, beatL, beatRAL, beatL, beatL, beatRAL, beatL],
-      ]),
-    ],
+    [oneLineSection("Right", 4, [[beatRLA, beatR, beatR, beatRLA, beatR, beatR, beatRLA, beatR]])],
+    [oneLineSection("Left", 4, [[beatRAL, beatL, beatL, beatRAL, beatL, beatL, beatRAL, beatL]])],
     [
       oneLineSection("Jan Right", 4, [
         [beatRALA, beatR, beatR, beatRALA, beatR, beatR, beatRALA, beatR],
@@ -924,16 +899,8 @@ final Drill kihon = Drill(
         line([measure([R, L, R, L, R, L, R, L])]),
       ]),
     ],
-    [
-      oneLineSection("Both (Whole)", 4, [
-        [beatRALA, null, null, null, null, null, null, null],
-      ]),
-    ],
-    [
-      oneLineSection("Both (Half)", 4, [
-        [beatRALA, null, null, null, beatRALA, null, null, null],
-      ]),
-    ],
+    [oneLineSection("Both (Whole)", 4, [[beatRALA, null, null, null, null, null, null, null]])],
+    [oneLineSection("Both (Half)", 4, [[beatRALA, null, null, null, beatRALA, null, null, null]])],
     [
       oneLineSection("Both (Quarter)", 4, [
         [beatRALA, null, beatRALA, null, beatRALA, null, beatRALA, null],
@@ -941,16 +908,7 @@ final Drill kihon = Drill(
     ],
     [
       oneLineSection("Both (Eighth)", 4, [
-        [
-          beatRALA,
-          beatRALA,
-          beatRALA,
-          beatRALA,
-          beatRALA,
-          beatRALA,
-          beatRALA,
-          beatRALA,
-        ],
+        [beatRALA, beatRALA, beatRALA, beatRALA, beatRALA, beatRALA, beatRALA, beatRALA],
       ]),
     ],
   ],
@@ -990,3 +948,12 @@ final List<Drill> drills = [
   kihon,
   shurui,
 ];
+
+// dart format on
+
+Drill? findDrillById(String id) {
+  for (final drill in drills) {
+    if (drill.id == id) return drill;
+  }
+  return null;
+}

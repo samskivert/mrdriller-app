@@ -17,7 +17,8 @@ class Stroke {
 }
 
 Stroke hit(Hand hand, [bool accent = false]) => Stroke(hand: hand, accent: accent);
-Stroke downStroke(Hand hand, [bool accent = false]) => Stroke(hand: hand, accent: accent, dir: StrokeDir.D);
+Stroke downStroke(Hand hand, [bool accent = false]) =>
+    Stroke(hand: hand, accent: accent, dir: StrokeDir.D);
 Stroke upStroke(Hand hand) => Stroke(hand: hand, dir: StrokeDir.U);
 
 final Stroke R = hit(Hand.R, true);
@@ -49,7 +50,8 @@ Beat labeledBeat(String label, List<Stroke?> strokes) => Beat(label: label, stro
 typedef Measure = List<Beat?>;
 
 /// Creates a simple measure that has a single unlabeled stroke on every beat (or a null for rest).
-Measure measure(List<Stroke?> strokes) => strokes.map<Beat?>((s) => s == null ? null : beat([s])).toList();
+Measure measure(List<Stroke?> strokes) =>
+    strokes.map<Beat?>((s) => s == null ? null : beat([s])).toList();
 
 /// A line is a collection of measures that we try to render on a single horizontal line.
 class Line {
@@ -71,7 +73,8 @@ class Section {
   const Section({this.label, required this.lines, required this.repeat});
 }
 
-Section section(String label, int repeat, List<Line> lines) => Section(label: label, lines: lines, repeat: repeat);
+Section section(String label, int repeat, List<Line> lines) =>
+    Section(label: label, lines: lines, repeat: repeat);
 
 Section oneLineSection(String label, int repeat, List<Measure> measures) =>
     section(label, repeat, [Line(measures: measures)]);
@@ -119,27 +122,31 @@ class Pos {
 
 Hand _swapHand(Hand hand) => hand == Hand.L ? Hand.R : Hand.L;
 Stroke? _swapStrokeHands(Stroke? stroke) => stroke?.withHand(_swapHand(stroke.hand));
-Beat? _swapBeatHands(Beat? beat) =>
-    beat == null ? null : Beat(label: beat.label, strokes: beat.strokes.map(_swapStrokeHands).toList());
+Beat? _swapBeatHands(Beat? beat) => beat == null
+    ? null
+    : Beat(label: beat.label, strokes: beat.strokes.map(_swapStrokeHands).toList());
 Measure _swapMeasureHands(Measure measure) => measure.map(_swapBeatHands).toList();
 Line _swapLineHands(Line line) => Line(measures: line.measures.map(_swapMeasureHands).toList());
 
 /// Swaps the L and R hands in a section.
-Section swapSectionHands(Section section) =>
-    Section(label: section.label, lines: section.lines.map(_swapLineHands).toList(), repeat: section.repeat);
+Section swapSectionHands(Section section) => Section(
+  label: section.label,
+  lines: section.lines.map(_swapLineHands).toList(),
+  repeat: section.repeat,
+);
 
 DrillRow _swapRowHands(DrillRow row) => row.map(swapSectionHands).toList();
 
 /// Swaps the L and R hands in a drill.
 Drill swapHands(Drill drill) => Drill(
-      id: drill.id,
-      title: drill.title,
-      bpm: drill.bpm,
-      beeps: drill.beeps,
-      scale: drill.scale,
-      forceIntro: drill.forceIntro,
-      rows: drill.rows.map(_swapRowHands).toList(),
-    );
+  id: drill.id,
+  title: drill.title,
+  bpm: drill.bpm,
+  beeps: drill.beeps,
+  scale: drill.scale,
+  forceIntro: drill.forceIntro,
+  rows: drill.rows.map(_swapRowHands).toList(),
+);
 
 const int maxBpm = 250;
 
@@ -182,6 +189,17 @@ double computeDrillDuration(
 
   return totalSeconds;
 }
+
+/// Formats a duration in seconds (e.g. from [computeDrillDuration]) as "1m 30s".
+String formatDrillDuration(double seconds) {
+  final mins = seconds ~/ 60;
+  final secs = (seconds % 60).round();
+  return '${mins}m ${secs.toString().padLeft(2, '0')}s';
+}
+
+/// Formats a bpm and its (optional) planned increase as e.g. "90 bpm" or "90 bpm (+5)".
+String formatBpmSummary(int bpm, int bpmIncrease) =>
+    '$bpm bpm${bpmIncrease > 0 ? ' (+$bpmIncrease)' : ''}';
 
 // defines a data model for tools
 

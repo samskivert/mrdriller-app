@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'data/drills.dart' as data;
-import 'model/model.dart';
 import 'screens/drill_menu_screen.dart';
 import 'screens/drill_screen.dart';
 import 'screens/menu_screen.dart';
@@ -44,45 +43,25 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
   final segments = uri.pathSegments;
 
   if (segments.isEmpty) {
-    return MaterialPageRoute(
-      settings: routeSettings,
-      builder: (_) => const MenuScreen(),
-    );
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const MenuScreen());
   }
   if (segments[0] == 'settings') {
-    return MaterialPageRoute(
-      settings: routeSettings,
-      builder: (_) => const SettingsScreen(),
-    );
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const SettingsScreen());
   }
   if (segments[0] == 'drills') {
-    return MaterialPageRoute(
-      settings: routeSettings,
-      builder: (_) => const DrillMenuScreen(),
-    );
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const DrillMenuScreen());
   }
   if (segments[0] == 'drill' && segments.length > 1) {
-    final id = segments[1];
-    Drill? drill;
-    for (final d in data.drills) {
-      if (d.id == id) {
-        drill = d;
-        break;
-      }
-    }
+    final drill = data.findDrillById(segments[1]);
     if (drill != null) {
-      final resolvedDrill = drill;
       return MaterialPageRoute(
         settings: routeSettings,
-        builder: (_) => DrillScreen(drill: resolvedDrill),
+        builder: (_) => DrillScreen(drill: drill),
       );
     }
   }
   if (segments[0] == 'practice-plan') {
-    return MaterialPageRoute(
-      settings: routeSettings,
-      builder: (_) => const PracticePlanScreen(),
-    );
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const PracticePlanScreen());
   }
   if (segments[0] == 'tool' && segments.length > 1) {
     final id = segments[1];

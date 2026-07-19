@@ -92,7 +92,13 @@ class DrillOverviewView extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 1200),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [for (final row in drill.rows) Padding(padding: const EdgeInsets.only(bottom: 16), child: _RowView(row: row))],
+        children: [
+          for (final row in drill.rows)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _RowView(row: row),
+            ),
+        ],
       ),
     );
   }

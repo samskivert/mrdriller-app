@@ -71,12 +71,7 @@ LineShape widestLineShape(Section section) {
 /// (using the tallest found anywhere in the section) rather than tracking it per line -- that
 /// slightly overestimates shorter lines' height, but never underestimates the section's actual
 /// rendered height, which is what matters for avoiding overflow.
-typedef SectionVerticalShape = ({
-  int lines,
-  bool hasHeader,
-  bool hasLabelRow,
-  int maxStrokes,
-});
+typedef SectionVerticalShape = ({int lines, bool hasHeader, bool hasLabelRow, int maxStrokes});
 
 SectionVerticalShape sectionVerticalShape(Section section) {
   final hasHeader = (section.label?.isNotEmpty ?? false) || section.repeat > 1;
@@ -151,11 +146,9 @@ SizeConfig computeFittedSizeConfig({
   const safetyMargin = 6.0;
   // Includes 2*_cardPaddingRatio: the card's own left+right padding is also a function of
   // strokeSize, and it comes out of availableWidth before the beat row sees any of it.
-  final widthDenominator =
-      beats + (measures - 1) * _measureGapRatio + 2 * _cardPaddingRatio;
+  final widthDenominator = beats + (measures - 1) * _measureGapRatio + 2 * _cardPaddingRatio;
   final widthStrokeSize =
-      (availableWidth - safetyMargin - beats * _strokeMargin) /
-      widthDenominator;
+      (availableWidth - safetyMargin - beats * _strokeMargin) / widthDenominator;
 
   var heightStrokeSize = double.infinity;
   if (availableHeight.isFinite) {
@@ -169,8 +162,7 @@ SizeConfig computeFittedSizeConfig({
           (shape.lines - 1) * _measureGapRatio +
           2 * _cardPaddingRatio;
       final heightConstant = shape.lines * shape.maxStrokes * _strokeMargin;
-      heightStrokeSize =
-          (availableHeight - safetyMargin - heightConstant) / heightDenominator;
+      heightStrokeSize = (availableHeight - safetyMargin - heightConstant) / heightDenominator;
     }
   }
 

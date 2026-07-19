@@ -11,13 +11,17 @@ class DrillConfig {
 
   const DrillConfig({this.bpm = 60, this.bpmIncrease = 0, this.drillRepeat = 1});
 
-  Map<String, dynamic> toJson() => {'bpm': bpm, 'bpmIncrease': bpmIncrease, 'drillRepeat': drillRepeat};
+  Map<String, dynamic> toJson() => {
+    'bpm': bpm,
+    'bpmIncrease': bpmIncrease,
+    'drillRepeat': drillRepeat,
+  };
 
   factory DrillConfig.fromJson(Map<String, dynamic> json) => DrillConfig(
-        bpm: json['bpm'] as int? ?? 60,
-        bpmIncrease: json['bpmIncrease'] as int? ?? 0,
-        drillRepeat: json['drillRepeat'] as int? ?? 1,
-      );
+    bpm: json['bpm'] as int? ?? 60,
+    bpmIncrease: json['bpmIncrease'] as int? ?? 0,
+    drillRepeat: json['drillRepeat'] as int? ?? 1,
+  );
 }
 
 Future<DrillConfig> loadDrillConfig(String drillId) async {
@@ -58,26 +62,26 @@ class PatternTrainerConfig {
   });
 
   Map<String, dynamic> toJson() => {
-        'bpm': bpm,
-        'difficulty': difficulty.name,
-        'numPatterns': numPatterns,
-        'swapHands': swapHands,
-        'sectionVisibility': sectionVisibility.name,
-      };
+    'bpm': bpm,
+    'difficulty': difficulty.name,
+    'numPatterns': numPatterns,
+    'swapHands': swapHands,
+    'sectionVisibility': sectionVisibility.name,
+  };
 
   factory PatternTrainerConfig.fromJson(Map<String, dynamic> json) => PatternTrainerConfig(
-        bpm: json['bpm'] as int? ?? 60,
-        difficulty: Difficulty.values.firstWhere(
-          (d) => d.name == json['difficulty'],
-          orElse: () => Difficulty.easy,
-        ),
-        numPatterns: json['numPatterns'] as int? ?? 5,
-        swapHands: json['swapHands'] as bool? ?? false,
-        sectionVisibility: SectionVisibility.values.firstWhere(
-          (v) => v.name == json['sectionVisibility'],
-          orElse: () => SectionVisibility.showAll,
-        ),
-      );
+    bpm: json['bpm'] as int? ?? 60,
+    difficulty: Difficulty.values.firstWhere(
+      (d) => d.name == json['difficulty'],
+      orElse: () => Difficulty.easy,
+    ),
+    numPatterns: json['numPatterns'] as int? ?? 5,
+    swapHands: json['swapHands'] as bool? ?? false,
+    sectionVisibility: SectionVisibility.values.firstWhere(
+      (v) => v.name == json['sectionVisibility'],
+      orElse: () => SectionVisibility.showAll,
+    ),
+  );
 }
 
 const _patternTrainerKey = 'config.pattern-trainer';

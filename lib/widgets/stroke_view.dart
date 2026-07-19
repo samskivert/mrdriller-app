@@ -76,7 +76,12 @@ class _StrokePainter extends CustomPainter {
       }
       final strokeWidth = stroke.accent ? 4.0 : 2.0;
       if (highlight) {
-        canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = color
+            ..style = PaintingStyle.fill,
+        );
       }
       canvas.drawPath(
         path,
@@ -91,7 +96,9 @@ class _StrokePainter extends CustomPainter {
     final center = Offset(half, half);
     final outerRadius = half - 1;
     final innerRadius = outerRadius - w / 8 - 1;
-    final fillPaint = Paint()..color = color..style = PaintingStyle.fill;
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
     final strokePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke

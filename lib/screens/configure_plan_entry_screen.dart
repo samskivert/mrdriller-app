@@ -6,14 +6,8 @@ import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
-import '../widgets/app_header.dart';
 import '../widgets/components.dart';
-
-String _formatDuration(double seconds) {
-  final mins = seconds ~/ 60;
-  final secs = (seconds % 60).round();
-  return '${mins}m ${secs.toString().padLeft(2, '0')}s';
-}
+import '../widgets/screen_scaffold.dart';
 
 /// A [TableRow] pairing a left-aligned label with a field, for a form where every label lines up
 /// in its own column regardless of how long the other labels in the table are.
@@ -22,10 +16,7 @@ TableRow _fieldRow(String label, Widget field) {
     children: [
       Padding(
         padding: const EdgeInsets.only(right: 12, bottom: 12),
-        child: Text(
-          '$label:',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
+        child: Text('$label:', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
       ),
       Padding(padding: const EdgeInsets.only(bottom: 12), child: field),
     ],
@@ -56,8 +47,7 @@ class ConfigurePlanEntryScreen extends StatefulWidget {
   });
 
   @override
-  State<ConfigurePlanEntryScreen> createState() =>
-      _ConfigurePlanEntryScreenState();
+  State<ConfigurePlanEntryScreen> createState() => _ConfigurePlanEntryScreenState();
 }
 
 class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
@@ -67,12 +57,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
 
   bool get _isEditing => widget.editIndex != null;
 
-  Drill? get _drill {
-    for (final d in data.drills) {
-      if (d.id == widget.drillId) return d;
-    }
-    return null;
-  }
+  Drill? get _drill => data.findDrillById(widget.drillId);
 
   @override
   void initState() {
@@ -83,19 +68,13 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
   }
 
   void _returnToPlan() {
-    Navigator.of(
-      context,
-    ).popUntil((route) => route.settings.name == '/practice-plan');
+    Navigator.of(context).popUntil((route) => route.settings.name == '/practice-plan');
   }
 
   void _save() {
     final entry = PracticePlanEntry(
       drillId: widget.drillId,
-      config: DrillConfig(
-        bpm: _bpm,
-        bpmIncrease: _bpmIncrease,
-        drillRepeat: _drillRepeat,
-      ),
+      config: DrillConfig(bpm: _bpm, bpmIncrease: _bpmIncrease, drillRepeat: _drillRepeat),
     );
     if (_isEditing) {
       practicePlan.updateAt(widget.editIndex!, entry);
@@ -134,7 +113,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
     final drill = _drill;
     final duration = drill == null
         ? null
-        : _formatDuration(
+        : formatDrillDuration(
             computeDrillDuration(
               drill,
               _bpm,
@@ -144,136 +123,93 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
             ),
           );
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: AppHeader(title: widget.drillTitle, showSettings: false),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Table(
-                            defaultVerticalAlignment:
-                                TableCellVerticalAlignment.middle,
-                            columnWidths: const {
-                              0: IntrinsicColumnWidth(),
-                              1: IntrinsicColumnWidth(),
-                            },
-                            children: [
-                              _fieldRow(
-                                'BPM',
-                                NumberInputField(
-                                  label: 'BPM',
-                                  showLabel: false,
-                                  value: _bpm,
-                                  onChanged: (v) => setState(() => _bpm = v),
-                                  min: 30,
-                                  max: maxBpm,
-                                  width: 60,
-                                ),
-                              ),
-                              _fieldRow(
-                                'Increase',
-                                NumberInputField(
-                                  label: 'Increase',
-                                  showLabel: false,
-                                  value: _bpmIncrease,
-                                  onChanged: (v) =>
-                                      setState(() => _bpmIncrease = v),
-                                  min: 0,
-                                  max: 50,
-                                  width: 70,
-                                ),
-                              ),
-                              _fieldRow(
-                                'Repeat',
-                                NumberInputField(
-                                  label: 'Repeat',
-                                  showLabel: false,
-                                  value: _drillRepeat,
-                                  onChanged: (v) =>
-                                      setState(() => _drillRepeat = v),
-                                  min: 1,
-                                  max: 10,
-                                  width: 60,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (duration != null) ...[
-                          const SizedBox(height: 16),
-                          Center(
-                            child: Text(
-                              duration,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textGray,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _isEditing
-                                  ? OutlinedButton(
-                                      onPressed: _confirmDelete,
-                                      style: OutlinedButton.styleFrom(
-                                        minimumSize: const Size.fromHeight(48),
-                                        foregroundColor: AppColors.btnRed,
-                                        side: BorderSide(
-                                          color: AppColors.btnRed,
-                                        ),
-                                      ),
-                                      child: const Text('Delete'),
-                                    )
-                                  : OutlinedButton(
-                                      onPressed: _returnToPlan,
-                                      style: OutlinedButton.styleFrom(
-                                        minimumSize: const Size.fromHeight(48),
-                                      ),
-                                      child: const Text('Cancel'),
-                                    ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: _save,
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(48),
-                                  backgroundColor: AppColors.btnGreen,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: Text(
-                                  _isEditing ? 'Save' : 'Add to Plan',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+    return ScreenScaffold(
+      title: widget.drillTitle,
+      showSettings: false,
+      contentMaxWidth: 480,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              columnWidths: const {0: IntrinsicColumnWidth(), 1: IntrinsicColumnWidth()},
+              children: [
+                _fieldRow(
+                  bpmFieldLabel,
+                  bpmField(
+                    value: _bpm,
+                    onChanged: (v) => setState(() => _bpm = v),
+                    showLabel: false,
                   ),
+                ),
+                _fieldRow(
+                  bpmIncreaseFieldLabel,
+                  bpmIncreaseField(
+                    value: _bpmIncrease,
+                    onChanged: (v) => setState(() => _bpmIncrease = v),
+                    showLabel: false,
+                  ),
+                ),
+                _fieldRow(
+                  drillRepeatFieldLabel,
+                  drillRepeatField(
+                    value: _drillRepeat,
+                    onChanged: (v) => setState(() => _drillRepeat = v),
+                    showLabel: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (duration != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Text(
+                duration,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textGray,
                 ),
               ),
             ),
           ],
-        ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _isEditing
+                    ? OutlinedButton(
+                        onPressed: _confirmDelete,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          foregroundColor: AppColors.btnRed,
+                          side: BorderSide(color: AppColors.btnRed),
+                        ),
+                        child: const Text('Delete'),
+                      )
+                    : OutlinedButton(
+                        onPressed: _returnToPlan,
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                        child: const Text('Cancel'),
+                      ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _save,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    backgroundColor: AppColors.btnGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(_isEditing ? 'Save' : 'Add to Plan'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

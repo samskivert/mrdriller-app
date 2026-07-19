@@ -4,16 +4,10 @@ import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
-import '../widgets/app_header.dart';
 import '../widgets/components.dart';
 import '../widgets/drill_overview_view.dart';
+import '../widgets/screen_scaffold.dart';
 import 'drill_practice_screen.dart';
-
-String _formatDuration(double seconds) {
-  final mins = seconds ~/ 60;
-  final secs = (seconds % 60).round();
-  return '${mins}m ${secs.toString().padLeft(2, '0')}s';
-}
 
 /// The overview/config screen: a static preview of the drill plus the bpm/repeat/swap-hands
 /// controls. Pressing Start hands off to [DrillPracticeScreen] for the actual practice session.
@@ -39,8 +33,7 @@ class _DrillScreenState extends State<DrillScreen> {
   bool? _cachedActiveDrillSwapFlag;
 
   Drill _activeDrillFor(Drill drill) {
-    if (_cachedActiveDrill != null &&
-        _cachedActiveDrillSwapFlag == _swapHandsEnabled) {
+    if (_cachedActiveDrill != null && _cachedActiveDrillSwapFlag == _swapHandsEnabled) {
       return _cachedActiveDrill!;
     }
     final result = _swapHandsEnabled ? swapHands(drill) : drill;
@@ -65,11 +58,7 @@ class _DrillScreenState extends State<DrillScreen> {
   void _saveConfig() {
     saveDrillConfig(
       widget.drill.id,
-      DrillConfig(
-        bpm: _bpm,
-        bpmIncrease: _bpmIncrease,
-        drillRepeat: _drillRepeat,
-      ),
+      DrillConfig(bpm: _bpm, bpmIncrease: _bpmIncrease, drillRepeat: _drillRepeat),
     );
   }
 
@@ -91,57 +80,38 @@ class _DrillScreenState extends State<DrillScreen> {
     final drill = widget.drill;
     final activeDrill = _activeDrillFor(drill);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: AppHeader(title: drill.title),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _DrillControls(
-                          drill: drill,
-                          bpm: _bpm,
-                          onBpmChanged: (v) => setState(() {
-                            _bpm = v;
-                            _saveConfig();
-                          }),
-                          bpmIncrease: _bpmIncrease,
-                          onBpmIncreaseChanged: (v) => setState(() {
-                            _bpmIncrease = v;
-                            _saveConfig();
-                          }),
-                          drillRepeat: _drillRepeat,
-                          onDrillRepeatChanged: (v) => setState(() {
-                            _drillRepeat = v;
-                            _saveConfig();
-                          }),
-                          swapHands: _swapHandsEnabled,
-                          onSwapHandsChanged: (v) =>
-                              setState(() => _swapHandsEnabled = v),
-                          onStart: _handleStart,
-                        ),
-                        const SizedBox(height: 24),
-                        DrillOverviewView(drill: activeDrill),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+    return ScreenScaffold(
+      title: drill.title,
+      contentMaxWidth: 1200,
+      contentPadding: EdgeInsets.zero,
+      contentAlignment: Alignment.topCenter,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _DrillControls(
+            drill: drill,
+            bpm: _bpm,
+            onBpmChanged: (v) => setState(() {
+              _bpm = v;
+              _saveConfig();
+            }),
+            bpmIncrease: _bpmIncrease,
+            onBpmIncreaseChanged: (v) => setState(() {
+              _bpmIncrease = v;
+              _saveConfig();
+            }),
+            drillRepeat: _drillRepeat,
+            onDrillRepeatChanged: (v) => setState(() {
+              _drillRepeat = v;
+              _saveConfig();
+            }),
+            swapHands: _swapHandsEnabled,
+            onSwapHandsChanged: (v) => setState(() => _swapHandsEnabled = v),
+            onStart: _handleStart,
+          ),
+          const SizedBox(height: 24),
+          DrillOverviewView(drill: activeDrill),
+        ],
       ),
     );
   }
@@ -174,7 +144,7 @@ class _DrillControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = _formatDuration(
+    final duration = formatDrillDuration(
       computeDrillDuration(
         drill,
         bpm,
@@ -190,30 +160,9 @@ class _DrillControls extends StatelessWidget {
       spacing: 12,
       runSpacing: 12,
       children: [
-        NumberInputField(
-          label: 'BPM',
-          value: bpm,
-          onChanged: onBpmChanged,
-          min: 30,
-          max: maxBpm,
-          width: 60,
-        ),
-        NumberInputField(
-          label: 'Increase',
-          value: bpmIncrease,
-          onChanged: onBpmIncreaseChanged,
-          min: 0,
-          max: 50,
-          width: 70,
-        ),
-        NumberInputField(
-          label: 'Repeat',
-          value: drillRepeat,
-          onChanged: onDrillRepeatChanged,
-          min: 1,
-          max: 10,
-          width: 60,
-        ),
+        bpmField(value: bpm, onChanged: onBpmChanged),
+        bpmIncreaseField(value: bpmIncrease, onChanged: onBpmIncreaseChanged),
+        drillRepeatField(value: drillRepeat, onChanged: onDrillRepeatChanged),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -223,11 +172,7 @@ class _DrillControls extends StatelessWidget {
         ),
         Text(
           duration,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGray,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textGray),
         ),
         ElevatedButton(
           onPressed: onStart,

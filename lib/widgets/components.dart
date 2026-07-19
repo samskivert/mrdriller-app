@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../model/model.dart';
 import '../util/colors.dart';
 
 /// A small hollow circle shown in place of a whole empty beat slot in a measure.
@@ -20,10 +21,7 @@ class EmptyBeatPlaceholder extends StatelessWidget {
           height: size / 2,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.black.withValues(alpha: 0.10),
-              width: 2,
-            ),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.10), width: 2),
           ),
         ),
       ),
@@ -49,9 +47,7 @@ class HighlightedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: minHeight != null
-          ? BoxConstraints(minHeight: minHeight!)
-          : null,
+      constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
       padding: const EdgeInsets.all(12),
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -81,8 +77,7 @@ class CenteredContainer extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final c in children)
-              Padding(padding: const EdgeInsets.only(bottom: 16), child: c),
+            for (final c in children) Padding(padding: const EdgeInsets.only(bottom: 16), child: c),
           ],
         ),
       ),
@@ -150,9 +145,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
   }
 
   void _commit() {
-    final n =
-        int.tryParse(_controller.text)?.clamp(widget.min, widget.max) ??
-        widget.value;
+    final n = int.tryParse(_controller.text)?.clamp(widget.min, widget.max) ?? widget.value;
     _controller.text = '$n';
     if (n != widget.value) widget.onChanged(n);
   }
@@ -186,13 +179,8 @@ class _NumberInputFieldState extends State<NumberInputField> {
             onChanged: _handleTextChanged,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
             ),
             onSubmitted: (_) => _commit(),
           ),
@@ -201,6 +189,55 @@ class _NumberInputFieldState extends State<NumberInputField> {
     );
   }
 }
+
+// The bpm/bpm-increase/repeat-count fields a drill is configured with, shared by the drill
+// overview screen and the practice-plan entry screen (each lays them out differently, but the
+// labels/ranges/widths -- easy to let drift out of sync if hand-copied -- stay defined once).
+const bpmFieldLabel = 'BPM';
+const bpmIncreaseFieldLabel = 'Increase';
+const drillRepeatFieldLabel = 'Repeat';
+
+NumberInputField bpmField({
+  required int value,
+  required ValueChanged<int> onChanged,
+  bool showLabel = true,
+}) => NumberInputField(
+  label: bpmFieldLabel,
+  showLabel: showLabel,
+  value: value,
+  onChanged: onChanged,
+  min: 30,
+  max: maxBpm,
+  width: 60,
+);
+
+NumberInputField bpmIncreaseField({
+  required int value,
+  required ValueChanged<int> onChanged,
+  bool showLabel = true,
+}) => NumberInputField(
+  label: bpmIncreaseFieldLabel,
+  showLabel: showLabel,
+  value: value,
+  onChanged: onChanged,
+  min: 0,
+  max: 50,
+  width: 50,
+);
+
+NumberInputField drillRepeatField({
+  required int value,
+  required ValueChanged<int> onChanged,
+  bool showLabel = true,
+}) => NumberInputField(
+  label: drillRepeatFieldLabel,
+  showLabel: showLabel,
+  value: value,
+  onChanged: onChanged,
+  min: 1,
+  max: 10,
+  width: 50,
+);
 
 /// A row of fixed-size circles indicating repeat progress: [filled] of [total] are solid, the
 /// rest are just outlined. Both states use the exact same box size (diameter + border width) so
@@ -277,10 +314,7 @@ class SectionHeader extends StatelessWidget {
         if (label != null && label!.isNotEmpty)
           Text(
             label!,
-            style: TextStyle(
-              fontSize: labelFontSize,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: labelFontSize, fontWeight: FontWeight.bold),
           ),
         if (hasRepeatDots)
           RepeatDots(
@@ -314,14 +348,11 @@ class ActivityGrid extends StatelessWidget {
       builder: (context, constraints) {
         const gap = 16.0;
         final columns = constraints.maxWidth >= 340 ? 2 : 1;
-        final itemWidth =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
+        final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
-          children: [
-            for (final item in items) SizedBox(width: itemWidth, child: item),
-          ],
+          children: [for (final item in items) SizedBox(width: itemWidth, child: item)],
         );
       },
     );
@@ -374,9 +405,7 @@ class CountdownSection extends StatelessWidget {
     final measureIndex = beat ~/ beatsPerMeasure;
     final text = !intro
         ? (preText ?? 'Get ready...')
-        : (measureIndex >= introText.length
-              ? introText.last
-              : introText[measureIndex]);
+        : (measureIndex >= introText.length ? introText.last : introText[measureIndex]);
     return HighlightedCard(
       isHighlighted: intro,
       minHeight: 100,

@@ -10,12 +10,7 @@ class AppHeader extends StatelessWidget {
   // separate space for both.
   final Widget? trailing;
 
-  const AppHeader({
-    super.key,
-    required this.title,
-    this.showSettings = true,
-    this.trailing,
-  });
+  const AppHeader({super.key, required this.title, this.showSettings = true, this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -30,9 +25,7 @@ class AppHeader extends StatelessWidget {
           child: Text(
             title,
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             overflow: TextOverflow.ellipsis,
           ),
         ),
