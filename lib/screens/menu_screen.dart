@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
+import '../state/app_info.dart';
 import '../util/colors.dart';
 import '../widgets/components.dart';
 
@@ -16,8 +17,9 @@ class MenuScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            return constraints.maxWidth >= 1024
-                ? _DesktopMenu(maxWidth: constraints.maxWidth)
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
+            return constraints.maxWidth >= 1024 || isLandscape
+                ? _DesktopMenu(maxWidth: constraints.maxWidth, maxHeight: constraints.maxHeight)
                 : const _CompactMenu();
           },
         ),
@@ -30,15 +32,22 @@ ActivityButton buildNavButton(BuildContext context, String title, String route) 
   return ActivityButton(title: title, onTap: () => Navigator.of(context).pushNamed(route));
 }
 
-/// The desktop/wide layout: the character artwork is on the left side of the screen and the app
-/// title and menu items are on the right.
+/// The desktop/wide (or phone-landscape) layout: the character artwork is on the left side of the
+/// screen and the app title and menu items are on the right.
 class _DesktopMenu extends StatelessWidget {
   final double maxWidth;
+  final double maxHeight;
 
-  const _DesktopMenu({required this.maxWidth});
+  const _DesktopMenu({required this.maxWidth, required this.maxHeight});
 
   @override
   Widget build(BuildContext context) {
+    // The artwork is naturally 512x768 -- shown at its native size on a spacious desktop window,
+    // but scaled down to fit the available height on a short landscape phone, where 768 of height
+    // is far more than there is room for.
+    final imageHeight = maxHeight < 768 ? maxHeight : 768.0;
+    final imageWidth = imageHeight * (512 / 768);
+
     final content = SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Center(
@@ -67,12 +76,7 @@ class _DesktopMenu extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Center(
-                child: Text(
-                  'Mr. Driller · Flutter Edition',
-                  style: TextStyle(fontSize: 11, color: Colors.black.withValues(alpha: 0.35)),
-                ),
-              ),
+              const Center(child: _FooterText()),
             ],
           ),
         ),
@@ -81,9 +85,14 @@ class _DesktopMenu extends StatelessWidget {
     return Stack(
       children: [
         Positioned(
-          left: maxWidth * 0.25 - 256,
+          left: maxWidth * 0.25 - imageWidth / 2,
           top: 0,
-          child: Image.asset('assets/images/mrdriller.png', width: 512, fit: BoxFit.fitWidth),
+          child: Image.asset(
+            'assets/images/mrdriller.png',
+            width: imageWidth,
+            height: imageHeight,
+            fit: BoxFit.fitWidth,
+          ),
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -124,6 +133,8 @@ class _CompactMenu extends StatelessWidget {
                       buildNavButton(context, tool.title, '/tool/${tool.id}'),
                     const SizedBox(height: 16),
                     buildNavButton(context, 'Practice Plan', '/practice-plan'),
+                    const SizedBox(height: 16),
+                    const Center(child: _FooterText()),
                   ],
                 ),
               ),
@@ -141,6 +152,18 @@ class _CompactMenu extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FooterText extends StatelessWidget {
+  const _FooterText();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Made with ❤️ by MDB • v$appVersion',
+      style: TextStyle(fontSize: 11, color: Colors.black.withValues(alpha: 0.65)),
     );
   }
 }

@@ -8,6 +8,7 @@ import 'screens/menu_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
 import 'screens/practice_plan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'state/app_info.dart';
 import 'state/practice_plan.dart';
 import 'state/settings.dart';
 
@@ -16,6 +17,7 @@ Future<void> main() async {
   usePathUrlStrategy();
   await settings.load();
   await practicePlan.load();
+  await loadAppInfo();
   runApp(const MrDrillerApp());
 }
 
