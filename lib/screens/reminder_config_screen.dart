@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../services/reminder_scheduler.dart';
 import '../state/reminders.dart';
 import '../util/colors.dart';
 import '../widgets/screen_scaffold.dart';
@@ -76,6 +79,7 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
     } else {
       reminders.add(reminder);
     }
+    unawaited(refreshScheduledReminders());
     _returnToPlan();
   }
 
@@ -100,6 +104,7 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
     );
     if (confirmed != true || !mounted) return;
     reminders.removeAt(widget.editIndex!);
+    unawaited(refreshScheduledReminders());
     _returnToPlan();
   }
 

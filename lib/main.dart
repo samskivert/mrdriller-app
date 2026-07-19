@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -8,6 +10,7 @@ import 'screens/menu_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
 import 'screens/practice_plan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/reminder_scheduler.dart';
 import 'state/app_info.dart';
 import 'state/practice_log.dart';
 import 'state/practice_plan.dart';
@@ -22,6 +25,9 @@ Future<void> main() async {
   await practiceLog.load();
   await reminders.load();
   await loadAppInfo();
+  // Not awaited -- this involves a native plugin round-trip and (on iOS/Android) a permission
+  // prompt, neither of which should delay the app's first frame.
+  unawaited(refreshScheduledReminders());
   runApp(const MrDrillerApp());
 }
 
