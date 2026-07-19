@@ -68,6 +68,14 @@ class PracticePlan extends ChangeNotifier {
     _save();
   }
 
+  void reorder(int oldIndex, int newIndex) {
+    final updated = [..._entries];
+    final entry = updated.removeAt(oldIndex);
+    updated.insert(newIndex, entry);
+    _entries = updated;
+    _save();
+  }
+
   void _save() {
     _prefs?.setString(_key, jsonEncode([for (final e in _entries) e.toJson()]));
     notifyListeners();

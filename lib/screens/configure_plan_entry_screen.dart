@@ -34,8 +34,10 @@ TableRow _fieldRow(String label, Widget field) {
 
 /// The last step of adding a drill to the practice plan (reached from
 /// [SelectDrillForPlanScreen]), or the sole screen for editing an existing entry in place: set the
-/// starting bpm/bpm-increase/repeat-count, then "Add to Plan" (or "Save", when editing) or
-/// "Cancel". The drill itself can't be changed here -- editing only ever touches the config.
+/// starting bpm/bpm-increase/repeat-count, then "Add to Plan" (or "Save", when editing). When
+/// adding, "Cancel" backs out without creating an entry; when editing, that slot is instead a
+/// "Delete" button (with a confirmation) that removes the entry from the plan. The drill itself
+/// can't be changed here -- editing only ever touches the config.
 ///
 /// [editIndex]/[initialConfig] being non-null means this is editing an existing entry rather than
 /// adding a new one.
@@ -100,6 +102,30 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
     } else {
       practicePlan.add(entry);
     }
+    _returnToPlan();
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Drill?'),
+        content: Text('Remove "${widget.drillTitle}" from your practice plan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.btnRed),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    practicePlan.removeAt(widget.editIndex!);
     _returnToPlan();
   }
 
@@ -204,13 +230,25 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: OutlinedButton(
-                                onPressed: _returnToPlan,
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(48),
-                                ),
-                                child: const Text('Cancel'),
-                              ),
+                              child: _isEditing
+                                  ? OutlinedButton(
+                                      onPressed: _confirmDelete,
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                        foregroundColor: AppColors.btnRed,
+                                        side: BorderSide(
+                                          color: AppColors.btnRed,
+                                        ),
+                                      ),
+                                      child: const Text('Delete'),
+                                    )
+                                  : OutlinedButton(
+                                      onPressed: _returnToPlan,
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size.fromHeight(48),
+                                      ),
+                                      child: const Text('Cancel'),
+                                    ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(

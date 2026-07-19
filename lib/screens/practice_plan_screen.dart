@@ -9,9 +9,10 @@ import '../widgets/components.dart';
 import 'configure_plan_entry_screen.dart';
 import 'select_drill_for_plan_screen.dart';
 
-/// Lists the drills in the user's practice plan, each with Edit/Delete actions, plus a button to
-/// add another drill. Creation and editing only for now -- actually running the plan is a
-/// follow-up feature.
+/// Lists the drills in the user's practice plan (drag the handle to reorder), each with an Edit
+/// action -- deleting an entry happens from the edit screen, not here -- plus a button to add
+/// another drill. Creation and editing only for now -- actually running the plan is a follow-up
+/// feature.
 class PracticePlanScreen extends StatelessWidget {
   const PracticePlanScreen({super.key});
 
@@ -61,26 +62,50 @@ class PracticePlanScreen extends StatelessWidget {
                                 ),
                               )
                             else
-                              for (var i = 0; i < entries.length; i++) ...[
-                                if (i > 0) const SizedBox(height: 12),
-                                _PlanEntryTile(
-                                  title: _titleFor(entries[i].drillId),
-                                  config: entries[i].config,
-                                  onEdit: () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => ConfigurePlanEntryScreen(
-                                        drillId: entries[i].drillId,
-                                        drillTitle: _titleFor(
-                                          entries[i].drillId,
+                              ReorderableListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                // The default drag handle only shows up on desktop platforms --
+                                // on iOS/Android there'd be no visible affordance at all (just an
+                                // undiscoverable long-press-anywhere gesture). An explicit handle
+                                // works the same, visibly, everywhere.
+                                buildDefaultDragHandles: false,
+                                itemCount: entries.length,
+                                onReorderItem: practicePlan.reorder,
+                                itemBuilder: (context, i) {
+                                  final entry = entries[i];
+                                  return Padding(
+                                    key: ObjectKey(entry),
+                                    padding: EdgeInsets.only(
+                                      bottom: i == entries.length - 1 ? 0 : 12,
+                                    ),
+                                    child: _PlanEntryTile(
+                                      title: _titleFor(entry.drillId),
+                                      config: entry.config,
+                                      dragHandle: ReorderableDragStartListener(
+                                        index: i,
+                                        child: Icon(
+                                          Icons.drag_handle,
+                                          color: AppColors.textGray,
                                         ),
-                                        initialConfig: entries[i].config,
-                                        editIndex: i,
+                                      ),
+                                      onEdit: () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              ConfigurePlanEntryScreen(
+                                                drillId: entry.drillId,
+                                                drillTitle: _titleFor(
+                                                  entry.drillId,
+                                                ),
+                                                initialConfig: entry.config,
+                                                editIndex: i,
+                                              ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  onDelete: () => practicePlan.removeAt(i),
-                                ),
-                              ],
+                                  );
+                                },
+                              ),
                             const SizedBox(height: 24),
                             ElevatedButton.icon(
                               onPressed: () => Navigator.of(context).push(
@@ -115,14 +140,14 @@ class PracticePlanScreen extends StatelessWidget {
 class _PlanEntryTile extends StatelessWidget {
   final String title;
   final DrillConfig config;
+  final Widget dragHandle;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
 
   const _PlanEntryTile({
     required this.title,
     required this.config,
+    required this.dragHandle,
     required this.onEdit,
-    required this.onDelete,
   });
 
   @override
@@ -131,6 +156,8 @@ class _PlanEntryTile extends StatelessWidget {
       isHighlighted: false,
       child: Row(
         children: [
+          dragHandle,
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +171,7 @@ class _PlanEntryTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${config.bpm} BPM'
+                  '${config.bpm} bpm'
                   '${config.bpmIncrease > 0 ? ' +${config.bpmIncrease}' : ''}'
                   ' · x${config.drillRepeat}',
                   style: TextStyle(color: AppColors.textGray, fontSize: 13),
@@ -156,11 +183,6 @@ class _PlanEntryTile extends StatelessWidget {
             onPressed: onEdit,
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit',
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Delete',
           ),
         ],
       ),
