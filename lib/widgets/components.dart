@@ -90,10 +90,13 @@ class CenteredContainer extends StatelessWidget {
   }
 }
 
-/// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc). Min/max clamping only
-/// happens once the field loses focus (or on submit) -- not on every keystroke -- so typing a new
-/// value doesn't get fought over while it's still passing through invalid/out-of-range
-/// intermediate states (e.g. clearing "60" to type "45" reads as empty, then "4", then "45").
+/// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc). The displayed text is
+/// only rewritten/clamped once the field loses focus (or on submit) -- not on every keystroke --
+/// so typing a new value doesn't get fought over while it's still passing through invalid/
+/// out-of-range intermediate states (e.g. clearing "60" to type "45" reads as empty, then "4",
+/// then "45"). The parent's value is still kept live as each keystroke parses to a valid number,
+/// though, so a button pressed without first blurring the field (e.g. tapping "Save" right after
+/// typing) still sees the just-typed value rather than a stale one.
 class NumberInputField extends StatefulWidget {
   final String label;
   final int value;
@@ -101,6 +104,9 @@ class NumberInputField extends StatefulWidget {
   final int min;
   final int max;
   final double width;
+  // Set to false when the caller renders the label itself (e.g. in its own aligned column of a
+  // form layout) rather than inline next to the input box.
+  final bool showLabel;
 
   const NumberInputField({
     super.key,
@@ -110,6 +116,7 @@ class NumberInputField extends StatefulWidget {
     required this.min,
     required this.max,
     this.width = 60,
+    this.showLabel = true,
   });
 
   @override
@@ -134,6 +141,14 @@ class _NumberInputFieldState extends State<NumberInputField> {
     if (!_focusNode.hasFocus) _commit();
   }
 
+  // Keeps the parent's value live as each keystroke parses to a valid number, without touching
+  // the displayed text -- so a button tapped right after typing (with no intervening blur, e.g.
+  // "Save" pressed straight away) still sees the just-typed value rather than a stale one.
+  void _handleTextChanged(String text) {
+    final n = int.tryParse(text)?.clamp(widget.min, widget.max);
+    if (n != null && n != widget.value) widget.onChanged(n);
+  }
+
   void _commit() {
     final n =
         int.tryParse(_controller.text)?.clamp(widget.min, widget.max) ??
@@ -154,10 +169,11 @@ class _NumberInputFieldState extends State<NumberInputField> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          '${widget.label}: ',
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-        ),
+        if (widget.showLabel)
+          Text(
+            '${widget.label}: ',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
         SizedBox(
           width: widget.width,
           height: 40,
@@ -167,6 +183,7 @@ class _NumberInputFieldState extends State<NumberInputField> {
             textAlign: TextAlign.center,
             textAlignVertical: TextAlignVertical.center,
             keyboardType: TextInputType.number,
+            onChanged: _handleTextChanged,
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -281,6 +298,56 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// A responsive grid of [ActivityButton]s: two columns above 340px wide, one column below that.
+class ActivityGrid extends StatelessWidget {
+  final List<Widget> items;
+
+  const ActivityGrid({super.key, required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 16.0;
+        final columns = constraints.maxWidth >= 340 ? 2 : 1;
+        final itemWidth =
+            (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final item in items) SizedBox(width: itemWidth, child: item),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// A big, tappable menu entry (a drill, a tool, an activity-list link).
+class ActivityButton extends StatelessWidget {
+  final String title;
+  final VoidCallback onTap;
+
+  const ActivityButton({super.key, required this.title, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size.fromHeight(48),
+        backgroundColor: AppColors.btnBlue,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+      ),
+      child: Text(title, textAlign: TextAlign.center),
     );
   }
 }

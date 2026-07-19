@@ -9,7 +9,12 @@ class _SettingRow extends StatelessWidget {
   final bool checked;
   final ValueChanged<bool> onChanged;
 
-  const _SettingRow({required this.label, required this.description, required this.checked, required this.onChanged});
+  const _SettingRow({
+    required this.label,
+    required this.description,
+    required this.checked,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +27,10 @@ class _SettingRow extends StatelessWidget {
             children: [
               Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: 4),
-              Text(description, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+              Text(
+                description,
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
             ],
           ),
         ),
@@ -51,6 +59,7 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 480),

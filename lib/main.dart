@@ -3,16 +3,20 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 
 import 'data/drills.dart' as data;
 import 'model/model.dart';
+import 'screens/drill_menu_screen.dart';
 import 'screens/drill_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
+import 'screens/practice_plan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'state/practice_plan.dart';
 import 'state/settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
   await settings.load();
+  await practicePlan.load();
   runApp(const MrDrillerApp());
 }
 
@@ -51,6 +55,12 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
       builder: (_) => const SettingsScreen(),
     );
   }
+  if (segments[0] == 'drills') {
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => const DrillMenuScreen(),
+    );
+  }
   if (segments[0] == 'drill' && segments.length > 1) {
     final id = segments[1];
     Drill? drill;
@@ -67,6 +77,12 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
         builder: (_) => DrillScreen(drill: resolvedDrill),
       );
     }
+  }
+  if (segments[0] == 'practice-plan') {
+    return MaterialPageRoute(
+      settings: routeSettings,
+      builder: (_) => const PracticePlanScreen(),
+    );
   }
   if (segments[0] == 'tool' && segments.length > 1) {
     final id = segments[1];
