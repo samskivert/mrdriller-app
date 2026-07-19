@@ -11,6 +11,7 @@ import 'screens/settings_screen.dart';
 import 'state/app_info.dart';
 import 'state/practice_log.dart';
 import 'state/practice_plan.dart';
+import 'state/reminders.dart';
 import 'state/settings.dart';
 
 Future<void> main() async {
@@ -19,6 +20,7 @@ Future<void> main() async {
   await settings.load();
   await practicePlan.load();
   await practiceLog.load();
+  await reminders.load();
   await loadAppInfo();
   runApp(const MrDrillerApp());
 }

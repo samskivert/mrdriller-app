@@ -4,6 +4,7 @@ import '../data/drills.dart' as data;
 import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
+import '../state/reminders.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/components.dart';
@@ -11,6 +12,7 @@ import '../widgets/screen_scaffold.dart';
 import 'configure_plan_entry_screen.dart';
 import 'daily_practice_screen.dart';
 import 'practice_log_screen.dart';
+import 'reminder_config_screen.dart';
 import 'select_drill_for_plan_screen.dart';
 
 /// Lists the drills in the user's practice plan (drag the handle to reorder), each with an Edit
@@ -140,6 +142,60 @@ class PracticePlanScreen extends StatelessWidget {
                 icon: const Icon(Icons.add),
                 label: const Text('Add Drill'),
               ),
+              const SizedBox(height: 32),
+              const Text(
+                'Daily Reminders',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 12),
+              AnimatedBuilder(
+                animation: reminders,
+                builder: (context, _) {
+                  final reminderEntries = reminders.entries;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (reminderEntries.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'No reminders set up yet.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.black.withValues(alpha: 0.5)),
+                          ),
+                        )
+                      else
+                        for (var i = 0; i < reminderEntries.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 12),
+                          _ReminderTile(
+                            reminder: reminderEntries[i],
+                            onEdit: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ReminderConfigScreen(
+                                  initialReminder: reminderEntries[i],
+                                  editIndex: i,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).push(MaterialPageRoute(builder: (_) => const ReminderConfigScreen())),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          backgroundColor: AppColors.btnBlue,
+                          foregroundColor: Colors.white,
+                        ),
+                        icon: const Icon(Icons.add_alarm),
+                        label: const Text('Add Reminder'),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           );
         },
@@ -181,6 +237,54 @@ class _PlanEntryTile extends StatelessWidget {
                   '${formatBpmSummary(config.bpm, config.bpmIncrease)} · x${config.drillRepeat}'
                   '${config.swapHands ? ' · R↔︎L' : ''}'
                   '${duration != null ? ' · $duration' : ''}',
+                  style: TextStyle(color: AppColors.textGray, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined), tooltip: 'Edit'),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReminderTile extends StatelessWidget {
+  final ReminderConfig reminder;
+  final VoidCallback onEdit;
+
+  const _ReminderTile({required this.reminder, required this.onEdit});
+
+  String get _daysSummary {
+    final days = reminder.days;
+    if (days.length == 7) return 'Every day';
+    if (days.length == 5 && days.containsAll(const [1, 2, 3, 4, 5])) return 'Weekdays';
+    if (days.length == 2 && days.containsAll(const [6, 7])) return 'Weekends';
+    return [
+      for (final d in allWeekdays)
+        if (days.contains(d)) weekdayAbbreviation(d),
+    ].join(', ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HighlightedCard(
+      isHighlighted: false,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${reminder.timeOfDay.format(context)} · $_daysSummary',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reminder.message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: AppColors.textGray, fontSize: 13),
                 ),
               ],
