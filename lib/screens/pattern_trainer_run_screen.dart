@@ -7,8 +7,8 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
+import '../widgets/app_header.dart';
 import '../widgets/components.dart';
-import '../widgets/screen_scaffold.dart';
 import '../widgets/section_view.dart';
 
 enum _Mode { listen, repeat }
@@ -394,40 +394,81 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
   Widget build(BuildContext context) {
     final isCompactLandscape = _isCompactLandscape(context);
 
-    return ScreenScaffold(
-      title: 'Pattern Trainer',
-      showSettings: false,
-      contentMaxWidth: 900,
-      headerTrailing: isCompactLandscape ? _statusView(true) : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!isCompactLandscape) ...[_statusView(false), const SizedBox(height: 16)],
-          if (!_state.playing || _state.intro)
-            CountdownSection(
-              beat: _state.beat,
-              beatsPerMeasure: _beatsPerMeasure,
-              intro: _state.intro,
-            )
-          else if (_patterns.isNotEmpty && _state.pattern < _patterns.length) ...[
-            HighlightedCard(
-              isHighlighted: true,
-              minHeight: 100,
-              child: Center(
-                child: Text(
-                  _state.mode == _Mode.listen ? 'Listen' : 'Repeat',
-                  style: TextStyle(
-                    fontSize: 60,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.btnBlue,
+    // Deliberately not ScreenScaffold: its scrollable body hands the pattern's SectionView an
+    // unbounded height (a SingleChildScrollView always gives its child infinite height along the
+    // scroll axis), so it never had any reason to size itself to fit -- it just rendered as large
+    // as the width allowed and ran off the bottom of short landscape screens. Mirroring
+    // DrillPracticeHost's fixed, non-scrolling Expanded layout instead gives the content a real
+    // height budget to fill (and, via ClipRect below, to clip gracefully against if a pattern
+    // still doesn't quite fit -- same tradeoff drill_practice_view.dart makes).
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: AppHeader(
+                title: 'Pattern Trainer',
+                showSettings: false,
+                trailing: isCompactLandscape ? _statusView(true) : null,
+              ),
+            ),
+            if (!isCompactLandscape) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _statusView(false),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Expanded(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: ClipRect(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (!_state.playing || _state.intro)
+                            CountdownSection(
+                              beat: _state.beat,
+                              beatsPerMeasure: _beatsPerMeasure,
+                              intro: _state.intro,
+                            )
+                          else if (_patterns.isNotEmpty && _state.pattern < _patterns.length) ...[
+                            HighlightedCard(
+                              isHighlighted: true,
+                              minHeight: 100,
+                              child: Center(
+                                child: Text(
+                                  _state.mode == _Mode.listen ? 'Listen' : 'Repeat',
+                                  style: TextStyle(
+                                    fontSize: 60,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.btnBlue,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (_visibilityOk)
+                              _mkPatternView(_patterns[_state.pattern], _state.pattern),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            if (_visibilityOk) _mkPatternView(_patterns[_state.pattern], _state.pattern),
           ],
-        ],
+        ),
       ),
     );
   }
