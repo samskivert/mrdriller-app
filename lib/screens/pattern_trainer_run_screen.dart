@@ -194,7 +194,9 @@ String _difficultyLabel(Difficulty difficulty) {
 /// Runs an active pattern-trainer session at the given [config]: generates [config.numPatterns]
 /// random patterns up front, then plays through them one at a time (an intro count-in, then
 /// listen/repeat for each), starting automatically as soon as this screen appears. Pops back to
-/// [PatternTrainerScreen] the moment every pattern is done, or when the user taps Stop.
+/// [PatternTrainerScreen] the moment every pattern is done. There's no dedicated stop affordance --
+/// the header's back button already abandons the session -- but Pause/Resume halts the metronome
+/// (and its beat sounds) in place without losing progress.
 class PatternTrainerRunScreen extends StatefulWidget {
   final PatternTrainerConfig config;
 
@@ -212,7 +214,7 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
   late final _metronome = Metronome(onDue: _handleBeatsDue);
 
   // Guards against the "finished" pop firing more than once (e.g. a beat tick arriving just as
-  // Stop is pressed).
+  // the last pattern completes).
   bool _finished = false;
 
   @override
@@ -223,6 +225,7 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
       for (var i = 0; i < widget.config.numPatterns; i++)
         _generatePattern(widget.config.difficulty, pool),
     ];
+    _metronome.addListener(_handleMetronomeActiveChanged);
     _sounds = MetronomeSounds();
     // Wait for the tones to finish loading before processing the very first beat -- otherwise
     // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
@@ -233,8 +236,16 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     });
   }
 
+  // Mirrors drill_practice_view.dart's _handleMetronomeActiveChanged: the metronome is the single
+  // source of truth for "is something actually happening right now", so pausing via the button
+  // (which pauses the metronome directly) silences sound with no extra plumbing needed.
+  void _handleMetronomeActiveChanged() {
+    if (!_metronome.isActive) _sounds?.pause();
+  }
+
   @override
   void dispose() {
+    _metronome.removeListener(_handleMetronomeActiveChanged);
     _metronome.dispose();
     _sounds?.dispose();
     super.dispose();
@@ -296,14 +307,6 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     _playStroke(strokeToPlay);
   }
 
-  void _handleStop() {
-    if (_finished) return;
-    _finished = true;
-    _metronome.stop();
-    _sounds?.pause();
-    Navigator.of(context).pop();
-  }
-
   bool get _visibilityOk {
     switch (widget.config.sectionVisibility) {
       case SectionVisibility.showAll:
@@ -333,31 +336,73 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     return SectionView(section: displayPattern, isHighlighted: isHighlighted, highlight: highlight);
   }
 
+  // Mirrors DrillPracticeHost's isCompactLandscape: short-and-wide, like a phone held sideways,
+  // as opposed to a desktop/web window that happens to be wider than tall but still has plenty of
+  // vertical room to spare. Only the former is cramped enough to be worth reclaiming the status
+  // row's height by folding it into the header instead.
+  bool _isCompactLandscape(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    return screenSize.width > screenSize.height && screenSize.height < 500;
+  }
+
+  Widget _statusView(bool compact) {
+    final patternNum = (_state.pattern + 1).clamp(1, widget.config.numPatterns);
+    final label =
+        '${_difficultyLabel(widget.config.difficulty)} - ${widget.config.bpm}bpm - '
+        '$patternNum / ${widget.config.numPatterns}';
+    return AnimatedBuilder(
+      animation: _metronome,
+      builder: (context, _) {
+        final paused = _metronome.isPaused;
+        final labelText = Text(
+          label,
+          style: TextStyle(
+            fontSize: compact ? 16 : 28,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textGray,
+          ),
+        );
+        final button = ElevatedButton(
+          onPressed: paused ? _metronome.resume : _metronome.pause,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: paused ? AppColors.btnGreen : AppColors.btnGray,
+            foregroundColor: Colors.white,
+            padding: compact ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4) : null,
+            minimumSize: compact ? Size.zero : null,
+            tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
+          ),
+          child: Text(paused ? 'Resume' : 'Pause'),
+        );
+        if (compact) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [labelText, const SizedBox(width: 12), button],
+          );
+        }
+        return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 8,
+          children: [labelText, button],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final patternNum = (_state.pattern + 1).clamp(1, widget.config.numPatterns);
-    final title =
-        '${widget.config.bpm} bpm - ${_difficultyLabel(widget.config.difficulty)} - '
-        '$patternNum of ${widget.config.numPatterns}';
+    final isCompactLandscape = _isCompactLandscape(context);
 
     return ScreenScaffold(
-      title: title,
+      title: 'Pattern Trainer',
       showSettings: false,
       contentMaxWidth: 900,
+      headerTrailing: isCompactLandscape ? _statusView(true) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: ElevatedButton(
-              onPressed: _handleStop,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.btnRed,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Stop'),
-            ),
-          ),
-          const SizedBox(height: 16),
+          if (!isCompactLandscape) ...[_statusView(false), const SizedBox(height: 16)],
           if (!_state.playing || _state.intro)
             CountdownSection(
               beat: _state.beat,
