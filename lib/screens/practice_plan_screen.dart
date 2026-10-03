@@ -235,7 +235,7 @@ class _PlanEntryTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '${formatBpmSummary(config.bpm, config.bpmIncrease)} · x${config.drillRepeat}'
-                  '${config.swapHands ? ' · R⇄L' : ''}'
+                  '${config.swapHands ? ' · R↔︎L' : ''}'
                   '${duration != null ? ' · $duration' : ''}',
                   style: TextStyle(color: AppColors.textGray, fontSize: 13),
                 ),

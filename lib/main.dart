@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -43,6 +44,10 @@ class MrDrillerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3E63DD)),
         scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
+        // On web, Flutter lazily downloads fallback fonts for glyphs the default font lacks,
+        // showing tofu until they arrive, so we bundle a subset covering our Japanese text.
+        // Native platforms use the system CJK fonts.
+        fontFamilyFallback: kIsWeb ? const ['NotoSansJP'] : null,
       ),
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,

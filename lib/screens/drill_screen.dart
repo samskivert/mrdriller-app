@@ -139,7 +139,7 @@ class _DrillControls extends StatelessWidget {
               value: config.swapHands,
               onChanged: (v) => onConfigChanged(config.copyWith(swapHands: v)),
             ),
-            const Text('L⇄R'),
+            const Text('L↔︎R'),
           ],
         ),
         Text(
