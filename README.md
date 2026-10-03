@@ -7,32 +7,37 @@ haven't tested that much.
 
 ## Building
 
-You need the [Flutter SDK](https://docs.flutter.dev/install) installed.
+You need the [Flutter SDK](https://docs.flutter.dev/install) installed. If you've never done
+Flutter dev before, then check out [their docs](https://docs.flutter.dev) and good luck!
 
-Then you can run it with `flutter run`. You need an Adroid emulator, iOS simulator, or a real
-device to run it on.
+You can run it for development in a number of ways. Run `flutter devices` to see what's available.
+On my machine, I can run:
 
-If you've never done Flutter dev before, then check out [their docs](https://docs.flutter.dev) and
-good luck!
+```sh
+flutter run -d chrome  # runs in web mode on local chrome instance
+flutter run -d macos   # runs a "native" macOS app in dev mode
+flutter run -d ios     # runs on my locally running iPhone simulator
+flutter run -d Pokekon # runs in dev mode on my actual iPhone
+```
 
 ### Nativel release build
 
 To install a release build to an iOS device:
 
-```
+```sh
 flutter build ios --release
 flutter install --release -d Pokekon
 ```
 
 To build an IPA for upload to the AppStore:
 
-```
+```sh
 flutter build ipa
 ```
 
 ### Web release build
 
-```
+```sh
 flutter build web --release --base-href /mrdriller/
 ```
 
