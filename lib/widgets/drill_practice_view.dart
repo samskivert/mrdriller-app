@@ -8,6 +8,7 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
+import '../util/colors.dart';
 import 'components.dart';
 import 'drill_status_view.dart';
 import 'section_view.dart';
@@ -46,6 +47,9 @@ const _notPlaying = _PState();
 
 const _scrollDuration = Duration(milliseconds: 400);
 const _scrollCurve = Curves.easeInOut;
+
+// Vertical space between the cards in the list.
+const double _gap = 16;
 
 /// Advances the drill state machine by exactly one tick (one sixteenth-note-ish subdivision).
 _PState _tick(_PState prev, Drill drill, int drillRepeatTarget, bool replayIntroOnBpmIncrease) {
@@ -284,10 +288,20 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   // already applied by the caller before it was ever handed to us), so unlike the overview screen
   // this only needs to be computed once.
   late final List<_FlatSection> _allSections = _flattenSections(widget.drill);
-  late final List<GlobalKey> _sectionKeys = [for (final _ in _allSections) GlobalKey()];
+
+  // The list shows every pass through the drill, one after another: [_sectionKeys] is indexed by
+  // [pass][flat section index], and [_interludeKeys] by pass, for the countdown/progress card that
+  // opens each pass.
+  late final List<List<GlobalKey>> _sectionKeys = [
+    for (var p = 0; p < widget.config.drillRepeat; p++) [for (final _ in _allSections) GlobalKey()],
+  ];
+  late final List<GlobalKey> _interludeKeys = [
+    for (var p = 0; p < widget.config.drillRepeat; p++) GlobalKey(),
+  ];
 
   final _scrollController = ScrollController();
-  double _lastSectionHeight = 0;
+  final _allDoneKey = GlobalKey();
+  double _tailHeight = 0;
 
   // Guards against onDone firing more than once (e.g. a beat tick arriving just as the drill
   // finishes).
@@ -415,44 +429,45 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     return idx >= 0 ? idx : 0;
   }
 
-  // Scrolls the now-current section to the top of the viewport (or, while the intro countdown is
-  // playing, back to the very top so the countdown shows), but only when that actually changed --
-  // a new section, the intro starting/ending, or the drill wrapping around -- not on every beat
-  // tick, which would keep restarting the animation.
+  // Scrolls the now-current card to the top of the viewport -- the interlude while its countdown
+  // plays, otherwise the current section of the current pass -- but only when that actually
+  // changed, not on every beat tick, which would keep restarting the animation.
   void _scrollIfMoved(_PState prev, _PState next) {
+    if (!next.playing) return;
     final prevIdx = _flatIndexOf(prev);
     final nextIdx = _flatIndexOf(next);
     if (prevIdx == nextIdx && prev.intro == next.intro && prev.drillRepeat == next.drillRepeat) {
       return;
     }
+    final key = next.intro
+        ? _interludeKeys[next.drillRepeat]
+        : _sectionKeys[next.drillRepeat][nextIdx];
     // Wait for this frame's layout so the target's position reflects the state just applied.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      if (next.intro) {
-        _scrollController.animateTo(0, duration: _scrollDuration, curve: _scrollCurve);
-      } else {
-        final target = _sectionKeys[nextIdx].currentContext;
-        if (target == null) return;
-        Scrollable.ensureVisible(
-          target,
-          alignment: 0,
-          duration: _scrollDuration,
-          curve: _scrollCurve,
-        );
-      }
+      if (!mounted) return;
+      final target = key.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        alignment: 0,
+        duration: _scrollDuration,
+        curve: _scrollCurve,
+      );
     });
   }
 
-  // Keeps [_lastSectionHeight] in sync with the last section's actual laid-out height, which the
-  // trailing spacer in [build] needs. Section heights depend on the available width (and so change
-  // on rotation/resizing), so this re-checks after every build, but only rebuilds on a change.
-  void _measureLastSection() {
+  // Keeps [_tailHeight] in sync with the actual laid-out height of the very last section plus the
+  // "All done!" card below it, which the trailing spacer in [build] needs. Heights depend on the
+  // available width (and so change on rotation/resizing), so this re-checks after every build, but
+  // only rebuilds on a change.
+  void _measureTail() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final height = _sectionKeys.last.currentContext?.size?.height;
-      if (height != null && height != _lastSectionHeight) {
-        setState(() => _lastSectionHeight = height);
-      }
+      final section = _sectionKeys.last.last.currentContext?.size?.height;
+      final allDone = _allDoneKey.currentContext?.size?.height;
+      if (section == null || allDone == null) return;
+      final height = section + _gap + allDone;
+      if (height != _tailHeight) setState(() => _tailHeight = height);
     });
   }
 
@@ -481,10 +496,36 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       );
     }
 
-    final isBpmUp = _state.drillRepeat > 0 && _state.bpmIncrease > 0;
-    final isRepeat = _state.drillRepeat > 0;
+    // Every pass opens with one of these, showing which pass it is (and its bpm, if the bpm is
+    // increasing). The first always counts in (ichi-ni-so-re); later ones only do if the intro is
+    // replayed for that pass (see _tick) -- otherwise the drill just scrolls past them.
+    Widget mkInterlude(int pass) {
+      final isActive = _state.intro && _state.drillRepeat == pass;
+      final config = widget.config;
+      final progress = '${pass + 1} of ${config.drillRepeat}';
+      final passBpm = (config.bpm + config.bpmIncrease * pass).clamp(0, maxBpm);
+      return CountdownSection(
+        beat: isActive ? _state.beat : 0,
+        beatsPerMeasure: drill.bpm,
+        intro: isActive,
+        preText: config.bpmIncrease > 0 ? '$progress - $passBpm BPM' : progress,
+      );
+    }
 
-    _measureLastSection();
+    // Never scrolled to itself (the drill just ends once the last section finishes), but visible
+    // below the last section as a heads-up while it plays.
+    final allDone = HighlightedCard(
+      isHighlighted: false,
+      minHeight: 100,
+      child: Center(
+        child: Text(
+          'All done!',
+          style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold, color: AppColors.textGray),
+        ),
+      ),
+    );
+
+    _measureTail();
 
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
@@ -503,22 +544,25 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Column(
               children: [
-                CountdownSection(
-                  beat: _state.beat,
-                  beatsPerMeasure: drill.bpm,
-                  intro: _state.intro,
-                  preText: isBpmUp ? 'BPM up!' : (isRepeat ? 'Back to the start!' : 'Get ready...'),
-                ),
-                for (var i = 0; i < _allSections.length; i++) ...[
-                  const SizedBox(height: 16),
-                  KeyedSubtree(
-                    key: _sectionKeys[i],
-                    child: mkSectionView(_allSections[i].section, !_state.intro && i == idx),
-                  ),
+                for (var p = 0; p < widget.config.drillRepeat; p++) ...[
+                  if (p > 0) const SizedBox(height: _gap),
+                  KeyedSubtree(key: _interludeKeys[p], child: mkInterlude(p)),
+                  for (var i = 0; i < _allSections.length; i++) ...[
+                    const SizedBox(height: _gap),
+                    KeyedSubtree(
+                      key: _sectionKeys[p][i],
+                      child: mkSectionView(
+                        _allSections[i].section,
+                        !_state.intro && _state.drillRepeat == p && i == idx,
+                      ),
+                    ),
+                  ],
                 ],
+                const SizedBox(height: _gap),
+                KeyedSubtree(key: _allDoneKey, child: allDone),
                 // Enough trailing room that even the last section can be scrolled all the way to the
                 // top of the viewport, rather than the list running out of scroll extent first.
-                SizedBox(height: math.max(16, constraints.maxHeight - _lastSectionHeight)),
+                SizedBox(height: math.max(_gap, constraints.maxHeight - _tailHeight)),
               ],
             ),
           ),

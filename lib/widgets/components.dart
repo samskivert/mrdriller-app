@@ -424,13 +424,19 @@ class CountdownSection extends StatelessWidget {
       isHighlighted: intro,
       minHeight: 100,
       child: Center(
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 60,
-            fontWeight: FontWeight.bold,
-            color: intro ? AppColors.btnBlue : AppColors.textGray,
+        // Always one line: longer text (e.g. "2 of 3 - 65 BPM" on a narrow phone) shrinks to fit
+        // the card's width rather than wrapping, while text that already fits stays full size.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            text,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 60,
+              fontWeight: FontWeight.bold,
+              color: intro ? AppColors.btnBlue : AppColors.textGray,
+            ),
           ),
         ),
       ),
