@@ -1,17 +1,28 @@
-# mrdriller
+# Mr. Driller
 
-Animated drumming drills
+A simple tool to display drumming drills, and animate them with a metronome.
 
-## Getting Started
+This is a Flutter app that should work on iOS and Android, and in theory on the web as well but I
+haven't tested that much.
 
-This project is a starting point for a Flutter application.
+## Building
 
-A few resources to get you started if this is your first Flutter project:
+You need the [Flutter SDK](https://docs.flutter.dev/install) installed.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Then you can run it with `flutter run`. You need an Adroid emulator, iOS simulator, or a real
+device to run it on.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+If you've never done Flutter dev before, then check out [their docs](https://docs.flutter.dev) and
+good luck!
+
+## Adding drills
+
+The drills are defined in `lib/data/drills.dart` and are hopefully reasonably self-explanatory.
+There are a bunch of existing drills as examples. If your drill doesn't do anything esoteric, you
+can probably add it easily, and if it does do something fancy then fire up your favorite vibe coder
+and add support for what you need. The AIs love to work on simple React web projects.
+
+## License
+
+Mr. Driller was created by Michael Bayne, an aspiring dilettante taiko drummer. It's released under
+the MIT license, so feel free to modify and use it however you like.
