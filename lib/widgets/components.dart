@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
 import '../util/colors.dart';
+import 'arcade.dart';
 
-/// A small hollow circle shown in place of a whole empty beat slot in a measure.
+/// An empty rounded "socket" shown in place of a whole empty beat slot in a measure. Drawn in a
+/// translucent gray-blue so it reads on both the navy playfield and a light background.
 class EmptyBeatPlaceholder extends StatelessWidget {
   final double strokeSize;
 
@@ -11,17 +15,17 @@ class EmptyBeatPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = strokeSize;
+    final size = strokeSize * 0.56;
     return SizedBox(
-      width: size + 8,
-      height: size + 8,
+      width: strokeSize + 8,
+      height: strokeSize + 8,
       child: Center(
         child: Container(
-          width: size / 2,
-          height: size / 2,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black.withValues(alpha: 0.10), width: 2),
+            borderRadius: BorderRadius.circular(size * 0.3),
+            border: Border.all(color: const Color(0x597F8BA8), width: 2),
           ),
         ),
       ),
@@ -260,11 +264,13 @@ TableRow fieldRow(String label, Widget field) {
 /// rest are just outlined. Both states use the exact same box size (diameter + border width) so
 /// a dot filling in never changes the row's height/width — unlike using "●"/"○" text glyphs,
 /// whose font metrics differ enough to shift the surrounding layout by a few pixels each time.
+/// If [currentColor] is given, the last filled dot (the repeat in progress) is drawn in it.
 class RepeatDots extends StatelessWidget {
   final int total;
   final int filled;
   final double size;
   final Color color;
+  final Color? currentColor;
 
   const RepeatDots({
     super.key,
@@ -272,24 +278,30 @@ class RepeatDots extends StatelessWidget {
     required this.filled,
     this.size = 10,
     this.color = AppColors.textGray,
+    this.currentColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final borderWidth = (size * 0.12).clamp(1.2, 3.0);
+    final borderWidth = (size * 0.2).clamp(1.2, 3.0);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < total; i++)
           Padding(
-            padding: EdgeInsets.only(left: i == 0 ? 0 : size * 0.3),
+            padding: EdgeInsets.only(left: i == 0 ? 0 : size * 0.45),
             child: Container(
               width: size,
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: i < filled ? color : Colors.transparent,
-                border: Border.all(color: color, width: borderWidth),
+                color: i < filled
+                    ? (i == filled - 1 ? currentColor ?? color : color)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: i == filled - 1 ? currentColor ?? color : color,
+                  width: borderWidth,
+                ),
               ),
             ),
           ),
@@ -400,9 +412,12 @@ class ActivityButton extends StatelessWidget {
   }
 }
 
-const List<String> introText = ['Ichi - いち', 'Ni - に', 'So - そ〜', 'Re - れ！'];
+// The count-in: one call per measure, as romaji (shown big) and Japanese (on the beat pips).
+const List<(String, String)> introText = [('ICHI', 'いち'), ('NI', 'に'), ('SO', 'そ〜'), ('RE', 'れ！')];
 
-/// The big countdown/status card shown before a drill starts and during the intro count-in.
+/// The big count-in card shown before a drill starts: while [intro] is counting in, the current
+/// call in puffy text over a row of pips for all four; otherwise just [preText] (e.g. which pass
+/// of the drill is coming up next).
 class CountdownSection extends StatelessWidget {
   final int beat;
   final int beatsPerMeasure;
@@ -419,29 +434,114 @@ class CountdownSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final measureIndex = beat ~/ beatsPerMeasure;
-    final text = !intro
-        ? (preText ?? 'Get ready...')
-        : (measureIndex >= introText.length ? introText.last : introText[measureIndex]);
-    return HighlightedCard(
-      isHighlighted: intro,
+    final measureIndex = math.min(beat ~/ beatsPerMeasure, introText.length - 1);
+    return PlayfieldPanel(
+      active: intro,
       minHeight: 100,
-      child: Center(
-        // Always one line: longer text (e.g. "2 of 3 - 65 BPM" on a narrow phone) shrinks to fit
-        // the card's width rather than wrapping, while text that already fits stays full size.
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            text,
-            maxLines: 1,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 60,
-              fontWeight: FontWeight.bold,
-              color: intro ? AppColors.btnBlue : AppColors.textGray,
-            ),
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      // Always fits on one line/card: on a narrow phone everything shrinks to fit the card's
+      // width rather than wrapping, while content that already fits stays full size.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: intro
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PuffyText('${introText[measureIndex].$1}!', size: 72),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < introText.length; i++)
+                        Padding(
+                          padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
+                          child: _CountPip(
+                            label: introText[i].$2,
+                            past: i < measureIndex,
+                            current: i == measureIndex,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              )
+            : Text(
+                preText ?? 'Get ready...',
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: AppFonts.display,
+                  fontSize: 40,
+                  color: AppColors.cream,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _CountPip extends StatelessWidget {
+  final String label;
+  final bool past;
+  final bool current;
+
+  const _CountPip({required this.label, required this.past, required this.current});
+
+  @override
+  Widget build(BuildContext context) {
+    final candy = current ? AppColors.candyPink : AppColors.candyOrange;
+    final size = current ? 64.0 : 54.0;
+    final filled = past || current;
+    return Opacity(
+      opacity: past ? 0.75 : 1,
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
+          gradient: filled
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [candy.hi, candy.base, candy.lo],
+                  stops: const [0, 0.5, 1],
+                )
+              : null,
+          border: filled
+              ? null
+              : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
+          boxShadow: [
+            if (current) ...[
+              const BoxShadow(color: Colors.white, spreadRadius: 4),
+              BoxShadow(color: candy.base.withValues(alpha: 0.55), blurRadius: 26, spreadRadius: 8),
+            ],
+            if (filled) BoxShadow(color: candy.outline, offset: const Offset(0, 3)),
+          ],
         ),
+        child: filled
+            ? OutlinedText(
+                label,
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: current ? 20 : 16,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                ),
+                color: Colors.white,
+                outline: candy.outline,
+                outlineWidth: 2,
+              )
+            : Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 16,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white.withValues(alpha: 0.75),
+                ),
+              ),
       ),
     );
   }

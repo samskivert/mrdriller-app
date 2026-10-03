@@ -8,6 +8,7 @@ class SizeConfig {
   final double strokeSize;
   final double measureGap;
   final double cardPadding;
+  final double headerHeight;
   final double labelFontSize;
   final double repeatFontSize;
 
@@ -15,6 +16,7 @@ class SizeConfig {
     required this.strokeSize,
     required this.measureGap,
     required this.cardPadding,
+    required this.headerHeight,
     required this.labelFontSize,
     required this.repeatFontSize,
   });
@@ -27,11 +29,9 @@ const double _strokeMargin = 8; // 4px margin on each side in StrokeView
 // strokeSize as the single unknown in the width equation below.
 const double _measureGapRatio = 0.09;
 const double _cardPaddingRatio = 0.13;
-const double _fontRatio = 0.22;
 
 const double minStrokeSize = 16;
 const double maxStrokeSize = 200;
-const double _minFontSize = 12;
 const double _maxFontSize = 40;
 
 // The smallest stroke size a line is drawn at before it's wrapped onto more rows instead -- a
@@ -42,8 +42,11 @@ const double minUnwrappedStrokeSize = 28;
 // A labeled beat adds a text row above its strokes (see _BeatView): a strokeSize*0.7 box plus
 // strokeSize*0.14 of padding beneath it.
 const double _labelRowHeightRatio = 0.84;
-// Approximate line-height factor for the section header's bold text (label / repeat dots).
-const double _headerLineHeightRatio = 1.3;
+// Height of the section header (its label banner), and the label's font size within it. The
+// header scales exactly with strokeSize (no clamping) so that it stays a linear term in the height
+// equation below. See SectionView.
+const double headerRatio = 0.7;
+const double headerFontRatio = 0.5;
 
 /// The shape (in beats and measures) of the widest line within a section — the only thing that
 /// determines how large strokes can be drawn for that section, independent of any particular
@@ -146,7 +149,7 @@ WrapShape wrapShape(Section section, int measuresPerRow) {
 /// Height: analogous, built from [section]'s own [SectionVerticalShape] (whether any line needs a
 /// label row, and the deepest simultaneous stroke stack) and the wrapping's total row count (rows
 /// are separated by the same gap whether they're separate lines or one line wrapped):
-///   availableHeight = (hasHeader ? strokeSize*fontRatio*headerLineHeightRatio : 0)
+///   availableHeight = (hasHeader ? strokeSize*headerRatio : 0)
 ///                    + strokeSize*paddingRatio*0.6                      (gap below header)
 ///                    + rows*((hasLabelRow ? strokeSize*labelRowRatio : 0)
 ///                            + maxStrokes*(strokeSize + margin))
@@ -174,6 +177,7 @@ SizeConfig computeFittedSizeConfig({
       strokeSize: fallback,
       measureGap: fallback * _measureGapRatio,
       cardPadding: fallback * _cardPaddingRatio,
+      headerHeight: fallback * headerRatio,
       labelFontSize: 20,
       repeatFontSize: 20,
     );
@@ -197,12 +201,14 @@ SizeConfig computeFittedSizeConfig({
   }
 
   final strokeSize = best!.clamp(minStrokeSize, maxStrokeSize);
-  final fontSize = (strokeSize * _fontRatio).clamp(_minFontSize, _maxFontSize);
+  final headerHeight = strokeSize * headerRatio;
+  final fontSize = math.min(headerHeight * headerFontRatio, _maxFontSize);
 
   return SizeConfig(
     strokeSize: strokeSize,
     measureGap: strokeSize * _measureGapRatio,
     cardPadding: strokeSize * _cardPaddingRatio,
+    headerHeight: headerHeight,
     labelFontSize: fontSize,
     repeatFontSize: fontSize,
   );
@@ -216,7 +222,7 @@ double _fittedStrokeSize(
   double availableWidth,
   double availableHeight,
 ) {
-  // A few pixels of safety margin: HighlightedCard's border is painted straddling its own edge
+  // A few pixels of safety margin: a panel's border is painted straddling its own edge
   // (part of the stroke can fall just outside the box the child was actually given), and
   // sub-pixel layout rounding can shave off a hair more. Better to solve for a strokeSize that's
   // a touch smaller than exactly-fitting than to land exactly on the edge and clip (or, for a
@@ -235,7 +241,7 @@ double _fittedStrokeSize(
 
   final rows = wrap.rows;
   final heightDenominator =
-      (vertical.hasHeader ? _fontRatio * _headerLineHeightRatio : 0.0) +
+      (vertical.hasHeader ? headerRatio : 0.0) +
       _cardPaddingRatio * 0.6 +
       rows * (vertical.hasLabelRow ? _labelRowHeightRatio : 0.0) +
       rows * vertical.maxStrokes +

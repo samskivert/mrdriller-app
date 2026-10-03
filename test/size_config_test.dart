@@ -167,9 +167,7 @@ void main() {
 
     final shape = sectionVerticalShape(tallSection);
     const strokeMargin = 8.0;
-    const headerLineHeightRatio = 1.3;
-    const fontRatio = 0.22;
-    final headerHeight = config.strokeSize * fontRatio * headerLineHeightRatio;
+    final headerHeight = config.headerHeight;
     final gapAfterHeader = config.cardPadding * 0.6;
     final perLineHeight = shape.maxStrokes * (config.strokeSize + strokeMargin);
     final totalLinesHeight = shape.lines * perLineHeight + (shape.lines - 1) * config.measureGap;
@@ -211,7 +209,7 @@ void main() {
 
   // Total height of a section with [vertical]'s shape laid out in [rows] rows at [config]'s size.
   double sectionHeight(SectionVerticalShape vertical, int rows, SizeConfig config) {
-    final header = vertical.hasHeader ? config.strokeSize * 0.22 * 1.3 : 0.0;
+    final header = vertical.hasHeader ? config.headerHeight : 0.0;
     final perRow =
         (vertical.hasLabelRow ? config.strokeSize * 0.84 : 0.0) +
         vertical.maxStrokes * (config.strokeSize + _strokeMargin);

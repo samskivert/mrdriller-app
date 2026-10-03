@@ -88,20 +88,24 @@ flutter:
     - assets/sounds/beep.wav
     - assets/sounds/boop.wav
 
-  # Subset of Noto Sans JP containing only the Japanese characters used in the app, used as a
-  # fallback font on web. Regenerate if new Japanese text is added (see assets/fonts/README.md).
+  # Subsets of M PLUS Rounded 1c (the app's UI font) and Mochiy Pop One (its puffy display font),
+  # containing Latin plus the Japanese characters used in the app. Regenerate if new non-Latin
+  # text is added (see assets/fonts/README.md).
   fonts:
-    - family: NotoSansJP
+    - family: MPLUSRounded1c
       fonts:
-        - asset: assets/fonts/NotoSansJP-400.ttf
-        - asset: assets/fonts/NotoSansJP-500.ttf
+        - asset: assets/fonts/MPLUSRounded1c-400.ttf
+        - asset: assets/fonts/MPLUSRounded1c-500.ttf
           weight: 500
-        - asset: assets/fonts/NotoSansJP-600.ttf
-          weight: 600
-        - asset: assets/fonts/NotoSansJP-700.ttf
+        - asset: assets/fonts/MPLUSRounded1c-700.ttf
           weight: 700
-        - asset: assets/fonts/NotoSansJP-900.ttf
+        - asset: assets/fonts/MPLUSRounded1c-800.ttf
+          weight: 800
+        - asset: assets/fonts/MPLUSRounded1c-900.ttf
           weight: 900
+    - family: MochiyPopOne
+      fonts:
+        - asset: assets/fonts/MochiyPopOne-400.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

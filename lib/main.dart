@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -17,6 +16,7 @@ import 'state/practice_log.dart';
 import 'state/practice_plan.dart';
 import 'state/reminders.dart';
 import 'state/settings.dart';
+import 'util/colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,10 +44,9 @@ class MrDrillerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3E63DD)),
         scaffoldBackgroundColor: Colors.white,
         useMaterial3: true,
-        // On web, Flutter lazily downloads fallback fonts for glyphs the default font lacks,
-        // showing tofu until they arrive, so we bundle a subset covering our Japanese text.
-        // Native platforms use the system CJK fonts.
-        fontFamilyFallback: kIsWeb ? const ['NotoSansJP'] : null,
+        // Bundled (see assets/fonts), including the app's Japanese glyphs, so that web doesn't
+        // have to lazily download a fallback font for them (showing tofu until it arrives).
+        fontFamily: AppFonts.body,
       ),
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,

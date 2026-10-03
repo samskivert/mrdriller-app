@@ -9,6 +9,7 @@ import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
+import 'arcade.dart';
 import 'components.dart';
 import 'drill_status_view.dart';
 import 'section_view.dart';
@@ -307,6 +308,10 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   // finishes).
   bool _finished = false;
 
+  // How much of the drill's playing time has gone by, counted tick by tick at each tick's bpm (so
+  // it lines up with computeDrillDuration's total), for the HUD's AIR gauge and depth ruler.
+  double _elapsedSeconds = 0;
+
   @override
   void initState() {
     super.initState();
@@ -398,6 +403,8 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       bpmIncrease: _state.bpmIncrease,
       drillRepeat: widget.config.drillRepeat,
       drillRepeatCount: _state.drillRepeat,
+      elapsedSeconds: _elapsedSeconds,
+      totalSeconds: widget.status.value.totalSeconds,
     );
   }
 
@@ -411,6 +418,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   void _handleBeatsDue(int beatsDue) {
     var next = _state;
     for (var i = 0; i < beatsDue; i++) {
+      _elapsedSeconds += 60 / next.bpm / 4 * widget.drill.scale;
       next = _tick(
         next,
         widget.drill,
@@ -466,7 +474,8 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       final section = _sectionKeys.last.last.currentContext?.size?.height;
       final allDone = _allDoneKey.currentContext?.size?.height;
       if (section == null || allDone == null) return;
-      final height = section + _gap + allDone;
+      // (Both heights already include the gap above each.)
+      final height = section + allDone;
       if (height != _tailHeight) setState(() => _tailHeight = height);
     });
   }
@@ -478,10 +487,15 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     final safeAreaPadding = MediaQuery.of(context).padding;
     final hasHorizontalSafeArea = safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
 
-    Widget mkSectionView(Section section, bool isHighlighted) {
+    Widget mkSectionView(int pass, int index) {
+      final isHighlighted = !_state.intro && _state.drillRepeat == pass && index == idx;
+      final isDone =
+          pass < _state.drillRepeat || (pass == _state.drillRepeat && !_state.intro && index < idx);
       return SectionView(
-        section: section,
+        section: _allSections[index].section,
         isHighlighted: isHighlighted,
+        isDone: isDone,
+        bannerColor: AppColors.banner(index),
         repeatDotsFilled: isHighlighted ? _state.repeat + 1 : 0,
         highlight: (isHighlighted && _state.playing && settings.showBouncingDot)
             ? Pos(
@@ -514,14 +528,14 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
 
     // Never scrolled to itself (the drill just ends once the last section finishes), but visible
     // below the last section as a heads-up while it plays.
-    final allDone = HighlightedCard(
-      isHighlighted: false,
+    final allDone = const PlayfieldPanel(
       minHeight: 100,
-      child: Center(
-        child: Text(
-          'All done!',
-          style: TextStyle(fontSize: 35, fontWeight: FontWeight.bold, color: AppColors.textGray),
-        ),
+      padding: EdgeInsets.all(16),
+      child: PuffyText(
+        'ALL CLEAR!',
+        size: 36,
+        color: AppColors.gold,
+        shadow: AppColors.goldOutline,
       ),
     );
 
@@ -543,30 +557,41 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Column(
+              // Each card carries the gap above it as its own top padding, so that scrolling a
+              // card to the top of the viewport leaves that gap above it (and room for an active
+              // card's glow) rather than butting it right up against the viewport's edge.
               children: [
                 for (var p = 0; p < widget.config.drillRepeat; p++) ...[
-                  if (p > 0) const SizedBox(height: _gap),
-                  KeyedSubtree(key: _interludeKeys[p], child: mkInterlude(p)),
-                  for (var i = 0; i < _allSections.length; i++) ...[
-                    const SizedBox(height: _gap),
+                  KeyedSubtree(
+                    key: _interludeKeys[p],
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: _gap),
+                      child: mkInterlude(p),
+                    ),
+                  ),
+                  for (var i = 0; i < _allSections.length; i++)
                     KeyedSubtree(
                       key: _sectionKeys[p][i],
-                      // The scroll view would otherwise give each section unbounded height, so
-                      // SectionView would size itself to the width alone. Capping it at the
-                      // viewport's height makes each section shrink (individually, only as much
-                      // as it needs) to fit entirely on screen once scrolled to the top.
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: constraints.maxHeight),
-                        child: mkSectionView(
-                          _allSections[i].section,
-                          !_state.intro && _state.drillRepeat == p && i == idx,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: _gap),
+                        // The scroll view would otherwise give each section unbounded height, so
+                        // SectionView would size itself to the width alone. Capping it at the
+                        // viewport's height makes each section shrink (individually, only as much
+                        // as it needs) to fit entirely on screen once scrolled to the top.
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: constraints.maxHeight - _gap * 2),
+                          child: mkSectionView(p, i),
                         ),
                       ),
                     ),
-                  ],
                 ],
-                const SizedBox(height: _gap),
-                KeyedSubtree(key: _allDoneKey, child: allDone),
+                KeyedSubtree(
+                  key: _allDoneKey,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: _gap),
+                    child: allDone,
+                  ),
+                ),
                 // Enough trailing room that even the last section can be scrolled all the way to the
                 // top of the viewport, rather than the list running out of scroll extent first.
                 SizedBox(height: math.max(_gap, constraints.maxHeight - _tailHeight)),
