@@ -33,7 +33,7 @@ class DrillRunStatus {
 }
 
 /// Shows a running drill's progress as the game's HUD readouts: BPM in digit tiles, which repeat
-/// of the drill this is, and the AIR gauge draining as the drill's time runs out. [vertical]
+/// of the drill this is, and the time gauge draining as the drill's time runs out. [vertical]
 /// stacks them in one card as rows (for a sidebar) instead of side by side as separate cards (for
 /// a HUD across the top of the screen).
 class DrillStatusView extends StatelessWidget {
@@ -67,9 +67,9 @@ class DrillStatusView extends StatelessWidget {
             _row('Loop', AppColors.bannerRed, DigitTiles(value: loop, height: 30)),
             const SizedBox(height: 8),
             _row(
-              'Air',
+              'Time',
               AppColors.bannerMagenta,
-              AirGauge(fraction: 1 - status.progress, label: status.remainingLabel, size: 56),
+              TimeGauge(fraction: 1 - status.progress, label: status.remainingLabel, size: 56),
             ),
           ],
         ),
@@ -104,12 +104,12 @@ class DrillStatusView extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: HudCard(
-            label: 'Air',
+            label: 'Time',
             bannerColor: AppColors.bannerMagenta,
             height: 104,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: AirGauge(fraction: 1 - status.progress, label: status.remainingLabel),
+              child: TimeGauge(fraction: 1 - status.progress, label: status.remainingLabel),
             ),
           ),
         ),

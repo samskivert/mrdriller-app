@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
@@ -414,7 +416,9 @@ class ActivityButton extends StatelessWidget {
 const List<(String, String)> introText = [('ICHI', 'いち'), ('NI', 'に'), ('SO', 'そ〜'), ('RE', 'れ！')];
 
 /// The count-in display: the current call ([index] into [introText]) in big puffy text, over a
-/// row of pips for all four calls. [size] is the puffy text's font size.
+/// row of pips for all four calls. A negative [index] means the count-in hasn't started yet: all
+/// the pips are unlit and the big text is hidden (though it still takes up its space, so nothing
+/// jumps when the first call appears). [size] is the puffy text's font size.
 class CountIn extends StatelessWidget {
   final int index;
   final double size;
@@ -423,11 +427,14 @@ class CountIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final current = index.clamp(0, introText.length - 1);
+    final current = index < 0 ? -1 : math.min(index, introText.length - 1);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PuffyText('${introText[current].$1}!', size: size),
+        Opacity(
+          opacity: current < 0 ? 0 : 1,
+          child: PuffyText('${introText[math.max(current, 0)].$1}!', size: size),
+        ),
         SizedBox(height: size * 0.2),
         Row(
           mainAxisSize: MainAxisSize.min,

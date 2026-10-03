@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -308,8 +309,13 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   // finishes).
   bool _finished = false;
 
+  // Fires [_start] one beat after the screen appears and the sounds are ready; until then, the
+  // count-in overlay is up but hasn't started counting.
+  Timer? _startTimer;
+  bool _started = false;
+
   // How much of the drill's playing time has gone by, counted tick by tick at each tick's bpm (so
-  // it lines up with computeDrillDuration's total), for the HUD's AIR gauge and depth ruler.
+  // it lines up with computeDrillDuration's total), for the HUD's time gauge and depth ruler.
   double _elapsedSeconds = 0;
 
   @override
@@ -329,16 +335,27 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
     // silently gets dropped, which is why the drill would seem to start on its *second* audible
     // tick instead of its first.
+    //
+    // Then wait one more beat (as long as one call of the count-in) before starting, rather than
+    // launching straight into the count-in the instant the screen appears.
     sounds.ready.then((_) {
       if (!mounted) return;
-      _playBeatSound();
-      _publishStatus();
-      widget.metronome.ensureRunning(bpm: _state.bpm, scale: widget.drill.scale);
+      final beatUs = widget.drill.bpm * 60e6 / widget.config.bpm / 4 * widget.drill.scale;
+      _startTimer = Timer(Duration(microseconds: beatUs.round()), _start);
     });
+  }
+
+  void _start() {
+    if (!mounted) return;
+    setState(() => _started = true);
+    _playBeatSound();
+    _publishStatus();
+    widget.metronome.ensureRunning(bpm: _state.bpm, scale: widget.drill.scale);
   }
 
   @override
   void dispose() {
+    _startTimer?.cancel();
     widget.metronome.removeListener(_handleMetronomeActiveChanged);
     _sounds?.dispose();
     _scrollController.dispose();
@@ -612,7 +629,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
                 opacity: counting ? 1 : 0,
                 duration: const Duration(milliseconds: 180),
                 child: _CountInOverlay(
-                  index: _state.beat ~/ drill.bpm,
+                  index: _started ? _state.beat ~/ drill.bpm : -1,
                   bpm: _state.bpm,
                   pass: _state.drillRepeat,
                   passes: widget.config.drillRepeat,

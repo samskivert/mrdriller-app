@@ -1,5 +1,5 @@
 // Building blocks for the app's arcade (Mr. Driller inspired) look: outlined and puffy text, HUD
-// banners and digit tiles, the AIR gauge, candy buttons, and the decorative drips/bubbles/ruler.
+// banners and digit tiles, the time gauge, candy buttons, and the decorative drips/bubbles/ruler.
 
 import 'dart:math' as math;
 
@@ -274,14 +274,14 @@ class HudCard extends StatelessWidget {
   }
 }
 
-/// The game's round AIR gauge: a blue pie showing [fraction] (0..1) remaining inside a green
-/// ring, with [label] in a white center.
-class AirGauge extends StatelessWidget {
+/// A round time gauge, after the game's AIR gauge: a blue pie showing [fraction] (0..1) remaining
+/// inside a green ring, with [label] in a white center.
+class TimeGauge extends StatelessWidget {
   final double fraction;
   final String label;
   final double size;
 
-  const AirGauge({super.key, required this.fraction, required this.label, this.size = 58});
+  const TimeGauge({super.key, required this.fraction, required this.label, this.size = 58});
 
   @override
   Widget build(BuildContext context) {
@@ -292,7 +292,7 @@ class AirGauge extends StatelessWidget {
         width: size,
         height: size,
         child: CustomPaint(
-          painter: _AirGaugePainter(fraction.clamp(0.0, 1.0)),
+          painter: _TimeGaugePainter(fraction.clamp(0.0, 1.0)),
           child: Center(
             child: Text(
               label,
@@ -311,10 +311,10 @@ class AirGauge extends StatelessWidget {
   }
 }
 
-class _AirGaugePainter extends CustomPainter {
+class _TimeGaugePainter extends CustomPainter {
   final double fraction;
 
-  _AirGaugePainter(this.fraction);
+  _TimeGaugePainter(this.fraction);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -322,20 +322,20 @@ class _AirGaugePainter extends CustomPainter {
     final radius = size.width / 2;
     final ringWidth = size.width * 0.07;
     final pieRadius = radius - ringWidth;
-    canvas.drawCircle(center, radius, Paint()..color = AppColors.airRing);
-    canvas.drawCircle(center, pieRadius, Paint()..color = AppColors.airEmpty);
+    canvas.drawCircle(center, radius, Paint()..color = AppColors.gaugeRing);
+    canvas.drawCircle(center, pieRadius, Paint()..color = AppColors.gaugeEmpty);
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: pieRadius),
       -math.pi / 2,
       2 * math.pi * fraction,
       true,
-      Paint()..color = AppColors.airBlue,
+      Paint()..color = AppColors.gaugeBlue,
     );
     canvas.drawCircle(center, pieRadius * 0.7, Paint()..color = Colors.white);
   }
 
   @override
-  bool shouldRepaint(covariant _AirGaugePainter oldDelegate) => oldDelegate.fraction != fraction;
+  bool shouldRepaint(covariant _TimeGaugePainter oldDelegate) => oldDelegate.fraction != fraction;
 }
 
 /// A chunky candy-colored pill button: candy gradient on a solid [CandyColors.outline] drop

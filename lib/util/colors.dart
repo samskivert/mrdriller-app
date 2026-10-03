@@ -48,9 +48,9 @@ class AppColors {
   static const tileTop = Color(0xFFFAFAFC);
   static const tileBottom = Color(0xFFC9CBD6);
   static const tileText = Color(0xFF33354A);
-  static const airBlue = Color(0xFF2E7BE6);
-  static const airEmpty = Color(0xFFD8E6FA);
-  static const airRing = Color(0xFF3FBF68);
+  static const gaugeBlue = Color(0xFF2E7BE6);
+  static const gaugeEmpty = Color(0xFFD8E6FA);
+  static const gaugeRing = Color(0xFF3FBF68);
 
   // Banner colors: dark enough for white bold text to meet contrast, in the order sections cycle
   // through them.

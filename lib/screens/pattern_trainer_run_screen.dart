@@ -38,7 +38,7 @@ class _PTState {
     this.bpm = 60,
   });
 
-  String nOfM (PatternTrainerConfig config) {
+  String nOfM(PatternTrainerConfig config) {
     final patternNum = (pattern + 1).clamp(1, config.numPatterns);
     return '$patternNum / ${config.numPatterns}';
   }
