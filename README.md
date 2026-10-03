@@ -15,7 +15,7 @@ device to run it on.
 If you've never done Flutter dev before, then check out [their docs](https://docs.flutter.dev) and
 good luck!
 
-### Release build
+### Nativel release build
 
 To install a release build to an iOS device:
 
@@ -28,6 +28,12 @@ To build an IPA for upload to the AppStore:
 
 ```
 flutter build ipa
+```
+
+### Web release build
+
+```
+flutter build web --release --base-href /mrdriller/
 ```
 
 ## Adding drills

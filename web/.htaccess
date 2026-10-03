@@ -2,3 +2,14 @@
 # index.html for any request that doesn't match a real file and let Flutter
 # route it.
 FallbackResource /mrdriller/index.html
+
+# Older Apache versions don't know about .wasm, and browsers require this type
+# to stream-compile the CanvasKit and soloud WebAssembly modules.
+AddType application/wasm .wasm
+
+# Compress text and wasm (main.dart.js and the .wasm files shrink by ~60-70%).
+<IfModule mod_deflate.c>
+  <IfModule mod_filter.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain application/javascript text/javascript application/json application/manifest+json application/wasm image/svg+xml
+  </IfModule>
+</IfModule>
