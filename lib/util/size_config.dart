@@ -34,10 +34,10 @@ const double maxStrokeSize = 200;
 const double _minFontSize = 12;
 const double _maxFontSize = 40;
 
-// Used when a line is too dense to ever fit in one row/column even at minStrokeSize (wrapping
-// is unavoidable either way, so there's no reason to also make it tiny) -- matches the fixed
-// default MeasureView.strokeSize the static drill-overview always renders at.
-const double wrapFallbackStrokeSize = 28;
+// The smallest stroke size a line is drawn at before it's wrapped onto more rows instead -- a
+// comfortable size, matching the fixed default MeasureView.strokeSize the static drill-overview
+// always renders at. See computeFittedSizeConfig.
+const double minUnwrappedStrokeSize = 28;
 
 // A labeled beat adds a text row above its strokes (see _BeatView): a strokeSize*0.7 box plus
 // strokeSize*0.14 of padding beneath it.
@@ -94,41 +94,81 @@ SectionVerticalShape sectionVerticalShape(Section section) {
   );
 }
 
-/// Solves for the exact stroke size that makes [section]'s own widest line fit within
-/// [availableWidth], and (when [availableHeight] is finite) that also makes [section] fit within
-/// that height — the smaller of the two wins. Sized entirely from [section]'s own content: two
-/// sections in the same drill can end up different sizes if one has more room to work with or
-/// simply needs less space, rather than every section being squeezed to fit whichever section in
-/// the drill happens to be the widest. Both dimensions are the real sizes Flutter measured via
-/// LayoutBuilder at the actual render point (i.e. already net of every ancestor's
+/// The shape of one way of wrapping a section's lines: every line broken into rows of (at most)
+/// [measuresPerRow] consecutive measures -- [Wrap] only ever breaks between measures, never within
+/// one. [widestRow] is the widest such row anywhere in the section (what the width equation must
+/// fit), and [rows] is the total number of rows across every line (what the height equation must
+/// fit, in place of the unwrapped line count).
+typedef WrapShape = ({int measuresPerRow, LineShape widestRow, int rows});
+
+WrapShape wrapShape(Section section, int measuresPerRow) {
+  var widestBeats = 0;
+  var widestMeasures = 0;
+  var rows = 0;
+  for (final line in section.lines) {
+    final measures = line.measures;
+    // An empty line still takes up a (zero-content) row's worth of gap in the layout.
+    rows += math.max(1, (measures.length / measuresPerRow).ceil());
+    for (var start = 0; start < measures.length; start += measuresPerRow) {
+      final row = measures.skip(start).take(measuresPerRow);
+      final beats = row.fold<int>(0, (sum, m) => sum + m.length);
+      if (beats > widestBeats) {
+        widestBeats = beats;
+        widestMeasures = row.length;
+      }
+    }
+  }
+  return (
+    measuresPerRow: measuresPerRow,
+    widestRow: (beats: widestBeats, measures: widestMeasures),
+    rows: rows,
+  );
+}
+
+/// Solves for the largest stroke size at which [section] fits within [availableWidth] and (when
+/// [availableHeight] is finite) [availableHeight], also choosing how many measures to put on each
+/// row when a line is too dense to be drawn legibly on one. Sized entirely from [section]'s own
+/// content: two sections in the same drill can end up different sizes if one has more room to work
+/// with or simply needs less space, rather than every section being squeezed to fit whichever
+/// section in the drill happens to be the widest. Both dimensions are the real sizes Flutter
+/// measured via LayoutBuilder at the actual render point (i.e. already net of every ancestor's
 /// padding/borders), not an estimate from the window size minus a guessed overhead.
+///
+/// For a given wrapping (see [WrapShape]), width and height each give a single linear equation in
+/// strokeSize, solved directly, and the smaller of the two wins.
 ///
 /// Width: [availableWidth] is measured *before* this section's own cardPadding is applied, so the
 /// equation must subtract that padding too (it isn't free space the beat row gets to use):
 ///   availableWidth = beats*(strokeSize + margin) + (measures-1)*(strokeSize*gapRatio)
 ///                    + 2*(strokeSize*paddingRatio)
-/// where beats/measures come from [section]'s own widest line (see [widestLineShape]).
+/// where beats/measures come from the widest row (see [WrapShape.widestRow]).
 ///
-/// Height: analogous, built from [section]'s own [SectionVerticalShape] (line count, whether any
-/// line needs a label row, and the deepest simultaneous stroke stack):
+/// Height: analogous, built from [section]'s own [SectionVerticalShape] (whether any line needs a
+/// label row, and the deepest simultaneous stroke stack) and the wrapping's total row count (rows
+/// are separated by the same gap whether they're separate lines or one line wrapped):
 ///   availableHeight = (hasHeader ? strokeSize*fontRatio*headerLineHeightRatio : 0)
 ///                    + strokeSize*paddingRatio*0.6                      (gap below header)
-///                    + lines*((hasLabelRow ? strokeSize*labelRowRatio : 0)
-///                             + maxStrokes*(strokeSize + margin))
-///                    + (lines-1)*(strokeSize*gapRatio)
+///                    + rows*((hasLabelRow ? strokeSize*labelRowRatio : 0)
+///                            + maxStrokes*(strokeSize + margin))
+///                    + (rows-1)*(strokeSize*gapRatio)
 ///                    + 2*(strokeSize*paddingRatio)                     (top/bottom cardPadding)
 ///
-/// Each is a single linear equation in strokeSize, solved directly — no presets, no fudge factor,
-/// and (up to the min/max legibility clamp) no possibility of the section overflowing its card.
+/// Choosing the wrapping: lines stay as unwrapped as possible -- the fewest rows that still allow a
+/// comfortable [minUnwrappedStrokeSize] -- since wrapping a line that could be read fine on one
+/// row just to draw it bigger would be a worse layout, not a better one. Only when no wrapping
+/// manages that (e.g. the Sixteens drill's 64-beat lines) does it pick whichever wrapping gives the
+/// largest strokes outright.
+///
+/// The solved wrapping is guaranteed to fit, not merely estimated to: [Wrap] packs each row
+/// greedily (as many measures as fit), and greedy packing never needs more rows than any other
+/// packing that fits -- including the fixed groups of measuresPerRow measures solved for here.
 SizeConfig computeFittedSizeConfig({
   required double availableWidth,
   required Section section,
   double availableHeight = double.infinity,
 }) {
-  final widestLine = widestLineShape(section);
-  final beats = widestLine.beats;
-  final measures = widestLine.measures;
-  if (beats == 0) {
+  final maxMeasures = section.lines.fold<int>(0, (most, l) => math.max(most, l.measures.length));
+  if (widestLineShape(section).beats == 0) {
     const fallback = 90.0;
     return const SizeConfig(
       strokeSize: fallback,
@@ -139,42 +179,24 @@ SizeConfig computeFittedSizeConfig({
     );
   }
 
-  // A few pixels of safety margin: HighlightedCard's border is painted straddling its own edge
-  // (part of the stroke can fall just outside the box the child was actually given), and
-  // sub-pixel layout rounding can shave off a hair more. Better to solve for a strokeSize that's
-  // a touch smaller than exactly-fitting than to land exactly on the edge and clip.
-  const safetyMargin = 6.0;
-  // Includes 2*_cardPaddingRatio: the card's own left+right padding is also a function of
-  // strokeSize, and it comes out of availableWidth before the beat row sees any of it.
-  final widthDenominator = beats + (measures - 1) * _measureGapRatio + 2 * _cardPaddingRatio;
-  final widthStrokeSize =
-      (availableWidth - safetyMargin - beats * _strokeMargin) / widthDenominator;
-
-  var heightStrokeSize = double.infinity;
-  if (availableHeight.isFinite) {
-    final shape = sectionVerticalShape(section);
-    if (shape.lines > 0) {
-      final heightDenominator =
-          (shape.hasHeader ? _fontRatio * _headerLineHeightRatio : 0.0) +
-          _cardPaddingRatio * 0.6 +
-          shape.lines * (shape.hasLabelRow ? _labelRowHeightRatio : 0.0) +
-          shape.lines * shape.maxStrokes +
-          (shape.lines - 1) * _measureGapRatio +
-          2 * _cardPaddingRatio;
-      final heightConstant = shape.lines * shape.maxStrokes * _strokeMargin;
-      heightStrokeSize = (availableHeight - safetyMargin - heightConstant) / heightDenominator;
+  final vertical = sectionVerticalShape(section);
+  double? best;
+  // From the fewest rows (every line unwrapped) to the most (one measure per row).
+  for (var measuresPerRow = maxMeasures; measuresPerRow >= 1; measuresPerRow--) {
+    final size = _fittedStrokeSize(
+      wrapShape(section, measuresPerRow),
+      vertical,
+      availableWidth,
+      availableHeight,
+    );
+    if (size >= minUnwrappedStrokeSize) {
+      best = size;
+      break;
     }
+    if (best == null || size > best) best = size;
   }
 
-  final rawStrokeSize = math.min(widthStrokeSize, heightStrokeSize);
-  // Below minStrokeSize means even the smallest legible stroke can't make this line fit in one
-  // row/column (a pathologically dense line -- e.g. 64 beats in one line) -- clamping up to
-  // minStrokeSize wouldn't actually prevent wrapping there, it would just make the wrapped
-  // result tiny *and* wrapped. Once wrapping is unavoidable anyway, a comfortable, legible size
-  // (matching the static drill-overview's fixed default) beats the smallest possible one.
-  final strokeSize = rawStrokeSize < minStrokeSize
-      ? wrapFallbackStrokeSize
-      : rawStrokeSize.clamp(minStrokeSize, maxStrokeSize);
+  final strokeSize = best!.clamp(minStrokeSize, maxStrokeSize);
   final fontSize = (strokeSize * _fontRatio).clamp(_minFontSize, _maxFontSize);
 
   return SizeConfig(
@@ -184,4 +206,43 @@ SizeConfig computeFittedSizeConfig({
     labelFontSize: fontSize,
     repeatFontSize: fontSize,
   );
+}
+
+/// The unclamped stroke size that fits one particular wrapping of a section into the available
+/// space -- see [computeFittedSizeConfig] for the equations.
+double _fittedStrokeSize(
+  WrapShape wrap,
+  SectionVerticalShape vertical,
+  double availableWidth,
+  double availableHeight,
+) {
+  // A few pixels of safety margin: HighlightedCard's border is painted straddling its own edge
+  // (part of the stroke can fall just outside the box the child was actually given), and
+  // sub-pixel layout rounding can shave off a hair more. Better to solve for a strokeSize that's
+  // a touch smaller than exactly-fitting than to land exactly on the edge and clip (or, for a
+  // wrapped line, to have Wrap break a row one measure earlier than solved for).
+  const safetyMargin = 6.0;
+
+  final beats = wrap.widestRow.beats;
+  final measures = wrap.widestRow.measures;
+  // Includes 2*_cardPaddingRatio: the card's own left+right padding is also a function of
+  // strokeSize, and it comes out of availableWidth before the beat row sees any of it.
+  final widthDenominator = beats + (measures - 1) * _measureGapRatio + 2 * _cardPaddingRatio;
+  final widthStrokeSize =
+      (availableWidth - safetyMargin - beats * _strokeMargin) / widthDenominator;
+
+  if (!availableHeight.isFinite) return widthStrokeSize;
+
+  final rows = wrap.rows;
+  final heightDenominator =
+      (vertical.hasHeader ? _fontRatio * _headerLineHeightRatio : 0.0) +
+      _cardPaddingRatio * 0.6 +
+      rows * (vertical.hasLabelRow ? _labelRowHeightRatio : 0.0) +
+      rows * vertical.maxStrokes +
+      (rows - 1) * _measureGapRatio +
+      2 * _cardPaddingRatio;
+  final heightConstant = rows * vertical.maxStrokes * _strokeMargin;
+  final heightStrokeSize = (availableHeight - safetyMargin - heightConstant) / heightDenominator;
+
+  return math.min(widthStrokeSize, heightStrokeSize);
 }

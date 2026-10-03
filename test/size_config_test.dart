@@ -9,10 +9,14 @@ Section _plainSection(int beats, int measures) => oneLineSection('', 1, [
   for (var m = 0; m < measures; m++) measure([for (var b = 0; b < beats; b++) r]),
 ]);
 
+const _strokeMargin = 8.0;
+
 void main() {
   test('computeFittedSizeConfig solves for a strokeSize that exactly fits availableWidth', () {
+    // Wide enough that the line is comfortably legible unwrapped (any narrower and it would be
+    // wrapped onto two rows instead -- see the wrapping tests below).
     final section = _plainSection(4, 2);
-    const availableWidth = 302.0;
+    const availableWidth = 340.0;
 
     final config = computeFittedSizeConfig(availableWidth: availableWidth, section: section);
 
@@ -50,14 +54,11 @@ void main() {
     expect(totalCardWidth, lessThanOrEqualTo(availableWidth + 0.01));
   });
 
-  test('falls back to a comfortable size instead of an unreadably tiny one when the width is '
-      'impossibly small', () {
-    // Wrapping is unavoidable here even at minStrokeSize (the row still wouldn't fit), so
-    // rather than clamp up to the smallest legible size and have it wrap anyway, this should
-    // fall back to a comfortable, legible size and just accept the wrap -- matching what the
-    // static drill-overview does unconditionally.
+  test('clamps to the minimum stroke size when the width is impossibly small even fully '
+      'wrapped', () {
+    // Not even a single 16-beat measure fits in 50px at any legible size.
     final config = computeFittedSizeConfig(availableWidth: 50, section: _plainSection(16, 4));
-    expect(config.strokeSize, wrapFallbackStrokeSize);
+    expect(config.strokeSize, minStrokeSize);
   });
 
   test('clamps to the maximum stroke size when there is far more room than needed', () {
@@ -180,8 +181,7 @@ void main() {
     expect(config.strokeSize, lessThan(maxStrokeSize));
   });
 
-  test('falls back to a comfortable size instead of an unreadably tiny one when the height is '
-      'impossibly small', () {
+  test('clamps to the minimum stroke size when the height is impossibly small', () {
     final tallSection = Section(
       repeat: 1,
       lines: [
@@ -200,29 +200,114 @@ void main() {
       section: tallSection,
     );
 
-    expect(config.strokeSize, wrapFallbackStrokeSize);
+    expect(config.strokeSize, minStrokeSize);
   });
 
-  test('falls back to a comfortable size for a pathologically dense line (regression: Sixteens '
-      'drill, 64 beats in one line)', () {
-    // Mirrors the real "Sixteens" drill: a single line with 64 beats across 8 measures. Even
-    // at a generous available width, the row can't fit at minStrokeSize -- it needs a
-    // comfortable size and to just accept wrapping, like the static overview does, rather than
-    // shrinking to the floor and *still* wrapping.
-    final section = _plainSection(64, 8);
-    final config = computeFittedSizeConfig(availableWidth: 1200, section: section);
+  // Total width a row of [shape] takes up at [config]'s size, including the card's own padding.
+  double rowWidth(LineShape shape, SizeConfig config) =>
+      shape.beats * (config.strokeSize + _strokeMargin) +
+      (shape.measures - 1) * config.measureGap +
+      2 * config.cardPadding;
 
-    expect(config.strokeSize, wrapFallbackStrokeSize);
+  // Total height of a section with [vertical]'s shape laid out in [rows] rows at [config]'s size.
+  double sectionHeight(SectionVerticalShape vertical, int rows, SizeConfig config) {
+    final header = vertical.hasHeader ? config.strokeSize * 0.22 * 1.3 : 0.0;
+    final perRow =
+        (vertical.hasLabelRow ? config.strokeSize * 0.84 : 0.0) +
+        vertical.maxStrokes * (config.strokeSize + _strokeMargin);
+    return header +
+        config.cardPadding * 0.6 +
+        rows * perRow +
+        (rows - 1) * config.measureGap +
+        2 * config.cardPadding;
+  }
 
-    final widestLine = widestLineShape(section);
-    const strokeMargin = 8.0;
-    final beatsRowWidth =
-        widestLine.beats * (config.strokeSize + strokeMargin) +
-        (widestLine.measures - 1) * config.measureGap;
-    final totalCardWidth = beatsRowWidth + 2 * config.cardPadding;
-    // Confirms this really is the "wraps anyway" scenario the fallback is for, not something
-    // that now accidentally fits.
-    expect(totalCardWidth, greaterThan(1200));
+  test('wraps a pathologically dense line onto as few rows as keep it comfortably legible '
+      '(regression: Sixteens drill, 64 beats in one line)', () {
+    // Mirrors the real "Sixteens" drill: a single line with 64 beats across 8 measures. Even at
+    // a generous width it can't fit on one row legibly, but 4 measures per row (2 rows) can.
+    final section = _plainSection(8, 8);
+    const availableWidth = 1200.0;
+    final config = computeFittedSizeConfig(availableWidth: availableWidth, section: section);
+
+    expect(config.strokeSize, greaterThanOrEqualTo(minUnwrappedStrokeSize));
+    // Confirms this really is the wrapping scenario: the unwrapped line doesn't fit...
+    expect(rowWidth(widestLineShape(section), config), greaterThan(availableWidth));
+    // ...but half of it does.
+    expect(
+      rowWidth(wrapShape(section, 4).widestRow, config),
+      lessThanOrEqualTo(availableWidth + 0.01),
+    );
+  });
+
+  test('picks the wrapping that gives the largest strokes when none is comfortable, fitting both '
+      'width and height (a landscape phone running Sixteens)', () {
+    final section = _plainSection(8, 8);
+    const availableWidth = 1000.0;
+    const availableHeight = 300.0;
+    final config = computeFittedSizeConfig(
+      availableWidth: availableWidth,
+      availableHeight: availableHeight,
+      section: section,
+    );
+
+    // Unwrapped and 4-per-row are both too dense to be comfortable here, while 2 measures per
+    // row (4 rows) has room for much bigger strokes than the old fixed fallback size.
+    expect(config.strokeSize, greaterThan(minUnwrappedStrokeSize));
+    final wrap = wrapShape(section, 2);
+    expect(wrap.rows, 4);
+    expect(rowWidth(wrap.widestRow, config), lessThanOrEqualTo(availableWidth + 0.01));
+    expect(
+      sectionHeight(sectionVerticalShape(section), wrap.rows, config),
+      lessThanOrEqualTo(availableHeight + 0.01),
+    );
+  });
+
+  test("doesn't wrap a line that's comfortably legible unwrapped, even if wrapping would allow "
+      'bigger strokes', () {
+    // Two 4-beat measures: one measure per row would allow bigger strokes in this tall space,
+    // but the unwrapped line is already comfortable, so it's kept on one row.
+    final section = _plainSection(4, 2);
+    const availableWidth = 400.0;
+    final config = computeFittedSizeConfig(
+      availableWidth: availableWidth,
+      availableHeight: 2000,
+      section: section,
+    );
+
+    expect(config.strokeSize, greaterThanOrEqualTo(minUnwrappedStrokeSize));
+    expect(rowWidth(widestLineShape(section), config), lessThanOrEqualTo(availableWidth + 0.01));
+    // Within a hair of exactly filling the width (less the solver's small safety margin), i.e.
+    // sized for the unwrapped row, not for one measure per row.
+    expect(rowWidth(widestLineShape(section), config), greaterThan(availableWidth - 10));
+  });
+
+  test('wrapShape groups each line into rows of consecutive measures', () {
+    final section = Section(
+      repeat: 1,
+      lines: [
+        Line(
+          measures: [
+            measure([r, r]),
+            measure([r, r, r, r]),
+            measure([r]),
+          ],
+        ),
+        Line(
+          measures: [
+            measure([r, r, r]),
+          ],
+        ),
+      ],
+    );
+
+    final wrap = wrapShape(section, 2);
+
+    // First line -> [2+4 beats], [1 beat]; second line -> [3 beats]. The widest row is the
+    // first line's first row.
+    expect(wrap.rows, 3);
+    expect(wrap.widestRow.beats, 6);
+    expect(wrap.widestRow.measures, 2);
   });
 
   test('a section that needs less room than its neighbors can render at its own, larger size', () {

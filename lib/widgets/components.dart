@@ -49,7 +49,10 @@ class HighlightedCard extends StatelessWidget {
       width: double.infinity,
       constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
       padding: const EdgeInsets.all(12),
-      alignment: Alignment.center,
+      // Only needed to center content within a minHeight. Without one, leave it off: a Container
+      // with an alignment expands to fill any bounded height it's given (e.g. a SectionView
+      // capped at the viewport's height), instead of shrink-wrapping its content.
+      alignment: minHeight != null ? Alignment.center : null,
       decoration: BoxDecoration(
         color: isHighlighted ? AppColors.highlightBg : AppColors.normalBg,
         borderRadius: BorderRadius.circular(8),
