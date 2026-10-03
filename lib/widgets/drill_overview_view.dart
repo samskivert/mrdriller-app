@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../model/model.dart';
 import 'components.dart';
@@ -21,38 +24,27 @@ class _OverviewSectionView extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        // IntrinsicWidth shrinks this card to the width its content actually needs, instead of
-        // the header Row and per-line Wrap each greedily claiming all space offered by the
-        // ancestor Wrap (which would stretch every card to the full row width).
-        child: IntrinsicWidth(
-          child: Column(
+        child: _HeaderOverBody(
+          header: SectionHeader(
+            label: section.label,
+            repeatDisplay: section.repeat > 1 ? 'x${section.repeat}' : null,
+          ),
+          // Each Wrap gets loose width constraints from this centered Column, so it sizes itself to
+          // its widest row (after wrapping, if it had to wrap) rather than to all the width on
+          // offer -- and so the card shrinks to its content either way, not just when a line fits
+          // unwrapped.
+          body: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SectionHeader(
-                label: section.label,
-                repeatDisplay: section.repeat > 1 ? 'x${section.repeat}' : null,
-              ),
               const SizedBox(height: 8),
               for (final line in section.lines)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  // The 4px gaps between measures are inserted as explicit SizedBox children
-                  // rather than Wrap's `spacing` property: RenderWrap.computeMaxIntrinsicWidth
-                  // sums each child's width but omits `spacing`, so with `spacing` alone the
-                  // ancestor IntrinsicWidth above computes a width a few pixels narrower than a
-                  // single row actually needs — just enough to make the Wrap wrap early even
-                  // when there's plenty of room, while still occupying the wider (wrong) width.
-                  // Making the gaps real children keeps them in that sum, so the two agree.
                   child: Wrap(
                     alignment: WrapAlignment.center,
+                    spacing: 4,
                     runSpacing: 4,
-                    children: [
-                      for (var i = 0; i < line.measures.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 4),
-                        MeasureView(measure: line.measures[i]),
-                      ],
-                    ],
+                    children: [for (final measure in line.measures) MeasureView(measure: measure)],
                   ),
                 ),
             ],
@@ -60,6 +52,109 @@ class _OverviewSectionView extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+enum _HeaderOverBodySlot { header, body }
+
+/// Lays out [body] at whatever width it naturally takes (up to the width available), then
+/// stretches [header] across exactly that width above it -- e.g. a section's label and repeat count
+/// pinned to the left and right edges of its measures, however those measures ended up wrapping.
+/// (IntrinsicWidth can't do this: a Wrap's intrinsic width is its *unwrapped* width, so whenever it
+/// wraps, the card would be sized wider than the wrapped rows actually are.) Grows wider than
+/// [body] if that's what [header] needs to fit on one line, centering [body] beneath it.
+class _HeaderOverBody extends SlottedMultiChildRenderObjectWidget<_HeaderOverBodySlot, RenderBox> {
+  final Widget header;
+  final Widget body;
+
+  const _HeaderOverBody({required this.header, required this.body});
+
+  @override
+  Iterable<_HeaderOverBodySlot> get slots => _HeaderOverBodySlot.values;
+
+  @override
+  Widget? childForSlot(_HeaderOverBodySlot slot) => switch (slot) {
+    _HeaderOverBodySlot.header => header,
+    _HeaderOverBodySlot.body => body,
+  };
+
+  @override
+  _RenderHeaderOverBody createRenderObject(BuildContext context) => _RenderHeaderOverBody();
+}
+
+class _RenderHeaderOverBody extends RenderBox
+    with SlottedContainerRenderObjectMixin<_HeaderOverBodySlot, RenderBox> {
+  RenderBox get _header => childForSlot(_HeaderOverBodySlot.header)!;
+  RenderBox get _body => childForSlot(_HeaderOverBodySlot.body)!;
+
+  // Sizes both children (laying them out for real if [layoutChild] does) and returns the overall
+  // width, header height, and body size -- shared by the real and dry layout paths.
+  ({double width, double headerHeight, Size body}) _layout(
+    BoxConstraints constraints,
+    Size Function(RenderBox child, BoxConstraints constraints) layoutChild,
+  ) {
+    final body = layoutChild(_body, BoxConstraints(maxWidth: constraints.maxWidth));
+    final headerWidth = _header.getMaxIntrinsicWidth(double.infinity);
+    final width = constraints.constrainWidth(math.max(body.width, headerWidth));
+    final header = layoutChild(_header, BoxConstraints.tightFor(width: width));
+    return (width: width, headerHeight: header.height, body: body);
+  }
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) {
+    final l = _layout(constraints, (child, c) => child.getDryLayout(c));
+    return constraints.constrain(Size(l.width, l.headerHeight + l.body.height));
+  }
+
+  @override
+  void performLayout() {
+    final l = _layout(constraints, (child, c) {
+      child.layout(c, parentUsesSize: true);
+      return child.size;
+    });
+    (_header.parentData! as BoxParentData).offset = Offset.zero;
+    (_body.parentData! as BoxParentData).offset = Offset(
+      (l.width - l.body.width) / 2,
+      l.headerHeight,
+    );
+    size = constraints.constrain(Size(l.width, l.headerHeight + l.body.height));
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      math.max(_header.getMinIntrinsicWidth(height), _body.getMinIntrinsicWidth(height));
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      math.max(_header.getMaxIntrinsicWidth(height), _body.getMaxIntrinsicWidth(height));
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      _header.getMinIntrinsicHeight(width) + _body.getMinIntrinsicHeight(width);
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      _header.getMaxIntrinsicHeight(width) + _body.getMaxIntrinsicHeight(width);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    for (final child in children) {
+      context.paintChild(child, offset + (child.parentData! as BoxParentData).offset);
+    }
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    for (final child in children) {
+      final offset = (child.parentData! as BoxParentData).offset;
+      final hit = result.addWithPaintOffset(
+        offset: offset,
+        position: position,
+        hitTest: (result, transformed) => child.hitTest(result, position: transformed),
+      );
+      if (hit) return true;
+    }
+    return false;
   }
 }
 
