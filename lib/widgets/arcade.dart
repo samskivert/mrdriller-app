@@ -330,9 +330,11 @@ class _AirGaugePainter extends CustomPainter {
 }
 
 /// A chunky candy-colored pill button: candy gradient on a solid [CandyColors.outline] drop
-/// shadow, which it sinks into while pressed.
+/// shadow, which it sinks into while pressed. With no [label] it's a round icon-only button, which
+/// needs a [tooltip] (also used as its accessibility label).
 class CandyButton extends StatefulWidget {
-  final String label;
+  final String? label;
+  final String? tooltip;
   final IconData? icon;
   final CandyColors colors;
   final VoidCallback? onPressed;
@@ -341,7 +343,8 @@ class CandyButton extends StatefulWidget {
 
   const CandyButton({
     super.key,
-    required this.label,
+    this.label,
+    this.tooltip,
     required this.colors,
     required this.onPressed,
     this.icon,
@@ -373,9 +376,11 @@ class _CandyButtonState extends State<CandyButton> {
       fontStyle: FontStyle.italic,
       letterSpacing: widget.fontSize * 0.08,
     );
-    return Semantics(
+    final label = widget.label;
+    final button = Semantics(
       button: true,
       enabled: widget.onPressed != null,
+      label: widget.tooltip,
       child: GestureDetector(
         onTapDown: (_) => _setPressed(true),
         onTapUp: (_) => _setPressed(false),
@@ -385,7 +390,8 @@ class _CandyButtonState extends State<CandyButton> {
           height: widget.height + depth,
           padding: EdgeInsets.only(top: sink, bottom: depth - sink),
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: widget.height * 0.38),
+            width: label == null ? widget.height : null,
+            padding: label == null ? null : EdgeInsets.symmetric(horizontal: widget.height * 0.38),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.height / 2),
               gradient: LinearGradient(
@@ -400,28 +406,30 @@ class _CandyButtonState extends State<CandyButton> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (widget.icon != null) ...[
+                if (widget.icon != null)
                   Icon(
                     widget.icon,
-                    size: widget.fontSize * 1.2,
+                    size: label == null ? widget.height * 0.6 : widget.fontSize * 1.2,
                     color: Colors.white,
                     shadows: [Shadow(color: c.outline, offset: const Offset(0, 1.5))],
                   ),
-                  SizedBox(width: widget.fontSize * 0.4),
-                ],
-                OutlinedText(
-                  widget.label,
-                  style: textStyle,
-                  color: Colors.white,
-                  outline: c.outline,
-                  outlineWidth: 2,
-                ),
+                if (widget.icon != null && label != null) SizedBox(width: widget.fontSize * 0.4),
+                if (label != null)
+                  OutlinedText(
+                    label,
+                    style: textStyle,
+                    color: Colors.white,
+                    outline: c.outline,
+                    outlineWidth: 2,
+                  ),
               ],
             ),
           ),
         ),
       ),
     );
+    final tooltip = widget.tooltip;
+    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
   }
 }
 

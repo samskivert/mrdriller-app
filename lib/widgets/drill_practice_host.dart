@@ -198,7 +198,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
                   const SizedBox(height: 14),
                   _statusView(vertical: true),
                   const SizedBox(height: 14),
-                  PauseButton(metronome: _metronome),
+                  PauseButton(metronome: _metronome, showLabel: true),
                 ],
               ),
             ),

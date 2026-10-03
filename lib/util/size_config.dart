@@ -34,10 +34,12 @@ const double minStrokeSize = 16;
 const double maxStrokeSize = 200;
 const double _maxFontSize = 40;
 
-// The smallest stroke size a line is drawn at before it's wrapped onto more rows instead -- a
-// comfortable size, matching the fixed default MeasureView.strokeSize the static drill-overview
-// always renders at. See computeFittedSizeConfig.
-const double minUnwrappedStrokeSize = 28;
+// The smallest stroke size a line is drawn at before it's wrapped onto more rows instead -- big
+// enough to read comfortably at a glance from the drum, while playing. (An unaccented stroke's
+// round candy is drawn at only about 3/4 of this.) For example, an 8-beat line wraps to 4 per row
+// on a phone in portrait, but stays on one row on a phone in landscape. See
+// computeFittedSizeConfig.
+const double minUnwrappedStrokeSize = 44;
 
 // A labeled beat adds a text row above its strokes (see _BeatView): a strokeSize*0.7 box plus
 // strokeSize*0.14 of padding beneath it.

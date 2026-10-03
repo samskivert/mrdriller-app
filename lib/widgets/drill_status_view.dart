@@ -147,11 +147,14 @@ class DrillStatusView extends StatelessWidget {
 
 /// The candy Pause/Resume button for a running drill, driven directly by [metronome] -- it reacts
 /// to [metronome]'s own notifications, so it always reflects whether the metronome is actually
-/// paused without the caller needing to track that separately.
+/// paused without the caller needing to track that separately. Icon-only by default (e.g. sharing
+/// a row with the back button and title); [showLabel] adds PAUSE/RESUME text, for when it gets a
+/// wide row of its own.
 class PauseButton extends StatelessWidget {
   final Metronome metronome;
+  final bool showLabel;
 
-  const PauseButton({super.key, required this.metronome});
+  const PauseButton({super.key, required this.metronome, this.showLabel = false});
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +163,8 @@ class PauseButton extends StatelessWidget {
       builder: (context, _) {
         final paused = metronome.isPaused;
         return CandyButton(
-          label: paused ? 'RESUME' : 'PAUSE',
+          label: showLabel ? (paused ? 'RESUME' : 'PAUSE') : null,
+          tooltip: showLabel ? null : (paused ? 'Resume' : 'Pause'),
           icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
           colors: paused ? AppColors.candyGreen : AppColors.candyPink,
           onPressed: paused ? metronome.resume : metronome.pause,

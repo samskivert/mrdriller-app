@@ -16,7 +16,7 @@ void main() {
     // Wide enough that the line is comfortably legible unwrapped (any narrower and it would be
     // wrapped onto two rows instead -- see the wrapping tests below).
     final section = _plainSection(4, 2);
-    const availableWidth = 340.0;
+    const availableWidth = 500.0;
 
     final config = computeFittedSizeConfig(availableWidth: availableWidth, section: section);
 
@@ -225,7 +225,7 @@ void main() {
     // Mirrors the real "Sixteens" drill: a single line with 64 beats across 8 measures. Even at
     // a generous width it can't fit on one row legibly, but 4 measures per row (2 rows) can.
     final section = _plainSection(8, 8);
-    const availableWidth = 1200.0;
+    const availableWidth = 1800.0;
     final config = computeFittedSizeConfig(availableWidth: availableWidth, section: section);
 
     expect(config.strokeSize, greaterThanOrEqualTo(minUnwrappedStrokeSize));
@@ -266,7 +266,7 @@ void main() {
     // Two 4-beat measures: one measure per row would allow bigger strokes in this tall space,
     // but the unwrapped line is already comfortable, so it's kept on one row.
     final section = _plainSection(4, 2);
-    const availableWidth = 400.0;
+    const availableWidth = 500.0;
     final config = computeFittedSizeConfig(
       availableWidth: availableWidth,
       availableHeight: 2000,
