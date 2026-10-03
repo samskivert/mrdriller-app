@@ -166,7 +166,7 @@ class _IntroView extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   '${formatBpmSummary(config.bpm, config.bpmIncrease)} · x${config.drillRepeat}'
-                  '${config.swapHands ? ' · R↔︎L' : ''}',
+                  '${config.swapHands ? ' · R⇄L' : ''}',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, color: AppColors.textGray),
                 ),

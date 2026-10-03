@@ -151,7 +151,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
                   ),
                 ),
                 fieldRow(
-                  'Swap L↔︎R',
+                  'Swap L⇄R',
                   // Table stretches every cell in a column to that column's full width (here,
                   // wide enough for the dropdowns) -- unlike NumberInputField/DropdownButton,
                   // which pack their content at the start when given extra width, Switch's own
