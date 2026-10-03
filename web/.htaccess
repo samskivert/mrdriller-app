@@ -1,0 +1,4 @@
+# The app uses path URLs (/drills, etc.) which only exist client-side, so serve
+# index.html for any request that doesn't match a real file and let Flutter
+# route it.
+FallbackResource /mrdriller/index.html
