@@ -37,6 +37,11 @@ class _PTState {
     this.repeat = 0,
     this.bpm = 60,
   });
+
+  String nOfM (PatternTrainerConfig config) {
+    final patternNum = (pattern + 1).clamp(1, config.numPatterns);
+    return '$patternNum / ${config.numPatterns}';
+  }
 }
 
 const _ptNotPlaying = _PTState();
@@ -346,10 +351,9 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
   }
 
   Widget _statusView(bool compact) {
-    final patternNum = (_state.pattern + 1).clamp(1, widget.config.numPatterns);
     final label =
         '${_difficultyLabel(widget.config.difficulty)} - ${widget.config.bpm}bpm - '
-        '$patternNum / ${widget.config.numPatterns}';
+        '${_state.nOfM(widget.config)}';
     return AnimatedBuilder(
       animation: _metronome,
       builder: (context, _) {
@@ -393,7 +397,7 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
   @override
   Widget build(BuildContext context) {
     final isCompactLandscape = _isCompactLandscape(context);
-
+    final action = _state.mode == _Mode.listen ? 'Listen' : 'Repeat';
     // Deliberately not ScreenScaffold: its scrollable body hands the pattern's SectionView an
     // unbounded height (a SingleChildScrollView always gives its child infinite height along the
     // scroll axis), so it never had any reason to size itself to fit -- it just rendered as large
@@ -443,12 +447,11 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
                           else if (_patterns.isNotEmpty && _state.pattern < _patterns.length) ...[
                             HighlightedCard(
                               isHighlighted: true,
-                              minHeight: 100,
                               child: Center(
                                 child: Text(
-                                  _state.mode == _Mode.listen ? 'Listen' : 'Repeat',
+                                  '$action - ${_state.nOfM(widget.config)}',
                                   style: TextStyle(
-                                    fontSize: 60,
+                                    fontSize: 36,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.btnBlue,
                                   ),
