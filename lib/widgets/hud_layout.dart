@@ -199,3 +199,58 @@ class HudTitle extends StatelessWidget {
     ),
   );
 }
+
+/// The layout for the app's non-playfield screens: a cream background with bubbles, under a header
+/// of a back button, [title], and (if [showSettings]) a settings button, with [child] filling the
+/// rest of the screen (and doing its own scrolling, if it needs to). [child] is responsible for
+/// keeping its content clear of the left/right/bottom safe-area insets, so that it can scroll
+/// beneath them.
+class CreamScreen extends StatelessWidget {
+  final String title;
+  final bool showSettings;
+  final Widget child;
+
+  const CreamScreen({
+    super.key,
+    required this.title,
+    this.showSettings = true,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: AppColors.cream,
+        body: Stack(
+          children: [
+            const Positioned.fill(
+              child: Bubbles(
+                bubbles: [(1.0, 0.0, 90), (0.82, 0.05, 30), (0.0, 0.45, 70), (0.95, 0.8, 50)],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(safe.left + 16, safe.top + 14, safe.right + 16, 10),
+                  child: Row(
+                    children: [
+                      const HudBackButton(),
+                      const SizedBox(width: 12),
+                      Expanded(child: HudTitle(title)),
+                      if (showSettings) ...[const SizedBox(width: 12), const HudSettingsButton()],
+                    ],
+                  ),
+                ),
+                Expanded(child: child),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

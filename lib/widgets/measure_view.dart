@@ -58,12 +58,15 @@ class _BeatView extends StatelessWidget {
 
 /// Renders a single measure: a horizontal run of beats, each of which may hold one or more
 /// stacked strokes (for multi-hand beats), a label above it, or be an empty placeholder. Beat
-/// labels are drawn in [labelColor] (pass a light color on the dark playfield).
+/// labels are drawn in [labelColor] (pass a light color on the dark playfield). Unless not
+/// [scrollable] (e.g. where it's laid out at unbounded width anyway), a measure too wide for the
+/// space available scrolls horizontally.
 class MeasureView extends StatelessWidget {
   final Measure measure;
   final int? highlightBeat;
   final double strokeSize;
   final Color labelColor;
+  final bool scrollable;
 
   const MeasureView({
     super.key,
@@ -71,6 +74,7 @@ class MeasureView extends StatelessWidget {
     this.highlightBeat,
     this.strokeSize = 28,
     this.labelColor = AppColors.ink,
+    this.scrollable = true,
   });
 
   @override
@@ -97,6 +101,7 @@ class MeasureView extends StatelessWidget {
     // is clamped to a legible min/max size — so on a pathologically narrow screen with a
     // many-beat measure, the exact fit could still be smaller than that floor. A scroll view
     // turns that edge case into a horizontal scroll instead of a hard layout overflow.
+    if (!scrollable) return row;
     // Unclipped so that the currently-playing block's pop and glow can spill past the row.
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
