@@ -397,10 +397,9 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     // Deliberately not ScreenScaffold: its scrollable body hands the pattern's SectionView an
     // unbounded height (a SingleChildScrollView always gives its child infinite height along the
     // scroll axis), so it never had any reason to size itself to fit -- it just rendered as large
-    // as the width allowed and ran off the bottom of short landscape screens. Mirroring
-    // DrillPracticeHost's fixed, non-scrolling Expanded layout instead gives the content a real
-    // height budget to fill (and, via ClipRect below, to clip gracefully against if a pattern
-    // still doesn't quite fit -- same tradeoff drill_practice_view.dart makes).
+    // as the width allowed and ran off the bottom of short landscape screens. A fixed,
+    // non-scrolling Expanded layout instead gives the content a real height budget to fill (and,
+    // via ClipRect below, to clip gracefully against if a pattern still doesn't quite fit).
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -6,11 +8,9 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
-import '../util/colors.dart';
 import 'components.dart';
 import 'drill_status_view.dart';
 import 'section_view.dart';
-import 'slide_in.dart';
 
 class _PState {
   final bool playing;
@@ -43,6 +43,9 @@ class _PState {
 }
 
 const _notPlaying = _PState();
+
+const _scrollDuration = Duration(milliseconds: 400);
+const _scrollCurve = Curves.easeInOut;
 
 /// Advances the drill state machine by exactly one tick (one sixteenth-note-ish subdivision).
 _PState _tick(_PState prev, Drill drill, int drillRepeatTarget, bool replayIntroOnBpmIncrease) {
@@ -281,6 +284,10 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   // already applied by the caller before it was ever handed to us), so unlike the overview screen
   // this only needs to be computed once.
   late final List<_FlatSection> _allSections = _flattenSections(widget.drill);
+  late final List<GlobalKey> _sectionKeys = [for (final _ in _allSections) GlobalKey()];
+
+  final _scrollController = ScrollController();
+  double _lastSectionHeight = 0;
 
   // Guards against onDone firing more than once (e.g. a beat tick arriving just as the drill
   // finishes).
@@ -315,6 +322,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   void dispose() {
     widget.metronome.removeListener(_handleMetronomeActiveChanged);
     _sounds?.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -333,6 +341,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   }
 
   void _applyState(_PState next) {
+    _scrollIfMoved(_state, next);
     setState(() => _state = next);
     _playBeatSound();
     _publishStatus();
@@ -399,18 +408,58 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     _applyState(next);
   }
 
+  int _flatIndexOf(_PState s) {
+    final idx = _allSections.indexWhere(
+      (fs) => fs.rowIndex == s.row && fs.sectionIndex == s.section,
+    );
+    return idx >= 0 ? idx : 0;
+  }
+
+  // Scrolls the now-current section to the top of the viewport (or, while the intro countdown is
+  // playing, back to the very top so the countdown shows), but only when that actually changed --
+  // a new section, the intro starting/ending, or the drill wrapping around -- not on every beat
+  // tick, which would keep restarting the animation.
+  void _scrollIfMoved(_PState prev, _PState next) {
+    final prevIdx = _flatIndexOf(prev);
+    final nextIdx = _flatIndexOf(next);
+    if (prevIdx == nextIdx && prev.intro == next.intro && prev.drillRepeat == next.drillRepeat) {
+      return;
+    }
+    // Wait for this frame's layout so the target's position reflects the state just applied.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (next.intro) {
+        _scrollController.animateTo(0, duration: _scrollDuration, curve: _scrollCurve);
+      } else {
+        final target = _sectionKeys[nextIdx].currentContext;
+        if (target == null) return;
+        Scrollable.ensureVisible(
+          target,
+          alignment: 0,
+          duration: _scrollDuration,
+          curve: _scrollCurve,
+        );
+      }
+    });
+  }
+
+  // Keeps [_lastSectionHeight] in sync with the last section's actual laid-out height, which the
+  // trailing spacer in [build] needs. Section heights depend on the available width (and so change
+  // on rotation/resizing), so this re-checks after every build, but only rebuilds on a change.
+  void _measureLastSection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final height = _sectionKeys.last.currentContext?.size?.height;
+      if (height != null && height != _lastSectionHeight) {
+        setState(() => _lastSectionHeight = height);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final drill = widget.drill;
-    final allSections = _allSections;
-    final currentFlatIndex = allSections.indexWhere(
-      (s) => s.rowIndex == _state.row && s.sectionIndex == _state.section,
-    );
-    final idx = currentFlatIndex >= 0 ? currentFlatIndex : 0;
-    final willRepeatDrill = _state.drillRepeat + 1 < widget.config.drillRepeat;
-    final willAnnounceRepeat = willRepeatDrill && (_state.bpmIncrease > 0 || drill.forceIntro);
-    final isLastSection = idx == allSections.length - 1;
-    final currentSection = allSections[idx].section;
+    final idx = _flatIndexOf(_state);
     final safeAreaPadding = MediaQuery.of(context).padding;
     final hasHorizontalSafeArea = safeAreaPadding.left > 0 || safeAreaPadding.right > 0;
 
@@ -432,100 +481,44 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       );
     }
 
-    Widget countdownSectionEl() {
-      final isBpmUp = _state.drillRepeat > 0 && _state.bpmIncrease > 0;
-      final isRepeat = _state.drillRepeat > 0;
-      return CountdownSection(
-        beat: _state.beat,
-        beatsPerMeasure: drill.bpm,
-        intro: _state.intro,
-        preText: isBpmUp ? 'BPM up!' : (isRepeat ? 'Back to the start!' : 'Get ready...'),
-      );
-    }
+    final isBpmUp = _state.drillRepeat > 0 && _state.bpmIncrease > 0;
+    final isRepeat = _state.drillRepeat > 0;
 
-    final topKey = _state.intro
-        ? 'countdown-${_state.drillRepeat}'
-        : 'section-$idx-${_state.drillRepeat}';
-    final showRepeatPreview = isLastSection && willAnnounceRepeat;
+    _measureLastSection();
 
-    String bottomKey;
-    if (_state.intro) {
-      bottomKey = 'section-$idx-${_state.drillRepeat}-preview';
-    } else if (isLastSection && !willRepeatDrill) {
-      bottomKey = 'all-done';
-    } else if (showRepeatPreview) {
-      bottomKey = 'countdown-next-${_state.drillRepeat + 1}';
-    } else {
-      final nextIdx = (idx + 1) % allSections.length;
-      final nextDR = nextIdx == 0 ? _state.drillRepeat + 1 : _state.drillRepeat;
-      bottomKey = 'section-$nextIdx-$nextDR-preview';
-    }
-
-    Widget topContent() =>
-        _state.intro ? countdownSectionEl() : mkSectionView(currentSection, true);
-
-    Widget bottomContent() {
-      if (bottomKey == 'all-done') {
-        return HighlightedCard(
-          isHighlighted: false,
-          minHeight: 100,
-          child: Center(
-            child: Text(
-              'All done!',
-              style: TextStyle(
-                fontSize: 35,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textGray,
-              ),
-            ),
-          ),
-        );
-      }
-      if (bottomKey.startsWith('countdown-next-')) {
-        return CountdownSection(
-          beat: 0,
-          beatsPerMeasure: drill.bpm,
-          intro: false,
-          preText: _state.bpmIncrease > 0 ? 'BPM up!' : 'Back to the start!',
-        );
-      }
-      final nextIdx = _state.intro ? idx : (idx + 1) % allSections.length;
-      return mkSectionView(allSections[nextIdx].section, false);
-    }
-
-    return Align(
-      alignment: Alignment.topCenter,
-      // On devices with no horizontal safe-area inset (no notch/rounded-corner cutout to clear in
-      // landscape), content otherwise runs flush to the screen edge; add a little breathing room
-      // ourselves. Devices that already have a horizontal safe-area inset are left as-is.
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: hasHorizontalSafeArea ? 0 : 10),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          // The drill controls what's on screen now, not a scroll view, so it's expected that the
-          // current section + preview sometimes won't all fit (e.g. a tall section on a short
-          // landscape phone). Clipping here tells Flutter that's intentional: clip the excess
-          // instead of raising the debug-only "RenderFlex overflowed" warning for expected
-          // behavior. (Column doesn't expose clipBehavior itself, so wrap it in ClipRect.)
-          child: ClipRect(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        controller: _scrollController,
+        // On devices with no horizontal safe-area inset (no notch/rounded-corner cutout to clear in
+        // landscape), content otherwise runs flush to the screen edge; add a little breathing room
+        // ourselves. Devices that already have a horizontal safe-area inset are left as-is.
+        padding: EdgeInsets.fromLTRB(
+          hasHorizontalSafeArea ? 0 : 10,
+          0,
+          hasHorizontalSafeArea ? 0 : 10,
+          0,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                // Mirrors the web version's persistent-slot animation: content swaps instantly
-                // (like a Solid re-render), and a pure slide transform carries the already-updated
-                // slot up from roughly where the bottom preview card sat into its resting
-                // position. The changing `key` mounts a fresh SlideIn instance, which is what
-                // makes the animation restart each time (see widgets/slide_in.dart for why
-                // TweenAnimationBuilder can't do this).
-                SlideIn(key: ValueKey(topKey), child: topContent()),
-                const SizedBox(height: 16),
-                // Bottom preview fades in only after the top slide above finishes (a 400ms delay,
-                // then a 300ms fade), matching the original timing.
-                FadeInDelayed(key: ValueKey(bottomKey), child: bottomContent()),
-                if (showRepeatPreview) ...[
+                CountdownSection(
+                  beat: _state.beat,
+                  beatsPerMeasure: drill.bpm,
+                  intro: _state.intro,
+                  preText: isBpmUp ? 'BPM up!' : (isRepeat ? 'Back to the start!' : 'Get ready...'),
+                ),
+                for (var i = 0; i < _allSections.length; i++) ...[
                   const SizedBox(height: 16),
-                  mkSectionView(allSections[0].section, false),
+                  KeyedSubtree(
+                    key: _sectionKeys[i],
+                    child: mkSectionView(_allSections[i].section, !_state.intro && i == idx),
+                  ),
                 ],
+                // Enough trailing room that even the last section can be scrolled all the way to the
+                // top of the viewport, rather than the list running out of scroll extent first.
+                SizedBox(height: math.max(16, constraints.maxHeight - _lastSectionHeight)),
               ],
             ),
           ),
