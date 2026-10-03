@@ -551,9 +551,16 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
                     const SizedBox(height: _gap),
                     KeyedSubtree(
                       key: _sectionKeys[p][i],
-                      child: mkSectionView(
-                        _allSections[i].section,
-                        !_state.intro && _state.drillRepeat == p && i == idx,
+                      // The scroll view would otherwise give each section unbounded height, so
+                      // SectionView would size itself to the width alone. Capping it at the
+                      // viewport's height makes each section shrink (individually, only as much
+                      // as it needs) to fit entirely on screen once scrolled to the top.
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: constraints.maxHeight),
+                        child: mkSectionView(
+                          _allSections[i].section,
+                          !_state.intro && _state.drillRepeat == p && i == idx,
+                        ),
                       ),
                     ),
                   ],
