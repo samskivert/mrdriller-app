@@ -10,7 +10,7 @@ class DrillMenuScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return DrillPickerScreen(
       title: 'Drills',
-      onDrillTap: (context, drill) => Navigator.of(context).pushNamed('/drill/${drill.id}'),
+      onDrillTap: (context, drill) => Navigator.of(context).pushNamed('/drills/${drill.id}'),
     );
   }
 }

@@ -51,11 +51,18 @@ class MrDrillerApp extends StatelessWidget {
       ),
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,
+      onUnknownRoute: (settings) => MaterialPageRoute(
+        settings: settings,
+        builder: (_) => _UnknownRoute(id: settings.name ?? ''),
+      ),
     );
   }
 }
 
-Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
+// Returns null for unknown routes (handled by onUnknownRoute) so that when the app is launched with a
+// deep link like /drills/paradiddle, Navigator skips any intermediate path prefixes that aren't routes
+// when it builds the back stack.
+Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
   final uri = Uri.parse(routeSettings.name ?? '/');
   final segments = uri.pathSegments;
 
@@ -65,10 +72,10 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
   if (segments[0] == 'settings') {
     return MaterialPageRoute(settings: routeSettings, builder: (_) => const SettingsScreen());
   }
-  if (segments[0] == 'drills') {
+  if (segments[0] == 'drills' && segments.length == 1) {
     return MaterialPageRoute(settings: routeSettings, builder: (_) => const DrillMenuScreen());
   }
-  if (segments[0] == 'drill' && segments.length > 1) {
+  if (segments[0] == 'drills' && segments.length > 1) {
     final drill = data.findDrillById(segments[1]);
     if (drill != null) {
       return MaterialPageRoute(
@@ -89,10 +96,7 @@ Route<dynamic> _onGenerateRoute(RouteSettings routeSettings) {
       );
     }
   }
-  return MaterialPageRoute(
-    settings: routeSettings,
-    builder: (_) => _UnknownRoute(id: routeSettings.name ?? ''),
-  );
+  return null;
 }
 
 class _UnknownRoute extends StatelessWidget {
