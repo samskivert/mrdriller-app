@@ -281,7 +281,7 @@ class DrillPracticeView extends StatefulWidget {
   State<DrillPracticeView> createState() => _DrillPracticeViewState();
 }
 
-class _DrillPracticeViewState extends State<DrillPracticeView> {
+class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTickerProviderStateMixin {
   late _PState _state;
 
   MetronomeSounds? _sounds;
@@ -308,6 +308,35 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
   // Guards against onDone firing more than once (e.g. a beat tick arriving just as the drill
   // finishes).
   bool _finished = false;
+
+  // Once the drill is finished: the ALL CLEAR! celebration, which flies out of the All Clear card
+  // from [_celebrationStart] (in the stack's coordinates) before [DrillPracticeView.onDone].
+  late final AnimationController _celebration = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  final _stackKey = GlobalKey();
+  bool _celebrating = false;
+  Offset? _celebrationStart;
+  bool _doneNotified = false;
+
+  void _celebrate() {
+    final card = _allDoneKey.currentContext?.findRenderObject() as RenderBox?;
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (card != null && stack != null && card.attached) {
+      // (The keyed box includes the gap above the card itself.)
+      final center = card.size.center(Offset.zero) + const Offset(0, _gap / 2);
+      _celebrationStart = stack.globalToLocal(card.localToGlobal(center));
+    }
+    setState(() => _celebrating = true);
+    _celebration.forward().whenComplete(_notifyDone);
+  }
+
+  void _notifyDone() {
+    if (!mounted || _doneNotified) return;
+    _doneNotified = true;
+    widget.onDone();
+  }
 
   // Fires [_start] one beat after the screen appears and the sounds are ready; until then, the
   // count-in overlay is up but hasn't started counting.
@@ -355,6 +384,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
 
   @override
   void dispose() {
+    _celebration.dispose();
     _startTimer?.cancel();
     widget.metronome.removeListener(_handleMetronomeActiveChanged);
     _sounds?.dispose();
@@ -387,7 +417,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       widget.metronome.stop();
       if (mounted && !_finished) {
         _finished = true;
-        widget.onDone();
+        _celebrate();
       }
     }
   }
@@ -552,14 +582,21 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
 
     // Never scrolled to itself (the drill just ends once the last section finishes), but visible
     // below the last section as a heads-up while it plays.
-    final allDone = const PlayfieldPanel(
+    final allDone = PlayfieldPanel(
       minHeight: 100,
-      padding: EdgeInsets.all(16),
-      child: PuffyText(
-        'ALL CLEAR!',
-        size: 36,
-        color: AppColors.gold,
-        shadow: AppColors.goldOutline,
+      padding: const EdgeInsets.all(16),
+      // Its text flies out of the card for the celebration once the drill is done.
+      child: Opacity(
+        opacity: _celebrating ? 0 : 1,
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: PuffyText(
+            'ALL CLEAR!',
+            size: 36,
+            color: AppColors.gold,
+            shadow: AppColors.goldOutline,
+          ),
+        ),
       ),
     );
 
@@ -569,6 +606,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     final counting = _state.playing && _state.intro;
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
+        key: _stackKey,
         children: [
           SingleChildScrollView(
             controller: _scrollController,
@@ -650,6 +688,18 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
               ),
             ),
           ),
+          if (_celebrating)
+            Positioned.fill(
+              child: GestureDetector(
+                // A tap skips the rest of the celebration.
+                onTap: _notifyDone,
+                child: AllClearCelebration(
+                  animation: _celebration,
+                  start: _celebrationStart,
+                  textSize: 36,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -807,4 +857,203 @@ class _CountInOverlay extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The end-of-drill celebration (shown by [DrillPracticeView] once a drill is finished): over a
+/// darkening scrim, ALL CLEAR! flies from [start] (where it sat in the All Clear card, at
+/// [textSize]; the bottom of the view if unknown) to the center, growing with a springy bounce to
+/// as big as fits on screen, in front of a slowly turning starburst and a burst of candy stars.
+class AllClearCelebration extends StatelessWidget {
+  final Animation<double> animation;
+  final Offset? start;
+  final double textSize;
+
+  const AllClearCelebration({
+    super.key,
+    required this.animation,
+    required this.start,
+    required this.textSize,
+  });
+
+  static const _fly = Interval(0, 0.35, curve: Curves.easeOutCubic);
+  static const _grow = Interval(0, 0.5, curve: Curves.elasticOut);
+  static const _scrim = Interval(0, 0.2, curve: Curves.easeOut);
+  static const _burst = Interval(0.12, 0.85, curve: Curves.easeOutCubic);
+
+  // The text, and the largest font size at which it fits within [screen] with some room to spare.
+  static (String, double) _fit(Size screen) {
+    Size measure(String text) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: const TextStyle(fontFamily: AppFonts.display, fontSize: 100, height: 1.1),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final size = painter.size;
+      painter.dispose();
+      return size;
+    }
+
+    var best = ('', 0.0);
+    for (final text in const ['ALL CLEAR!', 'ALL\nCLEAR!']) {
+      final at100 = measure(text);
+      final fontSize = math.min(
+        100 * screen.width * 0.82 / at100.width,
+        100 * screen.height * 0.5 / at100.height,
+      );
+      if (fontSize > best.$2) best = (text, fontSize);
+    }
+    return (best.$1, math.min(best.$2, 120));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final center = size.center(Offset.zero);
+        final from = start ?? Offset(center.dx, size.height);
+        // As big as fits on screen: on one line, or broken over two if that allows bigger text
+        // (e.g. on a phone in portrait).
+        final (text, bigSize) = _fit(size);
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, _) {
+            final t = animation.value;
+            final pos = Offset.lerp(from, center, _fly.transform(t))!;
+            final scale = textSize / bigSize + (1 - textSize / bigSize) * _grow.transform(t);
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: const Color(0xFF090E20).withValues(alpha: 0.8 * _scrim.transform(t)),
+                  ),
+                ),
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _BlingPainter(
+                      center: center,
+                      reach: size.shortestSide * 0.48,
+                      rays: _scrim.transform(t),
+                      burst: _burst.transform(t),
+                      spin: t,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: pos.dx,
+                  top: pos.dy,
+                  child: FractionalTranslation(
+                    translation: const Offset(-0.5, -0.5),
+                    child: Transform.scale(
+                      scale: scale,
+                      child: PuffyText(
+                        text,
+                        size: bigSize,
+                        color: AppColors.gold,
+                        shadow: AppColors.goldOutline,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _BlingPainter extends CustomPainter {
+  final Offset center;
+  final double reach;
+  // 0..1: how far the starburst rays have faded in, and the stars have flown out.
+  final double rays;
+  final double burst;
+  final double spin;
+
+  _BlingPainter({
+    required this.center,
+    required this.reach,
+    required this.rays,
+    required this.burst,
+    required this.spin,
+  });
+
+  static const _stars = 16;
+  static const _colors = [
+    AppColors.gold,
+    Color(0xFFFF6FA0),
+    Color(0xFF3BA4F0),
+    Color(0xFF49C96B),
+    Color(0xFFFFAE1F),
+  ];
+
+  Path _star(double r) {
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final a = -math.pi / 2 + i * math.pi / 5;
+      final rr = i.isEven ? r : r * 0.45;
+      final p = Offset(math.cos(a) * rr, math.sin(a) * rr);
+      i == 0 ? path.moveTo(p.dx, p.dy) : path.lineTo(p.dx, p.dy);
+    }
+    return path..close();
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // A slowly turning starburst of soft gold rays, like a stage-clear screen.
+    if (rays > 0) {
+      final rayPaint = Paint()..color = AppColors.gold.withValues(alpha: 0.16 * rays);
+      final far = size.longestSide;
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(spin * math.pi / 3);
+      for (var i = 0; i < 12; i++) {
+        final a = i * math.pi / 6;
+        canvas.drawPath(
+          Path()
+            ..moveTo(0, 0)
+            ..lineTo(math.cos(a - 0.12) * far, math.sin(a - 0.12) * far)
+            ..lineTo(math.cos(a + 0.12) * far, math.sin(a + 0.12) * far)
+            ..close(),
+          rayPaint,
+        );
+      }
+      canvas.restore();
+    }
+
+    // A ring of candy stars bursting outwards, spinning, and fading as they go.
+    if (burst > 0 && burst < 1) {
+      final fade = burst < 0.7 ? 1.0 : (1 - burst) / 0.3;
+      for (var i = 0; i < _stars; i++) {
+        // Alternate long and short throws, so it reads as a burst rather than a single ring.
+        final a = i * 2 * math.pi / _stars + (i.isEven ? 0 : math.pi / _stars);
+        final dist = reach * burst * (i.isEven ? 1 : 0.68);
+        final r = reach * (i.isEven ? 0.07 : 0.05) * (0.4 + 0.6 * math.min(1, burst * 3));
+        final color = _colors[i % _colors.length];
+        canvas.save();
+        canvas.translate(center.dx + math.cos(a) * dist, center.dy + math.sin(a) * dist);
+        canvas.rotate(burst * math.pi * (i.isEven ? 1.5 : -1.5));
+        final star = _star(r);
+        canvas.drawPath(
+          star,
+          Paint()
+            ..color = Colors.white.withValues(alpha: fade)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = r * 0.35
+            ..strokeJoin = StrokeJoin.round,
+        );
+        canvas.drawPath(star, Paint()..color = color.withValues(alpha: fade));
+        canvas.restore();
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BlingPainter old) =>
+      old.rays != rays || old.burst != burst || old.spin != spin || old.center != center;
 }
