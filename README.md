@@ -15,6 +15,21 @@ device to run it on.
 If you've never done Flutter dev before, then check out [their docs](https://docs.flutter.dev) and
 good luck!
 
+### Release build
+
+To install a release build to an iOS device:
+
+```
+flutter build ios --release
+flutter install --release -d Pokekon
+```
+
+To build an IPA for upload to the AppStore:
+
+```
+flutter build ipa
+```
+
 ## Adding drills
 
 The drills are defined in `lib/data/drills.dart` and are hopefully reasonably self-explanatory.
