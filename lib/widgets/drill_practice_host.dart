@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../model/model.dart';
 import '../services/metronome.dart';
+import '../services/screen_cutout.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
@@ -55,6 +58,26 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
       ),
     ),
   );
+
+  // The screen size we last asked the platform about its cutout for: asked again whenever it
+  // changes (i.e. on rotation), with any change in the answer notified via cutoutSideChanges.
+  Size? _cutoutQueriedFor;
+
+  // In landscape, the safe-area insets to actually keep clear of: the full inset on the side with
+  // the camera cutout, but on the other side (where the inset is only there for the screen's
+  // rounded corners) just a small margin, to reclaim the rest for the drill. The bottom inset is
+  // dropped too; it's only the home indicator, which the scrolling playfield can run beneath.
+  EdgeInsets _landscapeInsets(EdgeInsets safe) {
+    const cornerMargin = 16.0;
+    final cutout = landscapeCutoutSide(View.of(context));
+    if (cutout == null) return safe;
+    return EdgeInsets.only(
+      left: cutout == CutoutSide.left ? safe.left : math.min(safe.left, cornerMargin),
+      top: safe.top,
+      right: cutout == CutoutSide.right ? safe.right : math.min(safe.right, cornerMargin),
+      bottom: safe.bottom,
+    );
+  }
 
   @override
   void dispose() {
@@ -171,7 +194,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
       Expanded(
         child: Container(
           color: AppColors.navyTop,
-          padding: EdgeInsets.only(left: safe.left, top: safe.top, bottom: safe.bottom),
+          padding: EdgeInsets.only(left: safe.left, top: safe.top),
           child: _playfield(),
         ),
       ),
@@ -212,13 +235,23 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final isLandscape = media.size.width > media.size.height;
+    if (media.size != _cutoutQueriedFor) {
+      _cutoutQueriedFor = media.size;
+      refreshCutoutSide();
+    }
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // Status bar icons sit over the cream HUD in portrait, but over the navy playfield in
       // landscape.
       value: isLandscape ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppColors.navy,
-        body: isLandscape ? _landscape(media.padding, media.size.height) : _portrait(media.padding),
+        body: isLandscape
+            ? ListenableBuilder(
+                listenable: cutoutSideChanges,
+                builder: (context, _) =>
+                    _landscape(_landscapeInsets(media.padding), media.size.height),
+              )
+            : _portrait(media.padding),
       ),
     );
   }

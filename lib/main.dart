@@ -11,6 +11,7 @@ import 'screens/pattern_trainer_screen.dart';
 import 'screens/practice_plan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/reminder_scheduler.dart';
+import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
 import 'state/practice_log.dart';
 import 'state/practice_plan.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
   await practiceLog.load();
   await reminders.load();
   await loadAppInfo();
+  initScreenCutout();
   // Not awaited -- this involves a native plugin round-trip and (on iOS/Android) a permission
   // prompt, neither of which should delay the app's first frame.
   unawaited(refreshScheduledReminders());
