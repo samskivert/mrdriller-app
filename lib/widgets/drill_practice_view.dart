@@ -464,21 +464,32 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
     if (prevIdx == nextIdx && prev.intro == next.intro && prev.drillRepeat == next.drillRepeat) {
       return;
     }
-    final key = next.intro
-        ? _interludeKeys[next.drillRepeat]
-        : _sectionKeys[next.drillRepeat][nextIdx];
+    _scrollToCurrent(next);
+  }
+
+  void _scrollToCurrent(_PState s, {Duration duration = _scrollDuration}) {
+    final key = s.intro
+        ? _interludeKeys[s.drillRepeat]
+        : _sectionKeys[s.drillRepeat][_flatIndexOf(s)];
     // Wait for this frame's layout so the target's position reflects the state just applied.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final target = key.currentContext;
       if (target == null) return;
-      Scrollable.ensureVisible(
-        target,
-        alignment: 0,
-        duration: _scrollDuration,
-        curve: _scrollCurve,
-      );
+      Scrollable.ensureVisible(target, alignment: 0, duration: duration, curve: _scrollCurve);
     });
+  }
+
+  // When the screen changes size (e.g. the phone rotates), every card is resized, which leaves the
+  // current one wherever it lands in the old scroll offset; put it back at the top.
+  Size? _lastScreenSize;
+
+  void _rescrollIfResized(Size size) {
+    final last = _lastScreenSize;
+    _lastScreenSize = size;
+    if (last != null && last != size && _state.playing) {
+      _scrollToCurrent(_state, duration: Duration.zero);
+    }
   }
 
   // Keeps [_tailHeight] in sync with the actual laid-out height of the very last section plus the
@@ -554,6 +565,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
 
     _measureTail();
 
+    _rescrollIfResized(MediaQuery.sizeOf(context));
     final counting = _state.playing && _state.intro;
     return LayoutBuilder(
       builder: (context, constraints) => Stack(

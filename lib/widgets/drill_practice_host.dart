@@ -109,7 +109,14 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
     ),
   );
 
-  Widget _playfield() => DecoratedBox(
+  // Portrait and landscape place the playfield at different spots in the widget tree; this key
+  // lets Flutter move the same running playfield (and the drill's whole state within it) between
+  // them when the phone rotates, instead of tearing it down and starting the drill over.
+  final _playfieldKey = GlobalKey();
+
+  Widget _playfield() => KeyedSubtree(key: _playfieldKey, child: _playfieldContent());
+
+  Widget _playfieldContent() => DecoratedBox(
     decoration: const BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topCenter,
