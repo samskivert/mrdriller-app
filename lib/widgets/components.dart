@@ -515,10 +515,12 @@ class _CountPip extends StatelessWidget {
           border: filled
               ? null
               : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
+          // Painted in order: the current pip's glow, then a white ring around both the pip and its
+          // solid 3D lip below it (hence shifted down by half the lip), then the lip itself.
           boxShadow: [
             if (current) ...[
-              const BoxShadow(color: Colors.white, spreadRadius: 4),
               BoxShadow(color: candy.base.withValues(alpha: 0.55), blurRadius: 26, spreadRadius: 8),
+              const BoxShadow(color: Colors.white, spreadRadius: 4, offset: Offset(0, 1.5)),
             ],
             if (filled) BoxShadow(color: candy.outline, offset: const Offset(0, 3)),
           ],
