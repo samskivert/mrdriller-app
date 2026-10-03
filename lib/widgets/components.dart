@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
@@ -415,26 +413,52 @@ class ActivityButton extends StatelessWidget {
 // The count-in: one call per measure, as romaji (shown big) and Japanese (on the beat pips).
 const List<(String, String)> introText = [('ICHI', 'いち'), ('NI', 'に'), ('SO', 'そ〜'), ('RE', 'れ！')];
 
-/// The big count-in card shown before a drill starts: while [intro] is counting in, the current
-/// call in puffy text over a row of pips for all four; otherwise just [preText] (e.g. which pass
-/// of the drill is coming up next).
+/// The count-in display: the current call ([index] into [introText]) in big puffy text, over a
+/// row of pips for all four calls. [size] is the puffy text's font size.
+class CountIn extends StatelessWidget {
+  final int index;
+  final double size;
+
+  const CountIn({super.key, required this.index, this.size = 72});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = index.clamp(0, introText.length - 1);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PuffyText('${introText[current].$1}!', size: size),
+        SizedBox(height: size * 0.2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < introText.length; i++)
+              Padding(
+                padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
+                child: _CountPip(label: introText[i].$2, past: i < current, current: i == current),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// A count-in card: the [CountIn] while [intro] is counting in, otherwise just "Get ready...".
 class CountdownSection extends StatelessWidget {
   final int beat;
   final int beatsPerMeasure;
   final bool intro;
-  final String? preText;
 
   const CountdownSection({
     super.key,
     required this.beat,
     required this.beatsPerMeasure,
     required this.intro,
-    this.preText,
   });
 
   @override
   Widget build(BuildContext context) {
-    final measureIndex = math.min(beat ~/ beatsPerMeasure, introText.length - 1);
     return PlayfieldPanel(
       active: intro,
       minHeight: 100,
@@ -444,32 +468,12 @@ class CountdownSection extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: intro
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PuffyText('${introText[measureIndex].$1}!', size: 72),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (var i = 0; i < introText.length; i++)
-                        Padding(
-                          padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
-                          child: _CountPip(
-                            label: introText[i].$2,
-                            past: i < measureIndex,
-                            current: i == measureIndex,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              )
-            : Text(
-                preText ?? 'Get ready...',
+            ? CountIn(index: beat ~/ beatsPerMeasure)
+            : const Text(
+                'Get ready...',
                 maxLines: 1,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppFonts.display,
                   fontSize: 40,
                   color: AppColors.cream,

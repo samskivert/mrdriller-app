@@ -510,19 +510,15 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
       );
     }
 
-    // Every pass opens with one of these, showing which pass it is (and its bpm, if the bpm is
-    // increasing). The first always counts in (ichi-ni-so-re); later ones only do if the intro is
-    // replayed for that pass (see _tick) -- otherwise the drill just scrolls past them.
+    // Every pass opens with one of these, showing which pass it is and its bpm. While a pass is
+    // counting in (ichi-ni-so-re), it's scrolled to the top, with the count-in overlaid on top of
+    // it and the pass's first sections.
     Widget mkInterlude(int pass) {
-      final isActive = _state.intro && _state.drillRepeat == pass;
       final config = widget.config;
-      final progress = '${pass + 1} of ${config.drillRepeat}';
-      final passBpm = (config.bpm + config.bpmIncrease * pass).clamp(0, maxBpm);
-      return CountdownSection(
-        beat: isActive ? _state.beat : 0,
-        beatsPerMeasure: drill.bpm,
-        intro: isActive,
-        preText: config.bpmIncrease > 0 ? '$progress - $passBpm BPM' : progress,
+      return _PassSeparator(
+        pass: pass,
+        passes: config.drillRepeat,
+        bpm: (config.bpm + config.bpmIncrease * pass).clamp(0, maxBpm),
       );
     }
 
@@ -541,60 +537,240 @@ class _DrillPracticeViewState extends State<DrillPracticeView> {
 
     _measureTail();
 
+    final counting = _state.playing && _state.intro;
     return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        controller: _scrollController,
-        // On devices with no horizontal safe-area inset (no notch/rounded-corner cutout to clear in
-        // landscape), content otherwise runs flush to the screen edge; add a little breathing room
-        // ourselves. Devices that already have a horizontal safe-area inset are left as-is.
-        padding: EdgeInsets.fromLTRB(
-          hasHorizontalSafeArea ? 0 : 10,
-          0,
-          hasHorizontalSafeArea ? 0 : 10,
-          0,
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            child: Column(
-              // Each card carries the gap above it as its own top padding, so that scrolling a
-              // card to the top of the viewport leaves that gap above it (and room for an active
-              // card's glow) rather than butting it right up against the viewport's edge.
-              children: [
-                for (var p = 0; p < widget.config.drillRepeat; p++) ...[
-                  KeyedSubtree(
-                    key: _interludeKeys[p],
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: _gap),
-                      child: mkInterlude(p),
-                    ),
-                  ),
-                  for (var i = 0; i < _allSections.length; i++)
-                    KeyedSubtree(
-                      key: _sectionKeys[p][i],
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: _gap),
-                        // The scroll view would otherwise give each section unbounded height, so
-                        // SectionView would size itself to the width alone. Capping it at the
-                        // viewport's height makes each section shrink (individually, only as much
-                        // as it needs) to fit entirely on screen once scrolled to the top.
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: constraints.maxHeight - _gap * 2),
-                          child: mkSectionView(p, i),
+      builder: (context, constraints) => Stack(
+        children: [
+          SingleChildScrollView(
+            controller: _scrollController,
+            // On devices with no horizontal safe-area inset (no notch/rounded-corner cutout to
+            // clear in landscape), content otherwise runs flush to the screen edge; add a little
+            // breathing room ourselves. Devices that already have a horizontal safe-area inset are
+            // left as-is.
+            padding: EdgeInsets.fromLTRB(
+              hasHorizontalSafeArea ? 0 : 10,
+              0,
+              hasHorizontalSafeArea ? 0 : 10,
+              0,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1200),
+                child: Column(
+                  // Each card carries the gap above it as its own top padding, so that scrolling a
+                  // card to the top of the viewport leaves that gap above it (and room for an
+                  // active card's glow) rather than butting it right up against the viewport's
+                  // edge.
+                  children: [
+                    for (var p = 0; p < widget.config.drillRepeat; p++) ...[
+                      KeyedSubtree(
+                        key: _interludeKeys[p],
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: _gap),
+                          child: mkInterlude(p),
                         ),
                       ),
+                      for (var i = 0; i < _allSections.length; i++)
+                        KeyedSubtree(
+                          key: _sectionKeys[p][i],
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: _gap),
+                            // The scroll view would otherwise give each section unbounded height,
+                            // so SectionView would size itself to the width alone. Capping it at
+                            // the viewport's height makes each section shrink (individually, only
+                            // as much as it needs) to fit entirely on screen once scrolled to the
+                            // top.
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: constraints.maxHeight - _gap * 2,
+                              ),
+                              child: mkSectionView(p, i),
+                            ),
+                          ),
+                        ),
+                    ],
+                    KeyedSubtree(
+                      key: _allDoneKey,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: _gap),
+                        child: allDone,
+                      ),
                     ),
-                ],
-                KeyedSubtree(
-                  key: _allDoneKey,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: _gap),
-                    child: allDone,
+                    // Enough trailing room that even the last section can be scrolled all the way
+                    // to the top of the viewport, rather than the list running out of scroll extent
+                    // first.
+                    SizedBox(height: math.max(_gap, constraints.maxHeight - _tailHeight)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !counting,
+              child: AnimatedOpacity(
+                opacity: counting ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: _CountInOverlay(
+                  index: _state.beat ~/ drill.bpm,
+                  bpm: _state.bpm,
+                  pass: _state.drillRepeat,
+                  passes: widget.config.drillRepeat,
+                  bpmUp: _state.drillRepeat > 0 && widget.config.bpmIncrease > 0,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A divider between passes through the drill: a HUD card reading e.g. "LOOP 2/3 BPM 101" (in
+/// banners and digit tiles, like the HUD sidebar) between two lines. (Just the bpm, for a drill
+/// that's only played once.)
+class _PassSeparator extends StatelessWidget {
+  final int pass;
+  final int passes;
+  final int bpm;
+
+  const _PassSeparator({required this.pass, required this.passes, required this.bpm});
+
+  Widget _line(bool leading) => Expanded(
+    child: Container(
+      height: 4,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(2),
+        gradient: LinearGradient(
+          colors: [AppColors.gold.withValues(alpha: 0), AppColors.gold.withValues(alpha: 0.7)],
+          begin: leading ? Alignment.centerLeft : Alignment.centerRight,
+          end: leading ? Alignment.centerRight : Alignment.centerLeft,
+        ),
+      ),
+    ),
+  );
+
+  Widget _banner(String label, Color color) => HudBanner(
+    label: label,
+    color: color,
+    borderRadius: BorderRadius.circular(9),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) => _build(constraints.maxWidth));
+  }
+
+  Widget _build(double width) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          _line(true),
+          // Shrinks to fit on a narrow phone (always leaving a little of each line showing), rather
+          // than overflowing.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: math.max(0, width - 40)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (passes > 1) ...[
+                      _banner('Loop', AppColors.bannerRed),
+                      const SizedBox(width: 8),
+                      DigitTiles(value: '${pass + 1}/$passes', height: 28),
+                      const SizedBox(width: 14),
+                    ],
+                    _banner('BPM', AppColors.bannerOrange),
+                    const SizedBox(width: 8),
+                    DigitTiles(value: '$bpm', height: 28),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _line(false),
+        ],
+      ),
+    );
+  }
+}
+
+/// The count-in, overlaid on the playfield: the sections behind it stay visible through a
+/// translucent navy scrim, so you can see what's coming while it counts you in. Headed "BPM UP"
+/// instead of "GET READY" when [bpmUp], i.e. when it's counting in a later pass at a faster bpm.
+class _CountInOverlay extends StatelessWidget {
+  final int index;
+  final int bpm;
+  final int pass;
+  final int passes;
+  final bool bpmUp;
+
+  const _CountInOverlay({
+    required this.index,
+    required this.bpm,
+    required this.pass,
+    required this.passes,
+    required this.bpmUp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const meta = TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: 22,
+      height: 1,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1,
+      color: AppColors.cream,
+    );
+    return ColoredBox(
+      color: const Color(0xC7090E20),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 27, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Text(
+                    bpmUp ? 'BPM UP' : 'GET READY',
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 20,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: 3.4,
+                      color: AppColors.ink,
+                    ),
                   ),
                 ),
-                // Enough trailing room that even the last section can be scrolled all the way to the
-                // top of the viewport, rather than the list running out of scroll extent first.
-                SizedBox(height: math.max(_gap, constraints.maxHeight - _tailHeight)),
+                const SizedBox(height: 22),
+                CountIn(index: index, size: 104),
+                const SizedBox(height: 22),
+                Text(passes > 1 ? '$bpm BPM · LOOP ${pass + 1}/$passes' : '$bpm BPM', style: meta),
               ],
             ),
           ),

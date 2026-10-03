@@ -229,7 +229,8 @@ class DigitTiles extends StatelessWidget {
   }
 }
 
-/// A white HUD card with a [HudBanner] tab in its top-left corner, holding [child] centered below.
+/// A white HUD card with a [HudBanner] tab in its top-left corner, holding [child] centered below
+/// (and scaled down if it's too wide to fit).
 class HudCard extends StatelessWidget {
   final String label;
   final Color bannerColor;
@@ -258,7 +259,15 @@ class HudCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           HudBanner(label: label, color: bannerColor),
-          Expanded(child: Center(child: child)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              // Shrinks to fit a narrow card (e.g. a long loop count on a small phone).
+              child: Center(
+                child: FittedBox(fit: BoxFit.scaleDown, child: child),
+              ),
+            ),
+          ),
         ],
       ),
     );
