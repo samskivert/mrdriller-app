@@ -4,39 +4,66 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../model/model.dart';
-import 'components.dart';
+import '../util/colors.dart';
+import 'arcade.dart';
 import 'measure_view.dart';
+
+// Compact, so that more of the drill fits on screen at once; it's for looking over, not playing.
+const double _strokeSize = 30;
 
 class _OverviewSectionView extends StatelessWidget {
   final Section section;
+  final Color bannerColor;
 
-  const _OverviewSectionView({required this.section});
+  const _OverviewSectionView({required this.section, required this.bannerColor});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Colors.white.withValues(alpha: 0.7),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.black.withValues(alpha: 0.05)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: _HeaderOverBody(
-          header: SectionHeader(
-            label: section.label,
-            repeatDisplay: section.repeat > 1 ? 'x${section.repeat}' : null,
-          ),
-          // Each Wrap gets loose width constraints from this centered Column, so it sizes itself to
-          // its widest row (after wrapping, if it had to wrap) rather than to all the width on
-          // offer -- and so the card shrinks to its content either way, not just when a line fits
-          // unwrapped.
-          body: Column(
+    final label = section.label;
+    return PlayfieldPanel(
+      expand: false,
+      child: _HeaderOverBody(
+        header: Row(
+          children: [
+            if (label != null && label.isNotEmpty)
+              Flexible(
+                child: HudBanner(
+                  label: label,
+                  color: bannerColor,
+                  fontSize: 13,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(14),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 7, 14, 7),
+                ),
+              ),
+            const Spacer(),
+            if (section.repeat > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: Text(
+                  '×${section.repeat}',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.body,
+                    fontSize: 15,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.gold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        // Each Wrap gets loose width constraints from this centered Column, so it sizes itself to
+        // its widest row (after wrapping, if it had to wrap) rather than to all the width on
+        // offer -- and so the card shrinks to its content either way, not just when a line fits
+        // unwrapped.
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
               for (final line in section.lines)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
@@ -44,7 +71,14 @@ class _OverviewSectionView extends StatelessWidget {
                     alignment: WrapAlignment.center,
                     spacing: 4,
                     runSpacing: 4,
-                    children: [for (final measure in line.measures) MeasureView(measure: measure)],
+                    children: [
+                      for (final measure in line.measures)
+                        MeasureView(
+                          measure: measure,
+                          strokeSize: _strokeSize,
+                          labelColor: AppColors.cream,
+                        ),
+                    ],
                   ),
                 ),
             ],
@@ -160,22 +194,27 @@ class _RenderHeaderOverBody extends RenderBox
 
 class _RowView extends StatelessWidget {
   final DrillRow row;
+  // The index of the row's first section within the whole drill, for picking banner colors.
+  final int firstIndex;
 
-  const _RowView({required this.row});
+  const _RowView({required this.row, required this.firstIndex});
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [for (final section in row) _OverviewSectionView(section: section)],
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (var i = 0; i < row.length; i++)
+          _OverviewSectionView(section: row[i], bannerColor: AppColors.banner(firstIndex + i)),
+      ],
     );
   }
 }
 
-/// A static (non-playing) preview of an entire drill's rows/sections/lines/measures, shown before
-/// practice starts.
+/// A static (non-playing) preview of an entire drill's rows/sections/lines/measures, as playfield
+/// panels, shown before practice starts.
 class DrillOverviewView extends StatelessWidget {
   final Drill drill;
 
@@ -188,10 +227,13 @@ class DrillOverviewView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final row in drill.rows)
+          for (var r = 0; r < drill.rows.length; r++)
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _RowView(row: row),
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RowView(
+                row: drill.rows[r],
+                firstIndex: drill.rows.take(r).fold(0, (n, row) => n + row.length),
+              ),
             ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/data/drills.dart';
 import 'package:mrdriller/model/model.dart';
+import 'package:mrdriller/widgets/arcade.dart';
 import 'package:mrdriller/widgets/drill_overview_view.dart';
 
 // Lays out [drill]'s overview on a portrait-phone-sized screen.
@@ -32,15 +33,15 @@ void main() {
       'width (regression: Sixteens)', (tester) async {
     await _pumpOverview(tester, sixteens);
 
-    final card = tester.getRect(find.byType(Card).first);
+    final card = tester.getRect(find.byType(PlayfieldPanel).first);
     final wrap = tester.getRect(
-      find.descendant(of: find.byType(Card).first, matching: find.byType(Wrap)).first,
+      find.descendant(of: find.byType(PlayfieldPanel).first, matching: find.byType(Wrap)).first,
     );
     // Sixteens' 64-beat lines can't fit on one row at this width, so they wrap...
     expect(tester.getSize(find.byType(Wrap).first).height, greaterThan(100));
-    // ...and the card hugs the wrapped rows (plus its 12px padding on each side) rather than
-    // leaving blank space beside them.
-    expect(card.width, closeTo(wrap.width + 2 * 12, 1));
+    // ...and the card hugs the wrapped rows (plus its 10px padding and 2px border on each side)
+    // rather than leaving blank space beside them.
+    expect(card.width, closeTo(wrap.width + 2 * (10 + 2), 1));
     expect(card.width, lessThan(402 - 20));
   });
 }

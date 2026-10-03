@@ -197,6 +197,13 @@ String formatDrillDuration(double seconds) {
   return '${mins}m ${secs.toString().padLeft(2, '0')}s';
 }
 
+/// Formats a duration in seconds as a clock reading, e.g. "1:30" (rounding up, so that a countdown
+/// only reads "0:00" once it's really done).
+String formatDrillClock(double seconds) {
+  final whole = seconds.clamp(0, double.infinity).ceil();
+  return '${whole ~/ 60}:${(whole % 60).toString().padLeft(2, '0')}';
+}
+
 /// Formats a bpm and its (optional) planned increase as e.g. "90 bpm" or "90 bpm (+5)".
 String formatBpmSummary(int bpm, int bpmIncrease) =>
     '$bpm bpm${bpmIncrease > 0 ? ' (+$bpmIncrease)' : ''}';

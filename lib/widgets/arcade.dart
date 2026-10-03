@@ -1,6 +1,7 @@
 // Building blocks for the app's arcade (Mr. Driller inspired) look: outlined and puffy text, HUD
 // banners and digit tiles, the time gauge, candy buttons, and the decorative drips/bubbles/ruler.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -340,15 +341,18 @@ class _TimeGaugePainter extends CustomPainter {
 
 /// A chunky candy-colored pill button: candy gradient on a solid [CandyColors.outline] drop
 /// shadow, which it sinks into while pressed. With no [label] it's a round icon-only button, which
-/// needs a [tooltip] (also used as its accessibility label).
+/// needs a [tooltip] (also used as its accessibility label). [below] is shown under the label.
+/// With [repeat], holding it down keeps pressing it (e.g. a stepper's -/+), faster than tapping.
 class CandyButton extends StatefulWidget {
   final String? label;
   final String? tooltip;
   final IconData? icon;
+  final Widget? below;
   final CandyColors colors;
   final VoidCallback? onPressed;
   final double height;
   final double fontSize;
+  final bool repeat;
 
   const CandyButton({
     super.key,
@@ -357,8 +361,10 @@ class CandyButton extends StatefulWidget {
     required this.colors,
     required this.onPressed,
     this.icon,
+    this.below,
     this.height = 44,
     this.fontSize = 15,
+    this.repeat = false,
   });
 
   @override
@@ -367,9 +373,55 @@ class CandyButton extends StatefulWidget {
 
 class _CandyButtonState extends State<CandyButton> {
   bool _pressed = false;
+  Timer? _repeatTimer;
+  bool _repeated = false;
 
   void _setPressed(bool pressed) {
     if (pressed != _pressed) setState(() => _pressed = pressed);
+  }
+
+  void _handleDown() {
+    _setPressed(true);
+    if (!widget.repeat) return;
+    _repeated = false;
+    _repeatTimer?.cancel();
+    _repeatTimer = Timer(const Duration(milliseconds: 400), () {
+      _repeatTimer = Timer.periodic(const Duration(milliseconds: 70), (_) {
+        _repeated = true;
+        widget.onPressed?.call();
+      });
+    });
+  }
+
+  void _handleUp() {
+    _setPressed(false);
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+  }
+
+  void _handleTap() {
+    // A hold that already repeated doesn't also count as a tap when it's released.
+    if (!_repeated) widget.onPressed?.call();
+    _repeated = false;
+  }
+
+  @override
+  void dispose() {
+    _repeatTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget _withBelow(Widget content) {
+    final below = widget.below;
+    if (below == null) return content;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        content,
+        SizedBox(height: widget.fontSize * 0.3),
+        below,
+      ],
+    );
   }
 
   @override
@@ -391,10 +443,10 @@ class _CandyButtonState extends State<CandyButton> {
       enabled: widget.onPressed != null,
       label: widget.tooltip,
       child: GestureDetector(
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        onTap: widget.onPressed,
+        onTapDown: widget.onPressed == null ? null : (_) => _handleDown(),
+        onTapUp: (_) => _handleUp(),
+        onTapCancel: _handleUp,
+        onTap: widget.onPressed == null ? null : _handleTap,
         child: Container(
           height: widget.height + depth,
           padding: EdgeInsets.only(top: sink, bottom: depth - sink),
@@ -411,27 +463,34 @@ class _CandyButtonState extends State<CandyButton> {
               ),
               boxShadow: [BoxShadow(color: c.outline, offset: Offset(0, depth - sink))],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null)
-                  Icon(
-                    widget.icon,
-                    size: label == null ? widget.height * 0.6 : widget.fontSize * 1.2,
-                    color: Colors.white,
-                    shadows: [Shadow(color: c.outline, offset: const Offset(0, 1.5))],
-                  ),
-                if (widget.icon != null && label != null) SizedBox(width: widget.fontSize * 0.4),
-                if (label != null)
-                  OutlinedText(
-                    label,
-                    style: textStyle,
-                    color: Colors.white,
-                    outline: c.outline,
-                    outlineWidth: 2,
-                  ),
-              ],
+            // Shrinks to fit if squeezed (e.g. a long label in a narrow sidebar).
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _withBelow(
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.icon != null)
+                      Icon(
+                        widget.icon,
+                        size: label == null ? widget.height * 0.6 : widget.fontSize * 1.2,
+                        color: Colors.white,
+                        shadows: [Shadow(color: c.outline, offset: const Offset(0, 1.5))],
+                      ),
+                    if (widget.icon != null && label != null)
+                      SizedBox(width: widget.fontSize * 0.4),
+                    if (label != null)
+                      OutlinedText(
+                        label,
+                        style: textStyle,
+                        color: Colors.white,
+                        outline: c.outline,
+                        outlineWidth: 2,
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -604,10 +663,12 @@ class _DepthRulerPainter extends CustomPainter {
 }
 
 /// A rounded navy panel on the playfield, holding a section of a drill or a count-in. While
-/// [active] its border turns gold and it gets a soft gold glow.
+/// [active] its border turns gold and it gets a soft gold glow. It stretches to the full width
+/// available unless not [expand]ed, in which case it shrinks to fit [child].
 class PlayfieldPanel extends StatelessWidget {
   final Widget child;
   final bool active;
+  final bool expand;
   final double? minHeight;
   final EdgeInsetsGeometry? padding;
 
@@ -615,6 +676,7 @@ class PlayfieldPanel extends StatelessWidget {
     super.key,
     required this.child,
     this.active = false,
+    this.expand = true,
     this.minHeight,
     this.padding,
   });
@@ -622,7 +684,7 @@ class PlayfieldPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
+      width: expand ? double.infinity : null,
       constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
       padding: padding,
       // Only needed to center content within a minHeight. Without one, leave it off: a Container

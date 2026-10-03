@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../model/model.dart';
+
 import '../services/metronome.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
@@ -26,10 +28,7 @@ class DrillRunStatus {
   double get progress => totalSeconds > 0 ? (elapsedSeconds / totalSeconds).clamp(0, 1) : 0;
 
   /// The time left in the drill, as e.g. "1:42".
-  String get remainingLabel {
-    final remaining = (totalSeconds - elapsedSeconds).clamp(0, double.infinity).ceil();
-    return '${remaining ~/ 60}:${(remaining % 60).toString().padLeft(2, '0')}';
-  }
+  String get remainingLabel => formatDrillClock(totalSeconds - elapsedSeconds);
 }
 
 /// Shows a running drill's progress as the game's HUD readouts: BPM in digit tiles, which repeat

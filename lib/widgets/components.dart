@@ -200,6 +200,11 @@ class _NumberInputFieldState extends State<NumberInputField> {
 // The bpm/bpm-increase/repeat-count fields a drill is configured with, shared by the drill
 // overview screen and the daily-practice entry screen (each lays them out differently, but the
 // labels/ranges/widths -- easy to let drift out of sync if hand-copied -- stay defined once).
+// The ranges each can be set within.
+const bpmLimits = (min: 30, max: maxBpm);
+const bpmIncreaseLimits = (min: 0, max: 50);
+const drillRepeatLimits = (min: 1, max: 10);
+
 const bpmFieldLabel = 'BPM';
 const bpmIncreaseFieldLabel = 'Increase';
 const drillRepeatFieldLabel = 'Repeat';
@@ -213,8 +218,8 @@ NumberInputField bpmField({
   showLabel: showLabel,
   value: value,
   onChanged: onChanged,
-  min: 30,
-  max: maxBpm,
+  min: bpmLimits.min,
+  max: bpmLimits.max,
   width: 60,
 );
 
@@ -227,8 +232,8 @@ NumberInputField bpmIncreaseField({
   showLabel: showLabel,
   value: value,
   onChanged: onChanged,
-  min: 0,
-  max: 50,
+  min: bpmIncreaseLimits.min,
+  max: bpmIncreaseLimits.max,
   width: 50,
 );
 
@@ -241,8 +246,8 @@ NumberInputField drillRepeatField({
   showLabel: showLabel,
   value: value,
   onChanged: onChanged,
-  min: 1,
-  max: 10,
+  min: drillRepeatLimits.min,
+  max: drillRepeatLimits.max,
   width: 50,
 );
 
