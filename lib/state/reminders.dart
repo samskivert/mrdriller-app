@@ -1,6 +1,5 @@
 // The user's practice reminders -- each with a time of day, which days of the week it fires on,
-// and a custom message -- persisted to local storage. Configuration only for now; actually
-// scheduling these with the OS is a follow-up feature (see reminder_config_screen.dart).
+// and a custom message -- persisted to local storage.
 
 import 'dart:convert';
 
