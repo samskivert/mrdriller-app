@@ -354,3 +354,63 @@ class StartButton extends StatelessWidget {
     );
   }
 }
+
+/// A candy on/off switch: a green candy track with the knob on the right when [value] is on, or a
+/// gray one with it on the left when off.
+class CandySwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const CandySwitch({super.key, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    const width = 58.0;
+    const height = 34.0;
+    const knob = 26.0;
+    const duration = Duration(milliseconds: 160);
+    final candy = AppColors.candyGreen;
+    return Semantics(
+      toggled: value,
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: duration,
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(height / 2),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: value
+                  ? [candy.hi, candy.base, candy.lo]
+                  : const [Color(0xFFD9D4E2), Color(0xFFC6C0D2), Color(0xFFB2ABC2)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: value ? candy.outline : const Color(0xFF8C849E),
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: AnimatedAlign(
+            duration: duration,
+            curve: Curves.easeOut,
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: knob,
+              height: knob,
+              margin: const EdgeInsets.symmetric(horizontal: (height - knob) / 2),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Color(0x33000000), offset: Offset(0, 2))],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
