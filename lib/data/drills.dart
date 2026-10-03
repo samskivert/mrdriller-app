@@ -573,22 +573,22 @@ final Drill dexter = Drill(
       oneLineSection("Right 4s", 2, [[...dright4, ...dright4]]),
     ],
     [
-      oneLineSection("Right 2s", 2, [[...dright2, ...dright2, ...dright2]]),
-      oneLineSection("Jan Jan Jan", 1, [djan3]),
+      oneLineSection("Right 2s", 1, [[...dright2, ...dright2, ...dright2, ...dright2]]),
+      oneLineSection("Right 2s + Jans", 1, [[...dright2, ...dright2, ...djan3]]),
     ],
     [
       oneLineSection("Left 8s", 2, [dleft8]),
       oneLineSection("Left 4s", 2, [[...dleft4, ...dleft4]]),
     ],
     [
-      oneLineSection("Left 2s", 2, [[...dleft2, ...dleft2, ...dleft2]]),
-      oneLineSection("Jan Jan Jan", 1, [djan3]),
+      oneLineSection("Left 2s", 1, [[...dleft2, ...dleft2, ...dleft2, ...dleft2]]),
+      oneLineSection("Left 2s + Jans", 1, [[...dleft2, ...dleft2, ...djan3]]),
     ],
     [oneLineSection("Right 8", 1, [dright8]), oneLineSection("Left 8", 1, [dleft8])],
     [
       oneLineSection("Alt 4s", 2, [[...dright4, ...dleft4]]),
-      oneLineSection("Alt 2s", 3, [[...dright2, ...dleft2]]),
-      oneLineSection("Jan Jan Jan", 1, [djan3]),
+      oneLineSection("Alt 2s", 1, [[...dright2, ...dleft2, ...dright2, ...dleft2]]),
+      oneLineSection("Alt 2s + Jans", 1, [[...dright2, ...dleft2, ...djan3]]),
     ],
   ],
 );
