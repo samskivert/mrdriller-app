@@ -179,25 +179,50 @@ class HudSettingsButton extends StatelessWidget {
 }
 
 /// A screen's title in the HUD, in the display font: one line in a portrait HUD, or up to two
-/// (smaller) in a landscape sidebar.
+/// (smaller) in a landscape sidebar. An optional [subtitle] goes on a line of its own below it.
 class HudTitle extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final bool sidebar;
 
-  const HudTitle(this.title, {super.key, this.sidebar = false});
+  const HudTitle(this.title, {super.key, this.subtitle, this.sidebar = false});
 
   @override
-  Widget build(BuildContext context) => Text(
-    title,
-    maxLines: sidebar ? 2 : 1,
-    overflow: TextOverflow.ellipsis,
-    style: TextStyle(
-      fontFamily: AppFonts.display,
-      fontSize: sidebar ? 17 : 21,
-      height: 1.15,
-      color: AppColors.ink,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final text = Text(
+      title,
+      maxLines: sidebar ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: AppFonts.display,
+        fontSize: sidebar ? 17 : 21,
+        height: 1.15,
+        color: AppColors.ink,
+      ),
+    );
+    final subtitle = this.subtitle;
+    if (subtitle == null) return text;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        text,
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 13,
+            height: 1.1,
+            fontWeight: FontWeight.w800,
+            color: AppColors.inkMuted,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// The layout for the app's non-playfield screens: a cream background with bubbles, under a header

@@ -21,6 +21,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await practicePlan.load();
     await reminders.load();
+    // (Loading from empty storage doesn't clear out what a previous test left behind.)
+    while (practicePlan.entries.isNotEmpty) {
+      practicePlan.removeAt(0);
+    }
+    while (reminders.entries.isNotEmpty) {
+      reminders.removeAt(0);
+    }
   });
 
   testWidgets('an empty plan shows prompts to add drills and reminders, and no START!', (

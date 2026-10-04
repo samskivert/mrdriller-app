@@ -263,6 +263,8 @@ List<_FlatSection> _flattenSections(Drill drill) => [
 /// state/sounds instead of one being update-reused for another.
 class DrillPracticeView extends StatefulWidget {
   final Drill drill;
+  // Shown on the card after the drill's last section, and celebrated once it's done.
+  final String clearText;
   final DrillConfig config;
   final Metronome metronome;
   final ValueNotifier<DrillRunStatus> status;
@@ -271,6 +273,7 @@ class DrillPracticeView extends StatefulWidget {
   const DrillPracticeView({
     super.key,
     required this.drill,
+    this.clearText = 'ALL CLEAR!',
     required this.config,
     required this.metronome,
     required this.status,
@@ -309,7 +312,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   // finishes).
   bool _finished = false;
 
-  // Once the drill is finished: the ALL CLEAR! celebration, which flies out of the All Clear card
+  // Once the drill is finished: the clear celebration, which flies out of the clear card
   // from [_celebrationStart] (in the stack's coordinates) before [DrillPracticeView.onDone].
   late final AnimationController _celebration = AnimationController(
     vsync: this,
@@ -588,10 +591,10 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
       // Its text flies out of the card for the celebration once the drill is done.
       child: Opacity(
         opacity: _celebrating ? 0 : 1,
-        child: const FittedBox(
+        child: FittedBox(
           fit: BoxFit.scaleDown,
           child: PuffyText(
-            'ALL CLEAR!',
+            widget.clearText,
             size: 36,
             color: AppColors.gold,
             shadow: AppColors.goldOutline,
@@ -693,7 +696,8 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
               child: GestureDetector(
                 // A tap skips the rest of the celebration.
                 onTap: _notifyDone,
-                child: AllClearCelebration(
+                child: ClearCelebration(
+                  text: widget.clearText,
                   animation: _celebration,
                   start: _celebrationStart,
                   textSize: 36,
@@ -860,19 +864,21 @@ class _CountInOverlay extends StatelessWidget {
 }
 
 /// The end-of-drill celebration (shown by [DrillPracticeView] once a drill is finished): over a
-/// darkening scrim, ALL CLEAR! flies from [start] (where it sat in the All Clear card, at
+/// darkening scrim, [text] (e.g. ALL CLEAR!) flies from [start] (where it sat in the clear card, at
 /// [textSize]; the bottom of the view if unknown) to the center, growing with a springy bounce to
 /// as big as fits on screen, in front of a slowly turning starburst and a burst of candy stars.
-class AllClearCelebration extends StatelessWidget {
+class ClearCelebration extends StatelessWidget {
+  final String text;
   final Animation<double> animation;
   final Offset? start;
   final double textSize;
 
-  const AllClearCelebration({
+  const ClearCelebration({
     super.key,
     required this.animation,
     required this.start,
     required this.textSize,
+    this.text = 'ALL CLEAR!',
   });
 
   static const _fly = Interval(0, 0.35, curve: Curves.easeOutCubic);
@@ -881,7 +887,7 @@ class AllClearCelebration extends StatelessWidget {
   static const _burst = Interval(0.12, 0.85, curve: Curves.easeOutCubic);
 
   // The text, and the largest font size at which it fits within [screen] with some room to spare.
-  static (String, double) _fit(Size screen) {
+  (String, double) _fit(Size screen) {
     Size measure(String text) {
       final painter = TextPainter(
         text: TextSpan(
@@ -896,7 +902,8 @@ class AllClearCelebration extends StatelessWidget {
     }
 
     var best = ('', 0.0);
-    for (final text in const ['ALL CLEAR!', 'ALL\nCLEAR!']) {
+    // On one line, or broken over two at its first space.
+    for (final text in [this.text, this.text.replaceFirst(' ', '\n')]) {
       final at100 = measure(text);
       final fontSize = math.min(
         100 * screen.width * 0.82 / at100.width,

@@ -11,7 +11,8 @@ import 'hud_layout.dart';
 
 /// The screen-level shell for running one drill, laid out like the arcade game (see [HudLayout]):
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
-/// and a cream HUD (back button, [title], the [DrillStatusView] readouts and a [PauseButton]).
+/// and a cream HUD (back button, [title] and [subtitle], the [DrillStatusView] readouts and a
+/// [PauseButton]).
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share.
 ///
 /// Give this a fresh [Key] (e.g. keyed by the drill's id or an index) when reusing it across a
@@ -19,15 +20,20 @@ import 'hud_layout.dart';
 /// instead of one being update-reused for another.
 class DrillPracticeHost extends StatefulWidget {
   final String title;
+  final String? subtitle;
   final Drill drill;
   final DrillConfig config;
+  // E.g. ALL CLEAR!, celebrated once the drill is done.
+  final String clearText;
   final VoidCallback onDone;
 
   const DrillPracticeHost({
     super.key,
     required this.title,
+    this.subtitle,
     required this.drill,
     required this.config,
+    this.clearText = 'ALL CLEAR!',
     required this.onDone,
   });
 
@@ -83,6 +89,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             child: DrillPracticeView(
               drill: widget.drill,
               config: widget.config,
+              clearText: widget.clearText,
               metronome: _metronome,
               status: _status,
               onDone: widget.onDone,
@@ -96,7 +103,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             children: [
               const HudBackButton(),
               const SizedBox(width: 12),
-              Expanded(child: HudTitle(widget.title)),
+              Expanded(child: HudTitle(widget.title, subtitle: widget.subtitle)),
               const SizedBox(width: 12),
               PauseButton(metronome: _metronome),
             ],
@@ -115,7 +122,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             children: [
               const HudBackButton(),
               const SizedBox(width: 10),
-              Expanded(child: HudTitle(widget.title, sidebar: true)),
+              Expanded(child: HudTitle(widget.title, subtitle: widget.subtitle, sidebar: true)),
             ],
           ),
           const SizedBox(height: 14),
