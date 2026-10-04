@@ -78,13 +78,17 @@ class _HudLayoutState extends State<HudLayout> {
   Widget _portrait(EdgeInsets safe) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Container(
+      ColoredBox(
         color: AppColors.cream,
-        padding: EdgeInsets.fromLTRB(safe.left + 16, safe.top + 14, safe.right + 16, 14),
+        // The bubbles fill the whole panel, right up behind the status bar, not just the padded
+        // area the HUD itself sits in.
         child: Stack(
           children: [
             const Positioned.fill(child: Bubbles()),
-            widget.hud,
+            Padding(
+              padding: EdgeInsets.fromLTRB(safe.left + 16, safe.top + 14, safe.right + 16, 14),
+              child: widget.hud,
+            ),
           ],
         ),
       ),
