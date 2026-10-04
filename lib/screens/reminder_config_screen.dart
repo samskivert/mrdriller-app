@@ -106,63 +106,61 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
     return CreamScreen(
       title: _isEditing ? 'Edit Reminder' : 'Add Reminder',
       showSettings: false,
-      child: ListView(
+      child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _Card(
-                    label: 'Time',
-                    color: AppColors.bannerMagenta,
-                    child: _TimeButton(time: _time, onTap: _pickTime),
-                  ),
-                  const SizedBox(height: 14),
-                  _Card(
-                    label: 'Days',
-                    color: AppColors.bannerBlue,
-                    child: _DaysPicker(days: _days, onToggle: _toggleDay, onSet: _setDays),
-                  ),
-                  const SizedBox(height: 14),
-                  _Card(
-                    label: 'Message',
-                    color: AppColors.bannerOrange,
-                    child: _MessageEditor(controller: _messageController),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CandyButton(
-                          label: _isEditing ? 'DELETE' : 'CANCEL',
-                          icon: _isEditing ? Icons.delete_rounded : Icons.close_rounded,
-                          colors: _isEditing ? AppColors.candyRed : AppColors.candyGray,
-                          height: 56,
-                          fontSize: 17,
-                          onPressed: _isEditing ? _confirmDelete : _returnToPlan,
-                        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Card(
+                  label: 'Time',
+                  color: AppColors.bannerMagenta,
+                  child: _TimeButton(time: _time, onTap: _pickTime),
+                ),
+                const SizedBox(height: 14),
+                _Card(
+                  label: 'Days',
+                  color: AppColors.bannerBlue,
+                  child: _DaysPicker(days: _days, onToggle: _toggleDay, onSet: _setDays),
+                ),
+                const SizedBox(height: 14),
+                _Card(
+                  label: 'Message',
+                  color: AppColors.bannerOrange,
+                  child: _MessageEditor(controller: _messageController),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CandyButton(
+                        label: _isEditing ? 'DELETE' : 'CANCEL',
+                        icon: _isEditing ? Icons.delete_rounded : Icons.close_rounded,
+                        colors: _isEditing ? AppColors.candyRed : AppColors.candyGray,
+                        height: 56,
+                        fontSize: 17,
+                        onPressed: _isEditing ? _confirmDelete : _returnToPlan,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: CandyButton(
-                          label: _isEditing ? 'SAVE' : 'ADD',
-                          icon: _isEditing ? Icons.check_rounded : Icons.add_alarm_rounded,
-                          colors: AppColors.candyGreen,
-                          height: 56,
-                          fontSize: 17,
-                          onPressed: _days.isEmpty ? null : _save,
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: CandyButton(
+                        label: _isEditing ? 'SAVE' : 'ADD',
+                        icon: _isEditing ? Icons.check_rounded : Icons.add_alarm_rounded,
+                        colors: AppColors.candyGreen,
+                        height: 56,
+                        fontSize: 17,
+                        onPressed: _days.isEmpty ? null : _save,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

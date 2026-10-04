@@ -41,67 +41,62 @@ class PracticePlanScreen extends StatelessWidget {
         builder: (context, _) {
           final entries = practicePlan.entries;
           final reminderEntries = reminders.entries;
-          return ListView(
+          return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 32),
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (entries.isNotEmpty) ...[
-                        StartButton(
-                          time: formatDrillClock(_totalSeconds(entries)),
-                          onPressed: () => push(const DailyPracticeScreen()),
-                        ),
-                        const SizedBox(height: 22),
-                      ],
-                      const _Heading('Drills', AppColors.bannerOrange),
-                      if (entries.isEmpty)
-                        const _EmptyCard('No drills in your plan yet. Add one to get started!')
-                      else
-                        _PlanList(entries: entries),
-                      const SizedBox(height: 14),
-                      CandyButton(
-                        label: 'ADD DRILL',
-                        icon: Icons.add_rounded,
-                        colors: AppColors.candyBlue,
-                        height: 50,
-                        fontSize: 17,
-                        onPressed: () => push(const SelectDrillForPlanScreen()),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (entries.isNotEmpty) ...[
+                      StartButton(
+                        time: formatDrillClock(_totalSeconds(entries)),
+                        onPressed: () => push(const DailyPracticeScreen()),
                       ),
-                      const SizedBox(height: 30),
-                      const _Heading('Reminders', AppColors.bannerMagenta),
-                      if (reminderEntries.isEmpty)
-                        const _EmptyCard('No reminders set up yet.')
-                      else
-                        for (var i = 0; i < reminderEntries.length; i++) ...[
-                          if (i > 0) const SizedBox(height: 12),
-                          _ReminderCard(
-                            reminder: reminderEntries[i],
-                            onTap: () => push(
-                              ReminderConfigScreen(
-                                initialReminder: reminderEntries[i],
-                                editIndex: i,
-                              ),
-                            ),
-                          ),
-                        ],
-                      const SizedBox(height: 14),
-                      CandyButton(
-                        label: 'ADD REMINDER',
-                        icon: Icons.add_alarm_rounded,
-                        colors: AppColors.candyPink,
-                        height: 50,
-                        fontSize: 17,
-                        onPressed: () => push(const ReminderConfigScreen()),
-                      ),
+                      const SizedBox(height: 22),
                     ],
-                  ),
+                    const _Heading('Drills', AppColors.bannerOrange),
+                    if (entries.isEmpty)
+                      const _EmptyCard('No drills in your plan yet. Add one to get started!')
+                    else
+                      _PlanList(entries: entries),
+                    const SizedBox(height: 14),
+                    CandyButton(
+                      label: 'ADD DRILL',
+                      icon: Icons.add_rounded,
+                      colors: AppColors.candyBlue,
+                      height: 50,
+                      fontSize: 17,
+                      onPressed: () => push(const SelectDrillForPlanScreen()),
+                    ),
+                    const SizedBox(height: 30),
+                    const _Heading('Reminders', AppColors.bannerMagenta),
+                    if (reminderEntries.isEmpty)
+                      const _EmptyCard('No reminders set up yet.')
+                    else
+                      for (var i = 0; i < reminderEntries.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 12),
+                        _ReminderCard(
+                          reminder: reminderEntries[i],
+                          onTap: () => push(
+                            ReminderConfigScreen(initialReminder: reminderEntries[i], editIndex: i),
+                          ),
+                        ),
+                      ],
+                    const SizedBox(height: 14),
+                    CandyButton(
+                      label: 'ADD REMINDER',
+                      icon: Icons.add_alarm_rounded,
+                      colors: AppColors.candyPink,
+                      height: 50,
+                      fontSize: 17,
+                      onPressed: () => push(const ReminderConfigScreen()),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           );
         },
       ),

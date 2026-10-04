@@ -63,7 +63,7 @@ void main() {
       await _pumpPlan(tester, size);
       expect(tester.takeException(), isNull);
       expect(find.byType(StartButton), findsOneWidget);
-      await tester.drag(find.byType(ListView).first, const Offset(0, -5000));
+      await tester.drag(find.byType(SingleChildScrollView).first, const Offset(0, -5000));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });

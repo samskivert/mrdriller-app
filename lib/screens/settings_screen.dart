@@ -22,51 +22,49 @@ class SettingsScreen extends StatelessWidget {
       showSettings: false,
       child: ListenableBuilder(
         listenable: settings,
-        builder: (context, _) => ListView(
+        builder: (context, _) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
-          children: [
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SettingCard(
-                      label: 'Note highlight',
-                      bannerColor: AppColors.bannerBlue,
-                      description:
-                          'Light up each note as it plays. When off, only the current section '
-                          'is highlighted.',
-                      value: settings.showBouncingDot,
-                      onChanged: settings.setShowBouncingDot,
-                      preview: _HighlightPreview(on: settings.showBouncingDot),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SettingCard(
+                    label: 'Note highlight',
+                    bannerColor: AppColors.bannerBlue,
+                    description:
+                        'Light up each note as it plays. When off, only the current section '
+                        'is highlighted.',
+                    value: settings.showBouncingDot,
+                    onChanged: settings.setShowBouncingDot,
+                    preview: _HighlightPreview(on: settings.showBouncingDot),
+                  ),
+                  const SizedBox(height: 14),
+                  _SettingCard(
+                    label: 'Count in on BPM up',
+                    bannerColor: AppColors.bannerRed,
+                    description:
+                        'When the BPM goes up for the next loop, count in again (ichi, ni, so, '
+                        're) at the new tempo. When off, the next loop starts straight away.',
+                    value: settings.replayIntroOnBpmIncrease,
+                    onChanged: settings.setReplayIntroOnBpmIncrease,
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'Mr. Driller v$appVersion',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkMuted,
                     ),
-                    const SizedBox(height: 14),
-                    _SettingCard(
-                      label: 'Count in on BPM up',
-                      bannerColor: AppColors.bannerRed,
-                      description:
-                          'When the BPM goes up for the next loop, count in again (ichi, ni, so, '
-                          're) at the new tempo. When off, the next loop starts straight away.',
-                      value: settings.replayIntroOnBpmIncrease,
-                      onChanged: settings.setReplayIntroOnBpmIncrease,
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Mr. Driller v$appVersion',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.body,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.inkMuted,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
