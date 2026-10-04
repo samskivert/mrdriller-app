@@ -747,3 +747,158 @@ class RoundIconButton extends StatelessWidget {
     );
   }
 }
+
+/// A big candy menu button with icing dripping off its top: an [icon] on a dark chip, a [title]
+/// and [subtitle] in outlined white text, and a chevron. It sinks into its drop shadow while
+/// pressed.
+class CandyMenuButton extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final CandyColors colors;
+  final VoidCallback onPressed;
+
+  const CandyMenuButton({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.colors,
+    required this.onPressed,
+  });
+
+  @override
+  State<CandyMenuButton> createState() => _CandyMenuButtonState();
+}
+
+class _CandyMenuButtonState extends State<CandyMenuButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool pressed) {
+    if (pressed != _pressed) setState(() => _pressed = pressed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = widget.colors;
+    const height = 70.0;
+    const depth = 5.0;
+    final sink = _pressed ? 3.5 : 0.0;
+    TextStyle style(double size) => TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: size,
+      height: 1,
+      fontWeight: FontWeight.w900,
+    );
+    return Semantics(
+      button: true,
+      label: '${widget.title}. ${widget.subtitle}',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTapDown: (_) => _setPressed(true),
+        onTapUp: (_) => _setPressed(false),
+        onTapCancel: () => _setPressed(false),
+        onTap: widget.onPressed,
+        child: Padding(
+          padding: EdgeInsets.only(top: sink, bottom: depth - sink),
+          child: CustomPaint(
+            painter: _IcedPainter(c, depth - sink),
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 9, 16, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: c.outline,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(widget.icon, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedText(
+                            widget.title,
+                            style: style(21),
+                            color: Colors.white,
+                            outline: c.outline,
+                            outlineWidth: 2,
+                            maxLines: 1,
+                          ),
+                          const SizedBox(height: 6),
+                          OutlinedText(
+                            widget.subtitle,
+                            style: style(12),
+                            color: Colors.white,
+                            outline: c.outline,
+                            outlineWidth: 1.5,
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.white,
+                      size: 30,
+                      shadows: [Shadow(color: c.outline, offset: const Offset(0, 2))],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Paints a candy-colored rounded slab on a [depth]-deep solid drop shadow, with a band of icing
+/// across its top and round drips hanging off it.
+class _IcedPainter extends CustomPainter {
+  final CandyColors colors;
+  final double depth;
+
+  _IcedPainter(this.colors, this.depth);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(20));
+    canvas.drawRRect(rrect.shift(Offset(0, depth)), Paint()..color = colors.outline);
+    canvas.save();
+    canvas.clipRRect(rrect);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [colors.hi, colors.base, colors.lo],
+          stops: const [0, 0.5, 1],
+        ).createShader(rect),
+    );
+    canvas.drawRect(
+      Rect.fromLTRB(0, size.height - 4, size.width, size.height),
+      Paint()..color = Colors.black.withValues(alpha: 0.15),
+    );
+    final icing = Paint()..color = colors.icing;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, 9), icing);
+    for (var x = 0.0; x < size.width + 44; x += 44) {
+      canvas.drawCircle(Offset(x + 14, 9), 7, icing);
+      canvas.drawCircle(Offset(x + 34, 8), 4, icing);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _IcedPainter old) => old.colors != colors || old.depth != depth;
+}

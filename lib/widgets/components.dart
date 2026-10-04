@@ -370,53 +370,6 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
-/// A responsive grid of [ActivityButton]s: two columns above 340px wide, one column below that.
-class ActivityGrid extends StatelessWidget {
-  final List<Widget> items;
-
-  const ActivityGrid({super.key, required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const gap = 16.0;
-        final columns = constraints.maxWidth >= 340 ? 2 : 1;
-        final itemWidth = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [for (final item in items) SizedBox(width: itemWidth, child: item)],
-        );
-      },
-    );
-  }
-}
-
-/// A big, tappable menu entry (a drill, a tool, an activity-list link).
-class ActivityButton extends StatelessWidget {
-  final String title;
-  final VoidCallback onTap;
-
-  const ActivityButton({super.key, required this.title, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size.fromHeight(48),
-        backgroundColor: AppColors.btnBlue,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-      ),
-      child: Text(title, textAlign: TextAlign.center),
-    );
-  }
-}
-
 // The count-in: one call per measure, as romaji (shown big) and Japanese (on the beat pips).
 const List<(String, String)> introText = [('ICHI', 'いち'), ('NI', 'に'), ('SO', 'そ〜'), ('RE', 'れ！')];
 

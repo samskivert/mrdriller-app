@@ -201,18 +201,21 @@ class HudTitle extends StatelessWidget {
 }
 
 /// The layout for the app's non-playfield screens: a cream background with bubbles, under a header
-/// of a back button, [title], and (if [showSettings]) a settings button, with [child] filling the
+/// of a back button, [title], any [actions] (e.g. more [RoundIconButton]s), and (if
+/// [showSettings]) a settings button, with [child] filling the
 /// rest of the screen (and doing its own scrolling, if it needs to). [child] is responsible for
 /// keeping its content clear of the left/right/bottom safe-area insets, so that it can scroll
 /// beneath them.
 class CreamScreen extends StatelessWidget {
   final String title;
+  final List<Widget> actions;
   final bool showSettings;
   final Widget child;
 
   const CreamScreen({
     super.key,
     required this.title,
+    this.actions = const [],
     this.showSettings = true,
     required this.child,
   });
@@ -241,7 +244,8 @@ class CreamScreen extends StatelessWidget {
                       const HudBackButton(),
                       const SizedBox(width: 12),
                       Expanded(child: HudTitle(title)),
-                      if (showSettings) ...[const SizedBox(width: 12), const HudSettingsButton()],
+                      for (final action in actions) ...[const SizedBox(width: 10), action],
+                      if (showSettings) ...[const SizedBox(width: 10), const HudSettingsButton()],
                     ],
                   ),
                 ),
