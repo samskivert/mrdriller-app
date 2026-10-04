@@ -343,6 +343,7 @@ class _TimeGaugePainter extends CustomPainter {
 /// shadow, which it sinks into while pressed. With no [label] it's a round icon-only button, which
 /// needs a [tooltip] (also used as its accessibility label). [below] is shown under the label.
 /// With [repeat], holding it down keeps pressing it (e.g. a stepper's -/+), faster than tapping.
+/// It's faded out while disabled (with no [onPressed]).
 class CandyButton extends StatefulWidget {
   final String? label;
   final String? tooltip;
@@ -496,8 +497,10 @@ class _CandyButtonState extends State<CandyButton> {
         ),
       ),
     );
+    // Faded out while disabled.
+    final shown = widget.onPressed == null ? Opacity(opacity: 0.4, child: button) : button;
     final tooltip = widget.tooltip;
-    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
+    return tooltip == null ? shown : Tooltip(message: tooltip, child: shown);
   }
 }
 

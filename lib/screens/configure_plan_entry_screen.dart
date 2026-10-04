@@ -66,43 +66,12 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
   }
 
   Future<void> _confirmDelete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cream,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Align(
-          alignment: Alignment.centerLeft,
-          child: HudBanner(
-            label: 'Delete drill?',
-            color: AppColors.bannerRed,
-            fontSize: 15,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        content: Text(
-          'Remove "${widget.drillTitle}" from your practice plan?',
-          style: const TextStyle(
-            fontFamily: AppFonts.body,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-          CandyButton(
-            label: 'DELETE',
-            colors: AppColors.candyRed,
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      ),
+    final confirmed = await confirmDelete(
+      context,
+      title: 'Delete drill?',
+      message: 'Remove "${widget.drillTitle}" from your practice plan?',
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     practicePlan.removeAt(widget.editIndex!);
     _returnToPlan();
   }

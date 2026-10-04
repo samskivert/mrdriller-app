@@ -442,3 +442,49 @@ class TimeChip extends StatelessWidget {
     );
   }
 }
+
+/// Asks the user to confirm deleting something: a cream dialog with [title] on a red banner,
+/// [message], and Cancel / DELETE buttons. Completes with whether they confirmed.
+Future<bool> confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: AppColors.cream,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: HudBanner(
+          label: title,
+          color: AppColors.bannerRed,
+          fontSize: 15,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      content: Text(
+        message,
+        style: const TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        CandyButton(
+          label: 'DELETE',
+          colors: AppColors.candyRed,
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
+}
