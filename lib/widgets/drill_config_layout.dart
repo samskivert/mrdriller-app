@@ -1,0 +1,180 @@
+import 'package:flutter/material.dart';
+
+import '../model/model.dart';
+import '../state/drill_config.dart';
+import '../state/settings.dart';
+import '../util/colors.dart';
+import 'components.dart';
+import 'drill_overview_view.dart';
+import 'hud_controls.dart';
+import 'hud_layout.dart';
+
+/// The layout for configuring how a drill is played, shared by the drill overview and the
+/// screen for adding a drill to the practice plan (see [HudLayout]): a static preview of [drill]
+/// (with its hands swapped, if [config] says so) on the playfield, and a HUD with [title], the
+/// BPM / BPM UP / LOOPS steppers and HANDS toggle (which report changes via [onConfigChanged]),
+/// and the screen's own buttons below them, from [buildActions].
+///
+/// [buildActions] is given a [TimeChip] of the drill's total time at this config to place
+/// alongside its buttons, and whether it's for the narrow landscape [sidebar] rather than the full
+/// width of a portrait HUD.
+class DrillConfigLayout extends StatefulWidget {
+  final Drill drill;
+  final DrillConfig config;
+  final ValueChanged<DrillConfig> onConfigChanged;
+  final String title;
+  final bool showSettings;
+  final Widget Function(BuildContext context, Widget time, bool sidebar) buildActions;
+
+  const DrillConfigLayout({
+    super.key,
+    required this.drill,
+    required this.config,
+    required this.onConfigChanged,
+    required this.title,
+    this.showSettings = true,
+    required this.buildActions,
+  });
+
+  @override
+  State<DrillConfigLayout> createState() => _DrillConfigLayoutState();
+}
+
+class _DrillConfigLayoutState extends State<DrillConfigLayout> {
+  // The preview re-renders on every config tweak, but swapHands() deep-clones the whole drill --
+  // only worth redoing when config.swapHands itself actually changes.
+  Drill? _previewDrill;
+  bool? _previewSwapped;
+
+  Drill get _preview {
+    if (_previewDrill == null || _previewSwapped != widget.config.swapHands) {
+      _previewDrill = widget.config.swapHands ? swapHands(widget.drill) : widget.drill;
+      _previewSwapped = widget.config.swapHands;
+    }
+    return _previewDrill!;
+  }
+
+  @override
+  void didUpdateWidget(DrillConfigLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.drill != oldWidget.drill) _previewDrill = null;
+  }
+
+  List<HudStepperSpec> _steppers() {
+    final config = widget.config;
+    final onChanged = widget.onConfigChanged;
+    return [
+      HudStepperSpec(
+        label: 'BPM',
+        bannerColor: AppColors.bannerOrange,
+        value: config.bpm,
+        min: bpmLimits.min,
+        max: bpmLimits.max,
+        onChanged: (v) => onChanged(config.copyWith(bpm: v)),
+        decreaseLabel: 'Slower',
+        increaseLabel: 'Faster',
+      ),
+      HudStepperSpec(
+        label: 'BPM up',
+        bannerColor: AppColors.bannerRed,
+        value: config.bpmIncrease,
+        min: bpmIncreaseLimits.min,
+        max: bpmIncreaseLimits.max,
+        format: (v) => '+$v',
+        onChanged: (v) => onChanged(config.copyWith(bpmIncrease: v)),
+        decreaseLabel: 'Smaller bpm increase each loop',
+        increaseLabel: 'Bigger bpm increase each loop',
+      ),
+      HudStepperSpec(
+        label: 'Loops',
+        bannerColor: AppColors.bannerMagenta,
+        value: config.drillRepeat,
+        min: drillRepeatLimits.min,
+        max: drillRepeatLimits.max,
+        format: (v) => '×$v',
+        onChanged: (v) => onChanged(config.copyWith(drillRepeat: v)),
+        decreaseLabel: 'Fewer loops',
+        increaseLabel: 'More loops',
+      ),
+    ];
+  }
+
+  Widget _hands({bool row = false}) => HandsToggle(
+    row: row,
+    swapped: widget.config.swapHands,
+    onChanged: (v) => widget.onConfigChanged(widget.config.copyWith(swapHands: v)),
+  );
+
+  // The drill's total time depends on a setting (whether the count-in replays when the bpm goes
+  // up), so the actions are rebuilt if that changes, e.g. via the settings button.
+  Widget _actions({required bool sidebar}) => ListenableBuilder(
+    listenable: settings,
+    builder: (context, _) {
+      final config = widget.config;
+      final time = formatDrillClock(
+        computeDrillDuration(
+          widget.drill,
+          config.bpm,
+          config.bpmIncrease,
+          config.drillRepeat,
+          replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
+        ),
+      );
+      return widget.buildActions(context, TimeChip(time: time, fontSize: 16), sidebar);
+    },
+  );
+
+  Widget _header({required bool sidebar}) => Row(
+    children: [
+      const HudBackButton(),
+      SizedBox(width: sidebar ? 10 : 12),
+      Expanded(child: HudTitle(widget.title, sidebar: sidebar)),
+      if (widget.showSettings) ...[SizedBox(width: sidebar ? 10 : 12), const HudSettingsButton()],
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final steppers = _steppers();
+    return HudLayout(
+      playfield: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 20, 12, 24),
+        child: Center(child: DrillOverviewView(drill: _preview)),
+      ),
+      hud: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: Column(
+          children: [
+            _header(sidebar: false),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 124,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final stepper in steppers) ...[
+                    Expanded(child: HudStepperCard(stepper)),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(child: _hands()),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: _actions(sidebar: false)),
+          ],
+        ),
+      ),
+      sidebar: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(sidebar: true),
+          const SizedBox(height: 12),
+          HudRowsCard(children: [for (final s in steppers) HudStepperRow(s), _hands(row: true)]),
+          const SizedBox(height: 12),
+          _actions(sidebar: true),
+        ],
+      ),
+    );
+  }
+}

@@ -309,48 +309,34 @@ class HandsToggle extends StatelessWidget {
   }
 }
 
-/// The big green START! button, with the drill's total [time] (e.g. "3:12") in a chip below.
+/// The big green START! button (or another [label]), optionally with the total [time] it'll take
+/// (e.g. "3:12") in a chip below.
 class StartButton extends StatelessWidget {
-  final String time;
+  final String? time;
   final VoidCallback onPressed;
   final double height;
+  final String label;
+  final IconData icon;
 
-  const StartButton({super.key, required this.time, required this.onPressed, this.height = 76});
+  const StartButton({
+    super.key,
+    this.time,
+    required this.onPressed,
+    this.height = 76,
+    this.label = 'START!',
+    this.icon = Icons.play_arrow_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final chipFont = height * 0.2;
     return CandyButton(
-      label: 'START!',
-      icon: Icons.play_arrow_rounded,
+      label: label,
+      icon: icon,
       colors: AppColors.candyGreen,
       height: height,
       fontSize: height * 0.3,
       onPressed: onPressed,
-      below: Container(
-        padding: EdgeInsets.symmetric(horizontal: chipFont * 0.7, vertical: chipFont * 0.3),
-        decoration: BoxDecoration(
-          color: AppColors.candyGreen.outline.withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(chipFont),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.schedule_rounded, size: chipFont, color: AppColors.candyGreen.icing),
-            SizedBox(width: chipFont * 0.3),
-            Text(
-              time,
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: chipFont,
-                height: 1,
-                fontWeight: FontWeight.w900,
-                color: AppColors.candyGreen.icing,
-              ),
-            ),
-          ],
-        ),
-      ),
+      below: time == null ? null : TimeChip(time: time!, fontSize: height * 0.2),
     );
   }
 }
@@ -409,6 +395,48 @@ class CandySwitch extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// How long something will take (e.g. "3:12"), as a little dark green pill with a clock icon --
+/// shown inside a [StartButton], or on its own beside one.
+class TimeChip extends StatelessWidget {
+  final String time;
+  final double fontSize;
+
+  const TimeChip({super.key, required this.time, this.fontSize = 15});
+
+  @override
+  Widget build(BuildContext context) {
+    final green = AppColors.candyGreen;
+    return Semantics(
+      label: 'Time: $time',
+      excludeSemantics: true,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: fontSize * 0.7, vertical: fontSize * 0.3),
+        decoration: BoxDecoration(
+          color: green.outline.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(fontSize),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.schedule_rounded, size: fontSize, color: green.icing),
+            SizedBox(width: fontSize * 0.3),
+            Text(
+              time,
+              style: TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: fontSize,
+                height: 1,
+                fontWeight: FontWeight.w900,
+                color: green.icing,
+              ),
+            ),
+          ],
         ),
       ),
     );

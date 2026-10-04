@@ -4,18 +4,19 @@ import '../data/drills.dart' as data;
 import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
-import '../widgets/components.dart';
-import '../widgets/screen_scaffold.dart';
+import '../widgets/arcade.dart';
+import '../widgets/drill_config_layout.dart';
+import '../widgets/hud_controls.dart';
+import '../widgets/hud_layout.dart';
 
 /// The last step of adding a drill to the practice plan (reached from
-/// [SelectDrillForPlanScreen]), or the sole screen for editing an existing entry in place: set the
-/// starting bpm/bpm-increase/repeat-count/swap-hands, then "Add to Plan" (or "Save", when
-/// editing). When
-/// adding, "Cancel" backs out without creating an entry; when editing, that slot is instead a
-/// "Delete" button (with a confirmation) that removes the entry from the plan. The drill itself
-/// can't be changed here -- editing only ever touches the config.
+/// [SelectDrillForPlanScreen]), or the sole screen for editing an existing entry in place, laid out
+/// like the drill overview (see [DrillConfigLayout]): set the starting bpm/bpm-increase/
+/// repeat-count/swap-hands, then ADD TO PLAN (or SAVE, when editing). When adding, CANCEL backs out
+/// without creating an entry; when editing, that slot is instead a DELETE button (with a
+/// confirmation) that removes the entry from the plan. The drill itself can't be changed here --
+/// editing only ever touches the config.
 ///
 /// [editIndex]/[initialConfig] being non-null means this is editing an existing entry rather than
 /// adding a new one.
@@ -68,17 +69,35 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Drill?'),
-        content: Text('Remove "${widget.drillTitle}" from your practice plan?'),
+        backgroundColor: AppColors.cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Align(
+          alignment: Alignment.centerLeft,
+          child: HudBanner(
+            label: 'Delete drill?',
+            color: AppColors.bannerRed,
+            fontSize: 15,
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        content: Text(
+          'Remove "${widget.drillTitle}" from your practice plan?',
+          style: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
           ),
-          TextButton(
+          CandyButton(
+            label: 'DELETE',
+            colors: AppColors.candyRed,
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.btnRed),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -88,123 +107,78 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
     _returnToPlan();
   }
 
+  // CANCEL (or DELETE), the drill's [time], and ADD TO PLAN (or SAVE): in a row across a portrait
+  // HUD, or stacked in a landscape sidebar.
+  Widget _actions(Widget time, bool sidebar) {
+    final save = StartButton(
+      // There isn't room for all of ADD TO PLAN in half a phone's width.
+      label: _isEditing ? 'SAVE' : (sidebar ? 'ADD TO PLAN' : 'ADD'),
+      icon: _isEditing ? Icons.check_rounded : Icons.add_rounded,
+      height: 56,
+      onPressed: _save,
+    );
+    final other = CandyButton(
+      label: _isEditing ? 'DELETE' : 'CANCEL',
+      icon: _isEditing ? Icons.delete_rounded : Icons.close_rounded,
+      colors: _isEditing ? AppColors.candyRed : AppColors.candyGray,
+      height: sidebar ? 46 : 56,
+      fontSize: sidebar ? 15 : 17,
+      onPressed: _isEditing ? _confirmDelete : _returnToPlan,
+    );
+    if (sidebar) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(child: time),
+          const SizedBox(height: 10),
+          save,
+          const SizedBox(height: 10),
+          other,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: other),
+        const SizedBox(width: 10),
+        time,
+        const SizedBox(width: 10),
+        Expanded(child: save),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final drill = _drill;
-    final duration = drill == null
-        ? null
-        : formatDrillDuration(
-            computeDrillDuration(
-              drill,
-              _config.bpm,
-              _config.bpmIncrease,
-              _config.drillRepeat,
-              replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-            ),
-          );
-
-    return ScreenScaffold(
+    if (drill == null) {
+      // The drill no longer exists (see DailyPracticeScreen._goToIndex); all that's left to do
+      // with its entry is remove it.
+      return CreamScreen(
+        title: widget.drillTitle,
+        showSettings: false,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: _isEditing
+                ? CandyButton(
+                    label: 'DELETE',
+                    icon: Icons.delete_rounded,
+                    colors: AppColors.candyRed,
+                    onPressed: _confirmDelete,
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      );
+    }
+    return DrillConfigLayout(
+      drill: drill,
+      config: _config,
+      onConfigChanged: (config) => setState(() => _config = config),
       title: widget.drillTitle,
       showSettings: false,
-      contentMaxWidth: 480,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: Table(
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-              columnWidths: const {0: IntrinsicColumnWidth(), 1: IntrinsicColumnWidth()},
-              children: [
-                fieldRow(
-                  bpmFieldLabel,
-                  bpmField(
-                    value: _config.bpm,
-                    onChanged: (v) => setState(() => _config = _config.copyWith(bpm: v)),
-                    showLabel: false,
-                  ),
-                ),
-                fieldRow(
-                  bpmIncreaseFieldLabel,
-                  bpmIncreaseField(
-                    value: _config.bpmIncrease,
-                    onChanged: (v) => setState(() => _config = _config.copyWith(bpmIncrease: v)),
-                    showLabel: false,
-                  ),
-                ),
-                fieldRow(
-                  drillRepeatFieldLabel,
-                  drillRepeatField(
-                    value: _config.drillRepeat,
-                    onChanged: (v) => setState(() => _config = _config.copyWith(drillRepeat: v)),
-                    showLabel: false,
-                  ),
-                ),
-                fieldRow(
-                  'Swap L/R',
-                  // See the matching comment in pattern_trainer_screen.dart -- Switch centers its
-                  // track within whatever width Table's column stretches its cell to, so it needs
-                  // an explicit left-align (unlike the other fields, which pack left by default).
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Switch(
-                      value: _config.swapHands,
-                      onChanged: (v) => setState(() => _config = _config.copyWith(swapHands: v)),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (duration != null) ...[
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                duration,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textGray,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: _isEditing
-                    ? OutlinedButton(
-                        onPressed: _confirmDelete,
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(48),
-                          foregroundColor: AppColors.btnRed,
-                          side: BorderSide(color: AppColors.btnRed),
-                        ),
-                        child: const Text('Delete'),
-                      )
-                    : OutlinedButton(
-                        onPressed: _returnToPlan,
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                        child: const Text('Cancel'),
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _save,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                    backgroundColor: AppColors.btnGreen,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(_isEditing ? 'Save' : 'Add to Plan'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      buildActions: (context, time, sidebar) => _actions(time, sidebar),
     );
   }
 }

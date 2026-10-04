@@ -93,6 +93,21 @@ class AppColors {
     icing: Color(0xFFE4FBE8),
   );
 
+  static const candyRed = CandyColors(
+    base: Color(0xFFF0545F),
+    hi: Color(0xFFFF9AA2),
+    lo: Color(0xFFD02B3A),
+    outline: Color(0xFF7A1020),
+    icing: Color(0xFFFFE3E6),
+  );
+  static const candyGray = CandyColors(
+    base: Color(0xFFA49CB5),
+    hi: Color(0xFFCFC9DB),
+    lo: Color(0xFF857C99),
+    outline: Color(0xFF4E4760),
+    icing: Color(0xFFEEEAF4),
+  );
+
   static CandyColors handCandy(Hand hand) => hand == Hand.R ? candyBlue : candyOrange;
 
   // The original flat palette, mirroring the web app's (see web/src/ui.tsx,

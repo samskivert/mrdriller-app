@@ -67,31 +67,6 @@ class HighlightedCard extends StatelessWidget {
   }
 }
 
-/// Centers its children in a vertical column that's only as wide as its content, matching the
-/// web app's centered practice-view layout.
-class CenteredContainer extends StatelessWidget {
-  final List<Widget> children;
-  final double? maxWidth;
-
-  const CenteredContainer({super.key, required this.children, this.maxWidth});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth ?? double.infinity),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final c in children) Padding(padding: const EdgeInsets.only(bottom: 16), child: c),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc). The displayed text is
 /// only rewritten/clamped once the field loses focus (or on submit) -- not on every keystroke --
 /// so typing a new value doesn't get fought over while it's still passing through invalid/
@@ -197,59 +172,11 @@ class _NumberInputFieldState extends State<NumberInputField> {
   }
 }
 
-// The bpm/bpm-increase/repeat-count fields a drill is configured with, shared by the drill
-// overview screen and the daily-practice entry screen (each lays them out differently, but the
-// labels/ranges/widths -- easy to let drift out of sync if hand-copied -- stay defined once).
-// The ranges each can be set within.
+// The ranges a drill's bpm/bpm-increase/repeat-count can be configured within, defined once so
+// that the screens configuring them can't drift out of sync.
 const bpmLimits = (min: 30, max: maxBpm);
 const bpmIncreaseLimits = (min: 0, max: 50);
 const drillRepeatLimits = (min: 1, max: 10);
-
-const bpmFieldLabel = 'BPM';
-const bpmIncreaseFieldLabel = 'Increase';
-const drillRepeatFieldLabel = 'Repeat';
-
-NumberInputField bpmField({
-  required int value,
-  required ValueChanged<int> onChanged,
-  bool showLabel = true,
-}) => NumberInputField(
-  label: bpmFieldLabel,
-  showLabel: showLabel,
-  value: value,
-  onChanged: onChanged,
-  min: bpmLimits.min,
-  max: bpmLimits.max,
-  width: 60,
-);
-
-NumberInputField bpmIncreaseField({
-  required int value,
-  required ValueChanged<int> onChanged,
-  bool showLabel = true,
-}) => NumberInputField(
-  label: bpmIncreaseFieldLabel,
-  showLabel: showLabel,
-  value: value,
-  onChanged: onChanged,
-  min: bpmIncreaseLimits.min,
-  max: bpmIncreaseLimits.max,
-  width: 50,
-);
-
-NumberInputField drillRepeatField({
-  required int value,
-  required ValueChanged<int> onChanged,
-  bool showLabel = true,
-}) => NumberInputField(
-  label: drillRepeatFieldLabel,
-  showLabel: showLabel,
-  value: value,
-  onChanged: onChanged,
-  min: drillRepeatLimits.min,
-  max: drillRepeatLimits.max,
-  width: 50,
-);
 
 /// A [TableRow] pairing a left-aligned label with a field, for a form where every label lines up
 /// in its own column regardless of how long the other labels in the table are.
@@ -308,61 +235,6 @@ class RepeatDots extends StatelessWidget {
                   width: borderWidth,
                 ),
               ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Section label on the left, repeat indicator on the right — either a plain string (e.g. "x4",
-/// used in the static drill overview) or a [RepeatDots] progress indicator (used while playing).
-class SectionHeader extends StatelessWidget {
-  final String? label;
-  final String? repeatDisplay;
-  final int? repeatDotsTotal;
-  final int? repeatDotsFilled;
-  final double labelFontSize;
-  final double repeatFontSize;
-
-  const SectionHeader({
-    super.key,
-    this.label,
-    this.repeatDisplay,
-    this.repeatDotsTotal,
-    this.repeatDotsFilled,
-    this.labelFontSize = 14,
-    this.repeatFontSize = 14,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasRepeatDots = repeatDotsTotal != null && repeatDotsTotal! > 0;
-    final hasRepeatText = repeatDisplay != null && repeatDisplay!.isNotEmpty;
-    if ((label == null || label!.isEmpty) && !hasRepeatDots && !hasRepeatText) {
-      return const SizedBox.shrink();
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        if (label != null && label!.isNotEmpty)
-          Text(
-            label!,
-            style: TextStyle(fontSize: labelFontSize, fontWeight: FontWeight.bold),
-          ),
-        if (hasRepeatDots)
-          RepeatDots(
-            total: repeatDotsTotal!,
-            filled: repeatDotsFilled ?? 0,
-            size: repeatFontSize * 0.9,
-          )
-        else if (hasRepeatText)
-          Text(
-            repeatDisplay!,
-            style: TextStyle(
-              fontSize: repeatFontSize,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textGray,
             ),
           ),
       ],
