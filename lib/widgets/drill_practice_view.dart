@@ -681,12 +681,14 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
               child: AnimatedOpacity(
                 opacity: counting ? 1 : 0,
                 duration: const Duration(milliseconds: 180),
-                child: _CountInOverlay(
+                child: CountInOverlay(
                   index: _started ? _state.beat ~/ drill.bpm : -1,
-                  bpm: _state.bpm,
-                  pass: _state.drillRepeat,
-                  passes: widget.config.drillRepeat,
-                  bpmUp: _state.drillRepeat > 0 && widget.config.bpmIncrease > 0,
+                  heading: _state.drillRepeat > 0 && widget.config.bpmIncrease > 0
+                      ? 'BPM UP'
+                      : 'GET READY',
+                  details: widget.config.drillRepeat > 1
+                      ? '${_state.bpm} BPM · LOOP ${_state.drillRepeat + 1}/${widget.config.drillRepeat}'
+                      : '${_state.bpm} BPM',
                 ),
               ),
             ),
@@ -785,79 +787,6 @@ class _PassSeparator extends StatelessWidget {
           ),
           _line(false),
         ],
-      ),
-    );
-  }
-}
-
-/// The count-in, overlaid on the playfield: the sections behind it stay visible through a
-/// translucent navy scrim, so you can see what's coming while it counts you in. Headed "BPM UP"
-/// instead of "GET READY" when [bpmUp], i.e. when it's counting in a later pass at a faster bpm.
-class _CountInOverlay extends StatelessWidget {
-  final int index;
-  final int bpm;
-  final int pass;
-  final int passes;
-  final bool bpmUp;
-
-  const _CountInOverlay({
-    required this.index,
-    required this.bpm,
-    required this.pass,
-    required this.passes,
-    required this.bpmUp,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const meta = TextStyle(
-      fontFamily: AppFonts.body,
-      fontSize: 22,
-      height: 1,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 1,
-      color: AppColors.cream,
-    );
-    return ColoredBox(
-      color: const Color(0xC7090E20),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 27, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: const [
-                      BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4)),
-                    ],
-                  ),
-                  child: Text(
-                    bpmUp ? 'BPM UP' : 'GET READY',
-                    style: const TextStyle(
-                      fontFamily: AppFonts.body,
-                      fontSize: 20,
-                      height: 1,
-                      fontWeight: FontWeight.w900,
-                      fontStyle: FontStyle.italic,
-                      letterSpacing: 3.4,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                CountIn(index: index, size: 104),
-                const SizedBox(height: 22),
-                Text(passes > 1 ? '$bpm BPM · LOOP ${pass + 1}/$passes' : '$bpm BPM', style: meta),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

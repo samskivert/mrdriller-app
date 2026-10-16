@@ -12,8 +12,12 @@ import 'hud_layout.dart';
 /// The layout for configuring how a drill is played, shared by the drill overview and the
 /// screen for adding a drill to the practice plan (see [HudLayout]): a static preview of [drill]
 /// (with its hands swapped, if [config] says so) on the playfield, and a HUD with [title], the
-/// BPM / BPM UP / LOOPS steppers and HANDS toggle (which report changes via [onConfigChanged]),
-/// and the screen's own buttons below them, from [buildActions].
+/// BPM / BPM UP / LOOPS steppers and HANDS toggle, and the screen's own buttons below them, from
+/// [buildActions].
+///
+/// Changes are reported via [onConfigUpdate] as an update to apply to the screen's latest config,
+/// rather than as a whole new config built from [config] -- which, after a change in quick
+/// succession, may already be out of date.
 ///
 /// [buildActions] is given a [TimeChip] of the drill's total time at this config to place
 /// alongside its buttons, and whether it's for the narrow landscape [sidebar] rather than the full
@@ -21,7 +25,7 @@ import 'hud_layout.dart';
 class DrillConfigLayout extends StatefulWidget {
   final Drill drill;
   final DrillConfig config;
-  final ValueChanged<DrillConfig> onConfigChanged;
+  final void Function(DrillConfig Function(DrillConfig config) update) onConfigUpdate;
   final String title;
   final bool showSettings;
   final Widget Function(BuildContext context, Widget time, bool sidebar) buildActions;
@@ -30,7 +34,7 @@ class DrillConfigLayout extends StatefulWidget {
     super.key,
     required this.drill,
     required this.config,
-    required this.onConfigChanged,
+    required this.onConfigUpdate,
     required this.title,
     this.showSettings = true,
     required this.buildActions,
@@ -62,7 +66,7 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
 
   List<HudStepperSpec> _steppers() {
     final config = widget.config;
-    final onChanged = widget.onConfigChanged;
+    final update = widget.onConfigUpdate;
     return [
       HudStepperSpec(
         label: 'BPM',
@@ -70,7 +74,7 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
         value: config.bpm,
         min: bpmLimits.min,
         max: bpmLimits.max,
-        onChanged: (v) => onChanged(config.copyWith(bpm: v)),
+        onChanged: (v) => update((c) => c.copyWith(bpm: v)),
         decreaseLabel: 'Slower',
         increaseLabel: 'Faster',
       ),
@@ -81,7 +85,7 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
         min: bpmIncreaseLimits.min,
         max: bpmIncreaseLimits.max,
         format: (v) => '+$v',
-        onChanged: (v) => onChanged(config.copyWith(bpmIncrease: v)),
+        onChanged: (v) => update((c) => c.copyWith(bpmIncrease: v)),
         decreaseLabel: 'Smaller bpm increase each loop',
         increaseLabel: 'Bigger bpm increase each loop',
       ),
@@ -92,7 +96,7 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
         min: drillRepeatLimits.min,
         max: drillRepeatLimits.max,
         format: (v) => '×$v',
-        onChanged: (v) => onChanged(config.copyWith(drillRepeat: v)),
+        onChanged: (v) => update((c) => c.copyWith(drillRepeat: v)),
         decreaseLabel: 'Fewer loops',
         increaseLabel: 'More loops',
       ),
@@ -102,7 +106,7 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
   Widget _hands({bool row = false}) => HandsToggle(
     row: row,
     swapped: widget.config.swapHands,
-    onChanged: (v) => widget.onConfigChanged(widget.config.copyWith(swapHands: v)),
+    onChanged: (v) => widget.onConfigUpdate((c) => c.copyWith(swapHands: v)),
   );
 
   // The drill's total time depends on a setting (whether the count-in replays when the bpm goes

@@ -114,19 +114,19 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _Card(
+                BannerCard(
                   label: 'Time',
                   color: AppColors.bannerMagenta,
                   child: _TimeButton(time: _time, onTap: _pickTime),
                 ),
                 const SizedBox(height: 14),
-                _Card(
+                BannerCard(
                   label: 'Days',
                   color: AppColors.bannerBlue,
                   child: _DaysPicker(days: _days, onToggle: _toggleDay, onSet: _setDays),
                 ),
                 const SizedBox(height: 14),
-                _Card(
+                BannerCard(
                   label: 'Message',
                   color: AppColors.bannerOrange,
                   child: _MessageEditor(controller: _messageController),
@@ -161,42 +161,6 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A white card with a banner [label] in its corner, holding [child].
-class _Card extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Widget child;
-
-  const _Card({required this.label, required this.color, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: HudBanner(
-              label: label,
-              color: color,
-              fontSize: 13,
-              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
-            ),
-          ),
-          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 16), child: child),
-        ],
       ),
     );
   }

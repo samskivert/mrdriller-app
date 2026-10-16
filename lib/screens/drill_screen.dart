@@ -31,9 +31,9 @@ class _DrillScreenState extends State<DrillScreen> {
     });
   }
 
-  void _setConfig(DrillConfig config) {
-    setState(() => _config = config);
-    saveDrillConfig(widget.drill.id, config);
+  void _updateConfig(DrillConfig Function(DrillConfig config) update) {
+    setState(() => _config = update(_config));
+    saveDrillConfig(widget.drill.id, _config);
   }
 
   void _handleStart() {
@@ -50,7 +50,7 @@ class _DrillScreenState extends State<DrillScreen> {
     return DrillConfigLayout(
       drill: widget.drill,
       config: _config,
-      onConfigChanged: _setConfig,
+      onConfigUpdate: _updateConfig,
       title: widget.drill.title,
       buildActions: (context, time, sidebar) {
         if (sidebar) {

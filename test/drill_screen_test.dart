@@ -49,4 +49,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<HandsToggle>(hands).swapped, isTrue);
   });
+
+  testWidgets("changes made in quick succession don't undo each other", (tester) async {
+    await _pumpDrillScreen(tester, const Size(390, 844), 0);
+    // No rebuild in between these taps.
+    await tester.tap(find.byTooltip('Faster'));
+    await tester.tap(find.byTooltip('More loops'));
+    await tester.tap(find.byType(HandsToggle));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel(RegExp(r'^BPM: 61\.')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Loops: ×2\.')), findsOneWidget);
+    expect(tester.widget<HandsToggle>(find.byType(HandsToggle)).swapped, isTrue);
+  });
 }

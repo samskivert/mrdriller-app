@@ -24,8 +24,7 @@ class CandyColors {
 
 /// Central color palette: the arcade (Mr. Driller inspired) theme -- a navy "playfield" for drill
 /// notation, cream "HUD" panels around it, saturated banner colors for labels, and candy colors
-/// for strokes and buttons. Also still holds the original flat palette, for the screens that
-/// haven't been converted to the arcade look yet.
+/// for strokes and buttons.
 class AppColors {
   AppColors._();
 
@@ -109,22 +108,6 @@ class AppColors {
   );
 
   static CandyColors handCandy(Hand hand) => hand == Hand.R ? candyBlue : candyOrange;
-
-  // The original flat palette, mirroring the web app's (see web/src/ui.tsx,
-  // web/src/components.tsx), still used by the not-yet-converted screens.
-  static const btnBlue = Color(0xFF3E63DD);
-  static const btnGreen = Color(0xFF30A46C);
-  static const btnRed = Color(0xFFEF4444);
-  static const btnGray = Color(0xFF6B7280);
-
-  static const textGray = Color(0xFF6B7280);
-
-  static const highlightBg = Color(0xFFFFF3C4);
-  static const normalBorder = Color(0xFF999999);
-  static const normalBg = Color(0xFFF9F9FB);
-
-  static const brandRed = Color(0xFFF03564);
-  static const brandOutline = Color(0xFF6F2223);
 }
 
 /// Font families bundled in assets/fonts (see pubspec.yaml).

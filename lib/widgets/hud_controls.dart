@@ -488,3 +488,122 @@ Future<bool> confirmDelete(
   );
   return confirmed == true;
 }
+
+/// A row of candy pills for picking one of several [options] (value and label): the picked one in
+/// [colors], the rest outlined.
+class CandySegmented<T> extends StatelessWidget {
+  final List<(T, String)> options;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final CandyColors colors;
+
+  const CandySegmented({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.colors = AppColors.candyBlue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(child: _segment(options[i].$1, options[i].$2)),
+        ],
+      ],
+    );
+  }
+
+  Widget _segment(T option, String label) {
+    final selected = option == value;
+    const height = 40.0;
+    final text = TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: 14,
+      height: 1,
+      fontWeight: FontWeight.w900,
+      color: selected ? null : AppColors.inkMuted,
+    );
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => onChanged(option),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: height,
+          margin: EdgeInsets.only(bottom: selected ? 0 : 3),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(height / 2),
+            gradient: selected
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [colors.hi, colors.base, colors.lo],
+                  )
+                : null,
+            border: selected ? null : Border.all(color: AppColors.creamShadow, width: 2),
+            boxShadow: selected
+                ? [BoxShadow(color: colors.outline, offset: const Offset(0, 3))]
+                : null,
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: selected
+                ? OutlinedText(
+                    label,
+                    style: text,
+                    color: Colors.white,
+                    outline: colors.outline,
+                    outlineWidth: 2,
+                  )
+                : Text(label, style: text),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A white card with a banner [label] in its top-left corner, holding [child] below it.
+class BannerCard extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Widget child;
+
+  const BannerCard({super.key, required this.label, required this.color, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: HudBanner(
+              label: label,
+              color: color,
+              fontSize: 13,
+              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+            ),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 14), child: child),
+        ],
+      ),
+    );
+  }
+}

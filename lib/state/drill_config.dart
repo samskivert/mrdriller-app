@@ -77,6 +77,20 @@ class PatternTrainerConfig {
     this.sectionVisibility = SectionVisibility.showAll,
   });
 
+  PatternTrainerConfig copyWith({
+    int? bpm,
+    Difficulty? difficulty,
+    int? numPatterns,
+    bool? swapHands,
+    SectionVisibility? sectionVisibility,
+  }) => PatternTrainerConfig(
+    bpm: bpm ?? this.bpm,
+    difficulty: difficulty ?? this.difficulty,
+    numPatterns: numPatterns ?? this.numPatterns,
+    swapHands: swapHands ?? this.swapHands,
+    sectionVisibility: sectionVisibility ?? this.sectionVisibility,
+  );
+
   Map<String, dynamic> toJson() => {
     'bpm': bpm,
     'difficulty': difficulty.name,
@@ -98,6 +112,19 @@ class PatternTrainerConfig {
       orElse: () => SectionVisibility.showAll,
     ),
   );
+}
+
+// The ranges a pattern trainer's bpm and number of patterns can be set within.
+const patternTrainerBpmLimits = (min: 30, max: 120);
+const patternCountLimits = (min: 1, max: 20);
+
+/// How long a pattern trainer session at [config] takes, in seconds: a four-measure count-in,
+/// then four measures to listen to and four to play back for each pattern, at four beats to the
+/// measure and four notes to the beat.
+double patternTrainerSeconds(PatternTrainerConfig config) {
+  const notesPerMeasure = 4;
+  final notes = notesPerMeasure * 4 * (1 + 2 * config.numPatterns);
+  return notes * 60 / config.bpm / 4;
 }
 
 const _patternTrainerKey = 'config.pattern-trainer';

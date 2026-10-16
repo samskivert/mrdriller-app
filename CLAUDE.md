@@ -80,11 +80,12 @@ font names are in `lib/util/colors.dart`, and the shared pieces (puffy/outlined 
 and digit tiles, the time gauge, candy buttons, drips, bubbles) are in `lib/widgets/arcade.dart`.
 Strokes are candy blocks: color = hand (blue R, orange L), a big iced rounded block = accent vs. a
 smaller round candy = unaccented, pointed shape = down/up stroke. Screens with a playfield (drill
-overview, drill practice) are built on `HudLayout` (`lib/widgets/hud_layout.dart`), which handles
-the portrait HUD vs. landscape sidebar, cutout-aware safe areas, and keeping the playfield's state
-across rotation; config controls (steppers, hands toggle, START!) are in
-`lib/widgets/hud_controls.dart`. Other screens still use the original flat style (the old colors are
-still in `AppColors`) and are being converted one at a time.
+overview and practice, plan-entry config, the daily practice run-through, the pattern trainer run)
+are built on `HudLayout` (`lib/widgets/hud_layout.dart`), which handles the portrait HUD vs.
+landscape sidebar, cutout-aware safe areas, and keeping the playfield's state across rotation; the
+drill config screens share `DrillConfigLayout`. The other screens are cream `CreamScreen`s (same
+file) of white `BannerCard`s. Shared controls (steppers, hands toggle, START!, time chip, candy
+switch and segmented picker, delete confirmation) are in `lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
 `practicePlan`, `practiceLog`, `reminders`), each `load()`ed in `main()` before `runApp` and

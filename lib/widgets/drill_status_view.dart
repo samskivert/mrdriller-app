@@ -38,8 +38,15 @@ class DrillRunStatus {
 class DrillStatusView extends StatelessWidget {
   final DrillRunStatus status;
   final bool vertical;
+  // What the drill's repeats are called, e.g. a pattern trainer's patterns.
+  final String loopLabel;
 
-  const DrillStatusView({super.key, required this.status, this.vertical = false});
+  const DrillStatusView({
+    super.key,
+    required this.status,
+    this.vertical = false,
+    this.loopLabel = 'Loop',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +70,7 @@ class DrillStatusView extends StatelessWidget {
             _row('BPM', AppColors.bannerOrange, DigitTiles(value: bpm, height: 30)),
             if (increase != null) Align(alignment: Alignment.centerRight, child: _sub(increase)),
             const SizedBox(height: 8),
-            _row('Loop', AppColors.bannerRed, DigitTiles(value: loop, height: 30)),
+            _row(loopLabel, AppColors.bannerRed, DigitTiles(value: loop, height: 30)),
             const SizedBox(height: 8),
             _row(
               'Time',
@@ -94,7 +101,7 @@ class DrillStatusView extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: HudCard(
-            label: 'Loop',
+            label: loopLabel,
             bannerColor: AppColors.bannerRed,
             height: 104,
             child: DigitTiles(value: loop),

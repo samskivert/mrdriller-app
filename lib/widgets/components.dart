@@ -33,164 +33,11 @@ class EmptyBeatPlaceholder extends StatelessWidget {
   }
 }
 
-/// A card whose background flips to a highlighted (yellow) style when active, used for the
-/// currently-playing section and the countdown/status cards.
-class HighlightedCard extends StatelessWidget {
-  final Widget child;
-  final bool isHighlighted;
-  final double? minHeight;
-
-  const HighlightedCard({
-    super.key,
-    required this.child,
-    required this.isHighlighted,
-    this.minHeight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: minHeight != null ? BoxConstraints(minHeight: minHeight!) : null,
-      padding: const EdgeInsets.all(12),
-      // Only needed to center content within a minHeight. Without one, leave it off: a Container
-      // with an alignment expands to fill any bounded height it's given (e.g. a SectionView
-      // capped at the viewport's height), instead of shrink-wrapping its content.
-      alignment: minHeight != null ? Alignment.center : null,
-      decoration: BoxDecoration(
-        color: isHighlighted ? AppColors.highlightBg : AppColors.normalBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.normalBorder, width: 2),
-      ),
-      child: child,
-    );
-  }
-}
-
-/// A labeled numeric stepper input (BPM, BPM increase, repeat count, etc). The displayed text is
-/// only rewritten/clamped once the field loses focus (or on submit) -- not on every keystroke --
-/// so typing a new value doesn't get fought over while it's still passing through invalid/
-/// out-of-range intermediate states (e.g. clearing "60" to type "45" reads as empty, then "4",
-/// then "45"). The parent's value is still kept live as each keystroke parses to a valid number,
-/// though, so a button pressed without first blurring the field (e.g. tapping "Save" right after
-/// typing) still sees the just-typed value rather than a stale one.
-class NumberInputField extends StatefulWidget {
-  final String label;
-  final int value;
-  final ValueChanged<int> onChanged;
-  final int min;
-  final int max;
-  final double width;
-  // Set to false when the caller renders the label itself (e.g. in its own aligned column of a
-  // form layout) rather than inline next to the input box.
-  final bool showLabel;
-
-  const NumberInputField({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-    required this.min,
-    required this.max,
-    this.width = 60,
-    this.showLabel = true,
-  });
-
-  @override
-  State<NumberInputField> createState() => _NumberInputFieldState();
-}
-
-class _NumberInputFieldState extends State<NumberInputField> {
-  late final _controller = TextEditingController(text: '${widget.value}');
-  late final _focusNode = FocusNode()..addListener(_handleFocusChange);
-
-  @override
-  void didUpdateWidget(NumberInputField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Only resync from the outside while the field isn't focused -- otherwise this would stomp
-    // over whatever the user is currently in the middle of typing.
-    if (!_focusNode.hasFocus && widget.value != oldWidget.value) {
-      _controller.text = '${widget.value}';
-    }
-  }
-
-  void _handleFocusChange() {
-    if (!_focusNode.hasFocus) _commit();
-  }
-
-  // Keeps the parent's value live as each keystroke parses to a valid number, without touching
-  // the displayed text -- so a button tapped right after typing (with no intervening blur, e.g.
-  // "Save" pressed straight away) still sees the just-typed value rather than a stale one.
-  void _handleTextChanged(String text) {
-    final n = int.tryParse(text)?.clamp(widget.min, widget.max);
-    if (n != null && n != widget.value) widget.onChanged(n);
-  }
-
-  void _commit() {
-    final n = int.tryParse(_controller.text)?.clamp(widget.min, widget.max) ?? widget.value;
-    _controller.text = '$n';
-    if (n != widget.value) widget.onChanged(n);
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.showLabel)
-          Text(
-            '${widget.label}: ',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-        SizedBox(
-          width: widget.width,
-          height: 40,
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            textAlign: TextAlign.center,
-            textAlignVertical: TextAlignVertical.center,
-            keyboardType: TextInputType.number,
-            onChanged: _handleTextChanged,
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
-            ),
-            onSubmitted: (_) => _commit(),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // The ranges a drill's bpm/bpm-increase/repeat-count can be configured within, defined once so
 // that the screens configuring them can't drift out of sync.
 const bpmLimits = (min: 30, max: maxBpm);
 const bpmIncreaseLimits = (min: 0, max: 50);
 const drillRepeatLimits = (min: 1, max: 10);
-
-/// A [TableRow] pairing a left-aligned label with a field, for a form where every label lines up
-/// in its own column regardless of how long the other labels in the table are.
-TableRow fieldRow(String label, Widget field) {
-  return TableRow(
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(right: 12, bottom: 12),
-        child: Text('$label:', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      ),
-      Padding(padding: const EdgeInsets.only(bottom: 12), child: field),
-    ],
-  );
-}
 
 /// A row of fixed-size circles indicating repeat progress: [filled] of [total] are solid, the
 /// rest are just outlined. Both states use the exact same box size (diameter + border width) so
@@ -209,7 +56,7 @@ class RepeatDots extends StatelessWidget {
     required this.total,
     required this.filled,
     this.size = 10,
-    this.color = AppColors.textGray,
+    this.color = AppColors.inkMuted,
     this.currentColor,
   });
 
@@ -281,46 +128,6 @@ class CountIn extends StatelessWidget {
   }
 }
 
-/// A count-in card: the [CountIn] while [intro] is counting in, otherwise just "Get ready...".
-class CountdownSection extends StatelessWidget {
-  final int beat;
-  final int beatsPerMeasure;
-  final bool intro;
-
-  const CountdownSection({
-    super.key,
-    required this.beat,
-    required this.beatsPerMeasure,
-    required this.intro,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return PlayfieldPanel(
-      active: intro,
-      minHeight: 100,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      // Always fits on one line/card: on a narrow phone everything shrinks to fit the card's
-      // width rather than wrapping, while content that already fits stays full size.
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: intro
-            ? CountIn(index: beat ~/ beatsPerMeasure)
-            : const Text(
-                'Get ready...',
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppFonts.display,
-                  fontSize: 40,
-                  color: AppColors.cream,
-                ),
-              ),
-      ),
-    );
-  }
-}
-
 class _CountPip extends StatelessWidget {
   final String label;
   final bool past;
@@ -385,6 +192,78 @@ class _CountPip extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.75),
                 ),
               ),
+      ),
+    );
+  }
+}
+
+/// The count-in, overlaid on the playfield: what's behind it stays visible through a translucent
+/// navy scrim, so you can see what's coming while it counts you in. Shows [heading] (e.g. GET
+/// READY) on a cream pill, the [CountIn] at [index], and [details] (e.g. the bpm) below.
+class CountInOverlay extends StatelessWidget {
+  final int index;
+  final String heading;
+  final String details;
+
+  const CountInOverlay({
+    super.key,
+    required this.index,
+    required this.heading,
+    required this.details,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xC7090E20),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 27, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.cream,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4)),
+                    ],
+                  ),
+                  child: Text(
+                    heading,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      fontSize: 20,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: 3.4,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                CountIn(index: index, size: 104),
+                const SizedBox(height: 22),
+                Text(
+                  details,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.body,
+                    fontSize: 22,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                    color: AppColors.cream,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

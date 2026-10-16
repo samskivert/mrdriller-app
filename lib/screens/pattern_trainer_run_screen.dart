@@ -7,8 +7,11 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
-import '../widgets/app_header.dart';
+import '../widgets/arcade.dart';
 import '../widgets/components.dart';
+import '../widgets/drill_practice_view.dart';
+import '../widgets/drill_status_view.dart';
+import '../widgets/hud_layout.dart';
 import '../widgets/section_view.dart';
 
 enum _Mode { listen, repeat }
@@ -211,7 +214,8 @@ class PatternTrainerRunScreen extends StatefulWidget {
   State<PatternTrainerRunScreen> createState() => _PatternTrainerRunScreenState();
 }
 
-class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
+class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
+    with SingleTickerProviderStateMixin {
   _PTState _state = _ptNotPlaying;
   late final List<Section> _patterns;
 
@@ -221,6 +225,18 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
   // Guards against the "finished" pop firing more than once (e.g. a beat tick arriving just as
   // the last pattern completes).
   bool _finished = false;
+
+  // How much of the session's playing time has gone by, counted note by note, for the HUD's time
+  // gauge and depth ruler.
+  double _elapsedSeconds = 0;
+
+  // Once every pattern is done: the ALL CLEAR! celebration, before popping back to the setup
+  // screen.
+  late final AnimationController _celebration = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  bool _celebrating = false;
 
   @override
   void initState() {
@@ -248,8 +264,17 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     if (!_metronome.isActive) _sounds?.pause();
   }
 
+  bool _left = false;
+
+  void _leave() {
+    if (!mounted || _left) return;
+    _left = true;
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
+    _celebration.dispose();
     _metronome.removeListener(_handleMetronomeActiveChanged);
     _metronome.dispose();
     _sounds?.dispose();
@@ -285,7 +310,8 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
       _metronome.stop();
       if (mounted && !_finished) {
         _finished = true;
-        Navigator.of(context).pop();
+        setState(() => _celebrating = true);
+        _celebration.forward().whenComplete(_leave);
       }
       return;
     }
@@ -303,6 +329,7 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     var next = _state;
     Stroke? strokeToPlay;
     for (var i = 0; i < beatsDue; i++) {
+      _elapsedSeconds += 60 / next.bpm / 4;
       final result = _tickPT(next, _patterns);
       next = result.state;
       strokeToPlay = result.strokeToPlay;
@@ -341,132 +368,231 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen> {
     return SectionView(section: displayPattern, isHighlighted: isHighlighted, highlight: highlight);
   }
 
-  // Mirrors DrillPracticeHost's isCompactLandscape: short-and-wide, like a phone held sideways,
-  // as opposed to a desktop/web window that happens to be wider than tall but still has plenty of
-  // vertical room to spare. Only the former is cramped enough to be worth reclaiming the status
-  // row's height by folding it into the header instead.
-  bool _isCompactLandscape(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    return screenSize.width > screenSize.height && screenSize.height < 500;
-  }
+  DrillRunStatus get _status => DrillRunStatus(
+    bpm: widget.config.bpm,
+    bpmIncrease: 0,
+    drillRepeat: widget.config.numPatterns,
+    drillRepeatCount: _state.pattern.clamp(0, widget.config.numPatterns - 1),
+    elapsedSeconds: _elapsedSeconds,
+    totalSeconds: patternTrainerSeconds(widget.config),
+  );
 
-  Widget _statusView(bool compact) {
-    final label =
-        '${_difficultyLabel(widget.config.difficulty)} - ${widget.config.bpm}bpm - '
-        '${_state.nOfM(widget.config)}';
-    return AnimatedBuilder(
-      animation: _metronome,
-      builder: (context, _) {
-        final paused = _metronome.isPaused;
-        final labelText = Text(
-          label,
-          style: TextStyle(
-            fontSize: compact ? 16 : 28,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textGray,
+  Widget _playfield() {
+    final listening = _state.mode == _Mode.listen;
+    final counting = !_state.playing || _state.intro;
+    final pattern = _state.pattern.clamp(0, _patterns.length - 1);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 16, 0, 16),
+          child: DepthRuler(progress: _status.progress),
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _ModeBanner(
+                          listening: listening,
+                          pattern: pattern + 1,
+                          patterns: widget.config.numPatterns,
+                        ),
+                        const SizedBox(height: 14),
+                        if (_patterns.isNotEmpty)
+                          Flexible(
+                            child: _visibilityOk
+                                ? _mkPatternView(_patterns[pattern], pattern)
+                                : _MysteryPanel(listening: listening),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !counting,
+                  child: AnimatedOpacity(
+                    opacity: counting && !_celebrating ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: CountInOverlay(
+                      index: _state.playing ? _state.beat ~/ _beatsPerMeasure : -1,
+                      heading: 'GET READY',
+                      details:
+                          '${widget.config.bpm} BPM · ${widget.config.numPatterns} '
+                          'PATTERN${widget.config.numPatterns == 1 ? '' : 'S'}',
+                    ),
+                  ),
+                ),
+              ),
+              if (_celebrating)
+                Positioned.fill(
+                  child: GestureDetector(
+                    // A tap skips the rest of the celebration.
+                    onTap: _leave,
+                    child: ClearCelebration(animation: _celebration, start: null, textSize: 36),
+                  ),
+                ),
+            ],
           ),
-        );
-        final button = ElevatedButton(
-          onPressed: paused ? _metronome.resume : _metronome.pause,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: paused ? AppColors.btnGreen : AppColors.btnGray,
-            foregroundColor: Colors.white,
-            padding: compact ? const EdgeInsets.symmetric(horizontal: 12, vertical: 4) : null,
-            minimumSize: compact ? Size.zero : null,
-            tapTargetSize: compact ? MaterialTapTargetSize.shrinkWrap : null,
-          ),
-          child: Text(paused ? 'Resume' : 'Pause'),
-        );
-        if (compact) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [labelText, const SizedBox(width: 12), button],
-          );
-        }
-        return Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 16,
-          runSpacing: 8,
-          children: [labelText, button],
-        );
-      },
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isCompactLandscape = _isCompactLandscape(context);
-    final action = _state.mode == _Mode.listen ? 'Listen' : 'Repeat';
-    // Deliberately not ScreenScaffold: its scrollable body hands the pattern's SectionView an
-    // unbounded height (a SingleChildScrollView always gives its child infinite height along the
-    // scroll axis), so it never had any reason to size itself to fit -- it just rendered as large
-    // as the width allowed and ran off the bottom of short landscape screens. A fixed,
-    // non-scrolling Expanded layout instead gives the content a real height budget to fill (and,
-    // via ClipRect below, to clip gracefully against if a pattern still doesn't quite fit).
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: AppHeader(
-                title: 'Pattern Trainer',
-                showSettings: false,
-                trailing: isCompactLandscape ? _statusView(true) : null,
-              ),
-            ),
-            if (!isCompactLandscape) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _statusView(false),
-              ),
-              const SizedBox(height: 16),
+    final subtitle = _difficultyLabel(widget.config.difficulty);
+    return HudLayout(
+      playfield: _playfield(),
+      hud: Column(
+        children: [
+          Row(
+            children: [
+              const HudBackButton(),
+              const SizedBox(width: 12),
+              Expanded(child: HudTitle('Pattern Trainer', subtitle: subtitle)),
+              const SizedBox(width: 12),
+              PauseButton(metronome: _metronome),
             ],
-            Expanded(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 900),
-                    child: ClipRect(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (!_state.playing || _state.intro)
-                            CountdownSection(
-                              beat: _state.beat,
-                              beatsPerMeasure: _beatsPerMeasure,
-                              intro: _state.intro,
-                            )
-                          else if (_patterns.isNotEmpty && _state.pattern < _patterns.length) ...[
-                            HighlightedCard(
-                              isHighlighted: true,
-                              child: Center(
-                                child: Text(
-                                  '$action - ${_state.nOfM(widget.config)}',
-                                  style: TextStyle(
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.btnBlue,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (_visibilityOk)
-                              _mkPatternView(_patterns[_state.pattern], _state.pattern),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
+          ),
+          const SizedBox(height: 14),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: DrillStatusView(status: _status, loopLabel: 'Pattern'),
+          ),
+        ],
+      ),
+      sidebar: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const HudBackButton(),
+              const SizedBox(width: 10),
+              Expanded(child: HudTitle('Pattern Trainer', subtitle: subtitle, sidebar: true)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          DrillStatusView(status: _status, vertical: true, loopLabel: 'Pattern'),
+          const SizedBox(height: 14),
+          PauseButton(metronome: _metronome, showLabel: true),
+        ],
+      ),
+    );
+  }
+}
+
+/// Whose turn it is: LISTEN (to the pattern being played) or YOUR TURN (to play it back), and
+/// which pattern this is.
+class _ModeBanner extends StatelessWidget {
+  final bool listening;
+  final int pattern;
+  final int patterns;
+
+  const _ModeBanner({required this.listening, required this.pattern, required this.patterns});
+
+  @override
+  Widget build(BuildContext context) {
+    final candy = listening ? AppColors.candyBlue : AppColors.candyPink;
+    return Semantics(
+      liveRegion: true,
+      label: '${listening ? 'Listen' : 'Your turn'}: pattern $pattern of $patterns',
+      excludeSemantics: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.fromLTRB(18, 10, 22, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [candy.hi, candy.base, candy.lo],
+              ),
+              boxShadow: [BoxShadow(color: candy.outline, offset: const Offset(0, 4))],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  listening ? Icons.hearing_rounded : Icons.sports_martial_arts_rounded,
+                  color: Colors.white,
+                  size: 26,
+                  shadows: [Shadow(color: candy.outline, offset: const Offset(0, 2))],
                 ),
+                const SizedBox(width: 8),
+                OutlinedText(
+                  listening ? 'LISTEN' : 'YOUR TURN',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.body,
+                    fontSize: 24,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: 1.5,
+                  ),
+                  color: Colors.white,
+                  outline: candy.outline,
+                  outlineWidth: 2.5,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'PATTERN $pattern OF $patterns',
+            style: const TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 13,
+              height: 1,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.5,
+              color: AppColors.cream,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Stands in for the pattern while it's hidden (see [SectionVisibility]): a mystery "?" and a
+/// reminder of what to do.
+class _MysteryPanel extends StatelessWidget {
+  final bool listening;
+
+  const _MysteryPanel({required this.listening});
+
+  @override
+  Widget build(BuildContext context) {
+    return PlayfieldPanel(
+      active: true,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const PuffyText('?', size: 72, color: AppColors.gold, shadow: AppColors.goldOutline),
+            const SizedBox(height: 10),
+            Text(
+              listening ? 'Listen closely…' : 'Play it back from memory!',
+              style: const TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: AppColors.cream,
               ),
             ),
           ],

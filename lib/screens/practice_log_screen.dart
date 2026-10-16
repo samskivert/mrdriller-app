@@ -4,6 +4,7 @@ import '../model/model.dart';
 import '../state/practice_log.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
+import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
 
 const _monthNames = [
@@ -106,42 +107,6 @@ class PracticeLogScreen extends StatelessWidget {
       day = DateTime(day.year, day.month, day.day - 1);
     }
     return streak;
-  }
-}
-
-/// A white card with a banner [label] in its corner, holding [child].
-class _Card extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Widget child;
-
-  const _Card({required this.label, required this.color, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: HudBanner(
-              label: label,
-              color: color,
-              fontSize: 13,
-              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
-            ),
-          ),
-          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 14), child: child),
-        ],
-      ),
-    );
   }
 }
 
@@ -268,7 +233,7 @@ class _CalendarCard extends StatelessWidget {
       fontWeight: FontWeight.w900,
       color: AppColors.inkMuted,
     );
-    return _Card(
+    return BannerCard(
       label: 'Last 5 weeks',
       color: AppColors.bannerGreen,
       child: LayoutBuilder(

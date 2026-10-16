@@ -144,7 +144,7 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
     return DrillConfigLayout(
       drill: drill,
       config: _config,
-      onConfigChanged: (config) => setState(() => _config = config),
+      onConfigUpdate: (update) => setState(() => _config = update(_config)),
       title: widget.drillTitle,
       showSettings: false,
       buildActions: (context, time, sidebar) => _actions(time, sidebar),
