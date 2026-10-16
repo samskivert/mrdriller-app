@@ -51,7 +51,7 @@ void main() {
     Future<void> launch(WidgetTester tester, String link) async {
       tester.platformDispatcher.defaultRouteNameTestValue = link;
       addTearDown(tester.platformDispatcher.clearDefaultRouteNameTestValue);
-      await tester.pumpWidget(const MrDrillerApp());
+      await tester.pumpWidget(const TaikoTrainerApp());
       await tester.pumpAndSettle();
     }
 

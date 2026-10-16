@@ -6,7 +6,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const defaultReminderMessage = "Mr. Driller says it's time to practice!";
+const defaultReminderMessage = 'Time for some taiko practice!';
+
+// The default message from when the app was called Mr. Driller: a saved reminder that still has it
+// gets the new default instead.
+const _oldDefaultReminderMessage = "Mr. Driller says it's time to practice!";
 
 /// Every day of the week, in [DateTime.weekday] order (Monday = 1 .. Sunday = 7) -- the order
 /// reminders' day-toggles and summaries are shown in.
@@ -63,7 +67,10 @@ class ReminderConfig {
     hour: json['hour'] as int,
     minute: json['minute'] as int,
     days: {for (final d in json['days'] as List<dynamic>) d as int},
-    message: json['message'] as String? ?? defaultReminderMessage,
+    message: switch (json['message'] as String?) {
+      null || _oldDefaultReminderMessage => defaultReminderMessage,
+      final message => message,
+    },
   );
 }
 

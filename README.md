@@ -1,6 +1,7 @@
-# Mr. Driller
+# Taiko Trainer
 
-A simple tool to display drumming drills, and animate them with a metronome.
+A simple tool to display drumming drills, and animate them with a metronome. Its arcade look is an
+homage to Namco's Mr. Driller games (the app's original name).
 
 This is a Flutter app that should work on iOS and Android, and in theory on the web as well but I
 haven't tested that much.
@@ -50,5 +51,5 @@ and add support for what you need. The AIs love to work on simple React web proj
 
 ## License
 
-Mr. Driller was created by Michael Bayne, an aspiring dilettante taiko drummer. It's released under
+Taiko Trainer was created by Michael Bayne, an aspiring dilettante taiko drummer. It's released under
 the MIT license, so feel free to modify and use it however you like.

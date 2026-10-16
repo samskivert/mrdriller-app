@@ -59,14 +59,23 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   fake_async: ^1.3.3
 
+# Icons are rendered from the app's own widgets by tool/generate_icons_test.dart; regenerate with:
+#   flutter test tool/generate_icons_test.dart && dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#FFF6E3"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  # (icon_foreground.png already keeps the badge inside Android's safe zone.)
+  adaptive_icon_foreground_inset: 0
   min_sdk_android: 21
   web:
     generate: true
     image_path: "assets/icon/icon.png"
+    background_color: "#FFF6E3"
+    theme_color: "#F0457A"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -87,6 +96,7 @@ flutter:
     - assets/images/mrdriller.png
     - assets/sounds/beep.wav
     - assets/sounds/boop.wav
+    - assets/sounds/don.mp3
 
   # Subsets of M PLUS Rounded 1c (the app's UI font) and Mochiy Pop One (its puffy display font),
   # containing Latin plus the Japanese characters used in the app. Regenerate if new non-Latin

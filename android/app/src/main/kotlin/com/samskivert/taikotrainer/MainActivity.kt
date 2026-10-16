@@ -1,4 +1,4 @@
-package com.samskivert.mrdriller
+package com.samskivert.taikotrainer
 
 import io.flutter.embedding.android.FlutterActivity
 

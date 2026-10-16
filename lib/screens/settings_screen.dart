@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../model/model.dart';
 import '../state/app_info.dart';
+import '../state/app_name.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
@@ -21,7 +22,7 @@ class SettingsScreen extends StatelessWidget {
       title: 'Settings',
       showSettings: false,
       child: ListenableBuilder(
-        listenable: settings,
+        listenable: Listenable.merge([settings, mrDrillerUnlocked]),
         builder: (context, _) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
           child: Center(
@@ -52,7 +53,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
                   Text(
-                    'Mr. Driller v$appVersion',
+                    '${appName()} v$appVersion',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: AppFonts.body,

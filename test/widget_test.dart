@@ -8,10 +8,10 @@ void main() {
   testWidgets('Menu screen shows the title, a Drills link, and Pattern Trainer', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MrDrillerApp());
+    await tester.pumpWidget(const TaikoTrainerApp());
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('Mr. Driller'), findsOneWidget);
+    expect(find.bySemanticsLabel('Taiko Trainer'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Drills\.')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Pattern Trainer\.')), findsOneWidget);
   });
@@ -19,7 +19,7 @@ void main() {
   testWidgets('Tapping Drills opens a screen listing at least one drill', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MrDrillerApp());
+    await tester.pumpWidget(const TaikoTrainerApp());
     await tester.pumpAndSettle();
 
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Drills\.')));
@@ -34,7 +34,7 @@ void main() {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(const MrDrillerApp());
+      await tester.pumpWidget(const TaikoTrainerApp());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.bySemanticsLabel(RegExp(r'^Daily Practice\.')), findsOneWidget);

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/reminder_scheduler.dart';
+import '../state/app_name.dart';
 import '../state/reminders.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/taiko_drum_head.dart';
 
 /// Adds a new practice reminder, or edits an existing one in place (reached from the daily
 /// practice screen's ADD REMINDER button, or by tapping a reminder): a time of day, which days of
@@ -444,7 +446,7 @@ class _MessageEditor extends StatelessWidget {
         // What the notification will look like.
         ExcludeSemantics(
           child: ListenableBuilder(
-            listenable: controller,
+            listenable: Listenable.merge([controller, mrDrillerUnlocked]),
             builder: (context, _) {
               final message = controller.text.trim();
               return Container(
@@ -456,23 +458,18 @@ class _MessageEditor extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // The app's icon, as the notification will show it.
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        'assets/images/mrdriller.png',
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
-                        alignment: const Alignment(0, -0.45),
-                      ),
+                      child: const AppIcon(size: 36),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'MR. DRILLER',
+                          Text(
+                            appName().toUpperCase(),
                             style: TextStyle(
                               fontFamily: AppFonts.body,
                               fontSize: 11,

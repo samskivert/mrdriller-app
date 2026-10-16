@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Rebuilds the web version of Mr Driller and deploys to samskivert.com
+# Rebuilds the web version of Taiko Trainer and deploys to samskivert.com
 
 set -e
 

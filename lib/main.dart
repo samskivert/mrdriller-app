@@ -14,6 +14,7 @@ import 'screens/unknown_screen.dart';
 import 'services/reminder_scheduler.dart';
 import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
+import 'state/app_name.dart';
 import 'state/practice_log.dart';
 import 'state/practice_plan.dart';
 import 'state/reminders.dart';
@@ -28,20 +29,26 @@ Future<void> main() async {
   await practiceLog.load();
   await reminders.load();
   await loadAppInfo();
+  await loadAppName();
   initScreenCutout();
   // Not awaited -- this involves a native plugin round-trip and (on iOS/Android) a permission
   // prompt, neither of which should delay the app's first frame.
   unawaited(refreshScheduledReminders());
-  runApp(const MrDrillerApp());
+  runApp(const TaikoTrainerApp());
 }
 
-class MrDrillerApp extends StatelessWidget {
-  const MrDrillerApp({super.key});
+class TaikoTrainerApp extends StatelessWidget {
+  const TaikoTrainerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilt if the app's name changes (see app_name.dart), for the window/tab title.
+    return ListenableBuilder(listenable: mrDrillerUnlocked, builder: (context, _) => _app());
+  }
+
+  Widget _app() {
     return MaterialApp(
-      title: 'Mr. Driller',
+      title: appName(),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3E63DD)),

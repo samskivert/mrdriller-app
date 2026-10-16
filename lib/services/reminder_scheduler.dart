@@ -8,18 +8,20 @@
 // used anywhere in this file for the same reason -- importing it at all would break web builds.
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../state/app_name.dart';
 import '../state/reminders.dart';
 
 const _daysToSchedule = 7;
 
 const _androidChannelId = 'practice_reminders';
 const _androidChannelName = 'Practice Reminders';
-const _androidChannelDescription = "Reminders to practice with Mr. Driller";
+const _androidChannelDescription = "Reminders to practice your taiko drills";
 
 final _plugin = FlutterLocalNotificationsPlugin();
 
@@ -59,7 +61,7 @@ Future<void> refreshScheduledReminders() async {
         if (!scheduledDate.isAfter(now)) continue;
         await _plugin.zonedSchedule(
           id: notificationId++,
-          title: 'Mr. Driller',
+          title: appName(),
           body: reminder.message,
           scheduledDate: scheduledDate,
           notificationDetails: const NotificationDetails(
@@ -67,6 +69,8 @@ Future<void> refreshScheduledReminders() async {
               _androidChannelId,
               _androidChannelName,
               channelDescription: _androidChannelDescription,
+              // The app's pink, for the icon (and accents) wherever Android shows it in color.
+              color: Color(0xFFF0457A),
             ),
           ),
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -86,7 +90,10 @@ Future<void> _ensureInitialized() async {
   final timeZone = await FlutterTimezone.getLocalTimezone();
   tz.setLocalLocation(tz.getLocation(timeZone.identifier));
 
-  const androidSettings = AndroidInitializationSettings('launcher_icon');
+  // The status bar icon: Android draws notification icons as a single-color silhouette, so it's
+  // the mitsudomoe in white (rendered by tool/generate_icons_test.dart), not the full-color app
+  // icon. See also res/raw/keep.xml, which stops release builds from stripping it out.
+  const androidSettings = AndroidInitializationSettings('ic_notification');
   const iosSettings = DarwinInitializationSettings(
     requestAlertPermission: false,
     requestBadgePermission: false,

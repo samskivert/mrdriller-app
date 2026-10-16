@@ -1,14 +1,20 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/drills.dart' as data;
 import '../model/model.dart';
+import '../services/taiko_drum.dart';
 import '../state/app_info.dart';
+import '../state/app_name.dart';
 import '../state/practice_plan.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
+import '../widgets/drill_practice_view.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/taiko_drum_head.dart';
 
 final List<Tool> tools = [const Tool(id: 'pattern-trainer', title: 'Pattern Trainer')];
 
@@ -75,7 +81,7 @@ class _TallMenu extends StatelessWidget {
                 children: [
                   const _Logo(),
                   const SizedBox(height: 22),
-                  _Hero(size: heroSize),
+                  _DrumPad(child: _Hero(size: heroSize)),
                   const SizedBox(height: 40),
                   const _MenuButtons(),
                   const SizedBox(height: 20),
@@ -113,7 +119,7 @@ class _WideMenu extends StatelessWidget {
                   children: [
                     const _Logo(),
                     const SizedBox(height: 20),
-                    _Hero(size: heroSize),
+                    _DrumPad(child: _Hero(size: heroSize)),
                   ],
                 ),
               ),
@@ -139,25 +145,34 @@ class _WideMenu extends StatelessWidget {
   }
 }
 
-/// The puffy "Mr.★ Driller" logo, over a "TAIKO DRILL TRAINER" chip.
+/// The puffy logo: the app's name (see [appName]) with its first word small, beside a star, over
+/// the rest big -- e.g. "Taiko★" over "Trainer" -- and a tagline chip below.
 class _Logo extends StatelessWidget {
   const _Logo();
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(listenable: mrDrillerUnlocked, builder: (context, _) => _logo());
+  }
+
+  Widget _logo() {
+    final name = appName();
+    final space = name.indexOf(' ');
+    final first = space < 0 ? '' : name.substring(0, space);
+    final rest = name.substring(space + 1);
     return Semantics(
       header: true,
-      label: 'Mr. Driller',
+      label: name,
       excludeSemantics: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Row(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              PuffyText('Mr.', size: 30),
-              SizedBox(width: 4),
-              Stack(
+              PuffyText(first, size: 30),
+              const SizedBox(width: 4),
+              const Stack(
                 alignment: Alignment.center,
                 children: [
                   Icon(Icons.star_rounded, size: 34, color: Colors.white),
@@ -166,7 +181,7 @@ class _Logo extends StatelessWidget {
               ),
             ],
           ),
-          const PuffyText('Driller', size: 52),
+          PuffyText(rest, size: 52),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -174,9 +189,10 @@ class _Logo extends StatelessWidget {
               color: AppColors.ink,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              'TAIKO DRILL TRAINER',
-              style: TextStyle(
+            child: Text(
+              // (Taiko Trainer already says what it is on the tin.)
+              mrDrillerUnlocked.value ? 'TAIKO DRILL TRAINER' : 'DRILLS · PATTERNS · PRACTICE',
+              style: const TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: 11,
                 height: 1,
@@ -193,7 +209,145 @@ class _Logo extends StatelessWidget {
   }
 }
 
-/// The character artwork cropped to a circle, inside white, blue, white, and pink rings.
+/// Makes [child] (the round artwork, which looks like a drum) a drum: tapping its right or left
+/// half plays a hit with that hand, and bumps it that way. Drumming the secret pattern on it (see
+/// [DrumPatternDetector]) unlocks, or locks back up, the Mr. Driller easter egg.
+class _DrumPad extends StatefulWidget {
+  final Widget child;
+
+  const _DrumPad({required this.child});
+
+  @override
+  State<_DrumPad> createState() => _DrumPadState();
+}
+
+class _DrumPadState extends State<_DrumPad> with SingleTickerProviderStateMixin {
+  final _detector = DrumPatternDetector();
+  late final _bump = AnimationController(vsync: this, duration: const Duration(milliseconds: 140));
+  Hand _side = Hand.R;
+
+  @override
+  void initState() {
+    super.initState();
+    preloadTaikoDrum();
+  }
+
+  @override
+  void dispose() {
+    _bump.dispose();
+    super.dispose();
+  }
+
+  void _handleHit(PointerDownEvent event) {
+    final box = context.findRenderObject() as RenderBox;
+    final hand = event.localPosition.dx < box.size.width / 2 ? Hand.L : Hand.R;
+    hitTaikoDrum(hand);
+    setState(() => _side = hand);
+    _bump.forward(from: 0);
+    if (_detector.hit(hand, DateTime.now())) {
+      _toggleEasterEgg(box.localToGlobal(box.size.center(Offset.zero)));
+    }
+  }
+
+  // (The name changes straight away, so that the logo already shows it as the celebration ends.)
+  void _toggleEasterEgg(Offset from) {
+    final unlocking = !mrDrillerUnlocked.value;
+    setMrDrillerUnlocked(unlocking);
+    showGeneralDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      pageBuilder: (context, _, _) =>
+          _EasterEggCelebration(text: unlocking ? 'MR. DRILLER!' : 'TAIKO TRAINER!', from: from),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // A raw pointer listener, rather than a tap gesture: in the (scrolling) portrait menu, a tap
+    // gesture would hold off until it's sure it isn't the start of a scroll, which would make the
+    // drum lag behind the drumming.
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _handleHit,
+      child: AnimatedBuilder(
+        animation: _bump,
+        builder: (context, child) {
+          final bump = math.sin(math.pi * _bump.value);
+          final direction = _side == Hand.R ? 1.0 : -1.0;
+          return Transform.translate(
+            offset: Offset(direction * 4 * bump, 3 * bump),
+            child: Transform.rotate(
+              angle: direction * 0.03 * bump,
+              child: Transform.scale(scale: 1 - 0.035 * bump, child: child),
+            ),
+          );
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Celebrates the easter egg being found: [text] flies out of the logo (at [from]) with the clear
+/// celebration's bling, then this closes itself (or sooner, if tapped).
+class _EasterEggCelebration extends StatefulWidget {
+  final String text;
+  final Offset from;
+
+  const _EasterEggCelebration({required this.text, required this.from});
+
+  @override
+  State<_EasterEggCelebration> createState() => _EasterEggCelebrationState();
+}
+
+class _EasterEggCelebrationState extends State<_EasterEggCelebration>
+    with SingleTickerProviderStateMixin {
+  late final _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2600),
+  );
+  bool _closed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animation.forward().whenComplete(_close);
+  }
+
+  void _close() {
+    if (_closed || !mounted) return;
+    _closed = true;
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // (A dialog has no Material of its own above it, without which text is drawn with the
+    // yellow-underlined "missing text style" look.)
+    return Material(
+      type: MaterialType.transparency,
+      child: GestureDetector(
+        onTap: _close,
+        child: ClearCelebration(
+          text: widget.text,
+          animation: _animation,
+          start: widget.from,
+          textSize: 40,
+        ),
+      ),
+    );
+  }
+}
+
+/// A taiko drum head (or, once the easter egg is unlocked, the Mr. Driller artwork) in a circle,
+/// inside white, blue, white, and pink rings.
 class _Hero extends StatelessWidget {
   final double size;
 
@@ -201,32 +355,33 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.all(29),
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFFFDE7EF),
-        boxShadow: [
-          BoxShadow(color: Color(0xFFC21F55), spreadRadius: 29, offset: Offset(0, 7)),
-          BoxShadow(color: Color(0xFFF0457A), spreadRadius: 29),
-          BoxShadow(color: Colors.white, spreadRadius: 21),
-          BoxShadow(color: Color(0xFF5DB7F5), spreadRadius: 15),
-          BoxShadow(color: Colors.white, spreadRadius: 7),
-        ],
-      ),
-      child: ClipOval(
-        // Zoomed in a little on Mr. Driller himself.
-        child: Transform.scale(
-          scale: 1.25,
-          alignment: const Alignment(0, -0.4),
-          child: Image.asset(
-            'assets/images/mrdriller.png',
-            fit: BoxFit.cover,
-            alignment: const Alignment(0, -0.36),
-            semanticLabel: 'Mr. Driller playing a taiko drum',
-          ),
+    return DrumBadge(
+      size: size,
+      child: ListenableBuilder(
+        listenable: mrDrillerUnlocked,
+        builder: (context, _) => AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          child: mrDrillerUnlocked.value
+              // Zoomed in a little on Mr. Driller himself.
+              ? Transform.scale(
+                  key: const ValueKey('mr-driller'),
+                  scale: 1.25,
+                  alignment: const Alignment(0, -0.4),
+                  child: Image.asset(
+                    'assets/images/mrdriller.png',
+                    width: size,
+                    height: size,
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0, -0.36),
+                    semanticLabel: 'Mr. Driller playing a taiko drum',
+                  ),
+                )
+              : Semantics(
+                  key: const ValueKey('drum'),
+                  image: true,
+                  label: 'A taiko drum',
+                  child: const TaikoDrumHead(),
+                ),
         ),
       ),
     );
