@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../model/model.dart';
-
 import '../services/metronome.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
@@ -26,15 +24,12 @@ class DrillRunStatus {
 
   /// How far through the whole drill (every repeat, count-ins included) this is, from 0 to 1.
   double get progress => totalSeconds > 0 ? (elapsedSeconds / totalSeconds).clamp(0, 1) : 0;
-
-  /// The time left in the drill, as e.g. "1:42".
-  String get remainingLabel => formatDrillClock(totalSeconds - elapsedSeconds);
 }
 
-/// Shows a running drill's progress as the game's HUD readouts: BPM in digit tiles, which repeat
-/// of the drill this is, and the time gauge draining as the drill's time runs out. [vertical]
-/// stacks them in one card as rows (for a sidebar) instead of side by side as separate cards (for
-/// a HUD across the top of the screen).
+/// Shows a running drill's BPM and which repeat of the drill this is, as the game's HUD readouts
+/// in digit tiles. (The playfield's depth ruler shows overall progress.) [vertical] stacks them in
+/// big cards (for a sidebar, readable from a drum across the room) instead of side by side (for a
+/// HUD across the top of the screen).
 class DrillStatusView extends StatelessWidget {
   final DrillRunStatus status;
   final bool vertical;
@@ -51,99 +46,115 @@ class DrillStatusView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bpm = '${status.bpm}';
-    final bpmTiles = DigitTiles(value: bpm, pips: (3 - bpm.length).clamp(0, 3));
     final loop = '${status.drillRepeatCount + 1}/${status.drillRepeat}';
     final increase = status.bpmIncrease > 0 && status.drillRepeat > 1
         ? '+${status.bpmIncrease} each loop'
         : null;
 
     if (vertical) {
-      return Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-        ),
-        child: Column(
-          children: [
-            _row('BPM', AppColors.bannerOrange, DigitTiles(value: bpm, height: 30)),
-            if (increase != null) Align(alignment: Alignment.centerRight, child: _sub(increase)),
-            const SizedBox(height: 8),
-            _row(loopLabel, AppColors.bannerRed, DigitTiles(value: loop, height: 30)),
-            const SizedBox(height: 8),
-            _row(
-              'Time',
-              AppColors.bannerMagenta,
-              TimeGauge(fraction: 1 - status.progress, label: status.remainingLabel, size: 56),
-            ),
-          ],
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _bigCard('BPM', AppColors.bannerOrange, bpm, increase),
+          const SizedBox(height: 10),
+          _bigCard(loopLabel, AppColors.bannerRed, loop, null),
+        ],
       );
     }
 
     return Row(
       children: [
-        Expanded(
-          child: HudCard(
-            label: 'BPM',
-            bannerColor: AppColors.bannerOrange,
-            height: 104,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                bpmTiles,
-                if (increase != null) ...[const SizedBox(height: 8), _sub(increase)],
-              ],
-            ),
-          ),
-        ),
+        Expanded(child: _wideCard('BPM', AppColors.bannerOrange, bpm, increase)),
         const SizedBox(width: 10),
-        Expanded(
-          child: HudCard(
-            label: loopLabel,
-            bannerColor: AppColors.bannerRed,
-            height: 104,
-            child: DigitTiles(value: loop),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: HudCard(
-            label: 'Time',
-            bannerColor: AppColors.bannerMagenta,
-            height: 104,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: TimeGauge(fraction: 1 - status.progress, label: status.remainingLabel),
-            ),
-          ),
-        ),
+        Expanded(child: _wideCard(loopLabel, AppColors.bannerRed, loop, null)),
       ],
     );
   }
 
-  Widget _row(String label, Color color, Widget value) => Row(
-    children: [
-      SizedBox(
-        width: 64,
-        child: HudBanner(
-          label: label,
-          color: color,
-          borderRadius: BorderRadius.circular(9),
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-        ),
-      ),
-      const Spacer(),
-      value,
-    ],
+  static final _cardDecoration = BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
   );
 
-  Widget _sub(String text) => Text(
+  // A HUD readout: a white card with its banner tab in the top-left corner and [sub] (if any)
+  // under it, and [value] in digit tiles on the right, centered top to bottom.
+  Widget _wideCard(String label, Color color, String value, String? sub) => Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: _cardDecoration,
+    child: IntrinsicHeight(
+      child: Row(
+        // Puts any of the left half the banner doesn't use between the two, not after the digits.
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Gets up to half the card, shrinking [sub] to fit on a narrow phone.
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HudBanner(label: label, color: color),
+                if (sub != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 8, 0, 10),
+                    child: FittedBox(fit: BoxFit.scaleDown, child: _sub(sub)),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 10, 10),
+              // Shrinks to fit a narrow card (e.g. a long loop count on a small phone).
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: DigitTiles(value: value),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  // A sidebar readout: a white card with its banner tab in the top-left corner and [value] in big right-aligned digit tiles below, readable from across the room.
+  Widget _bigCard(String label, Color color, String value, String? sub) => Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: _cardDecoration,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: HudBanner(label: label, color: color),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: DigitTiles(value: value, height: 72),
+              ),
+              if (sub != null) ...[
+                const SizedBox(height: 6),
+                Align(alignment: Alignment.centerRight, child: _sub(sub, fontSize: 20)),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _sub(String text, {double fontSize = 11}) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontFamily: AppFonts.body,
-      fontSize: 11,
+      fontSize: fontSize,
       height: 1,
       fontWeight: FontWeight.w800,
       color: AppColors.inkMuted,

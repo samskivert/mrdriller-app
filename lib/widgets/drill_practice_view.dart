@@ -347,7 +347,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   bool _started = false;
 
   // How much of the drill's playing time has gone by, counted tick by tick at each tick's bpm (so
-  // it lines up with computeDrillDuration's total), for the HUD's time gauge and depth ruler.
+  // it lines up with computeDrillDuration's total), for the depth ruler.
   double _elapsedSeconds = 0;
 
   @override
@@ -739,8 +739,9 @@ class _PassSeparator extends StatelessWidget {
   Widget _banner(String label, Color color) => HudBanner(
     label: label,
     color: color,
-    borderRadius: BorderRadius.circular(9),
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+    fontSize: 18,
+    borderRadius: BorderRadius.circular(13),
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
   );
 
   @override
@@ -762,24 +763,24 @@ class _PassSeparator extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 10),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+                  borderRadius: BorderRadius.circular(21),
+                  boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4))],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (passes > 1) ...[
                       _banner('Loop', AppColors.bannerRed),
-                      const SizedBox(width: 8),
-                      DigitTiles(value: '${pass + 1}/$passes', height: 28),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 12),
+                      DigitTiles(value: '${pass + 1}/$passes', height: 42),
+                      const SizedBox(width: 21),
                     ],
                     _banner('BPM', AppColors.bannerOrange),
-                    const SizedBox(width: 8),
-                    DigitTiles(value: '$bpm', height: 28),
+                    const SizedBox(width: 12),
+                    DigitTiles(value: '$bpm', height: 42),
                   ],
                 ),
               ),

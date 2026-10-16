@@ -158,14 +158,12 @@ class HudBanner extends StatelessWidget {
 }
 
 /// A number shown as the game's rounded gray digit tiles: every digit in [value] gets its own tile,
-/// and any other character (a `:` or `/` separator) is drawn smaller between them. [pips] adds that
-/// many orange placeholder dots in front, the way the game pads its counters.
+/// and any other character (a `:` or `/` separator) is drawn smaller between them.
 class DigitTiles extends StatelessWidget {
   final String value;
   final double height;
-  final int pips;
 
-  const DigitTiles({super.key, required this.value, this.height = 32, this.pips = 0});
+  const DigitTiles({super.key, required this.value, this.height = 32});
 
   @override
   Widget build(BuildContext context) {
@@ -176,13 +174,6 @@ class DigitTiles extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < pips; i++)
-            Container(
-              width: height * 0.31,
-              height: height * 0.31,
-              margin: EdgeInsets.only(right: height * 0.1),
-              decoration: const BoxDecoration(color: Color(0xFFE8650E), shape: BoxShape.circle),
-            ),
           for (final c in value.split(''))
             if (RegExp(r'\d').hasMatch(c))
               Container(
@@ -228,115 +219,6 @@ class DigitTiles extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A white HUD card with a [HudBanner] tab in its top-left corner, holding [child] centered below
-/// (and scaled down if it's too wide to fit).
-class HudCard extends StatelessWidget {
-  final String label;
-  final Color bannerColor;
-  final Widget child;
-  final double? height;
-
-  const HudCard({
-    super.key,
-    required this.label,
-    required this.bannerColor,
-    required this.child,
-    this.height,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          HudBanner(label: label, color: bannerColor),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              // Shrinks to fit a narrow card (e.g. a long loop count on a small phone).
-              child: Center(
-                child: FittedBox(fit: BoxFit.scaleDown, child: child),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A round time gauge, after the game's AIR gauge: a blue pie showing [fraction] (0..1) remaining
-/// inside a green ring, with [label] in a white center.
-class TimeGauge extends StatelessWidget {
-  final double fraction;
-  final String label;
-  final double size;
-
-  const TimeGauge({super.key, required this.fraction, required this.label, this.size = 58});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: '$label remaining',
-      excludeSemantics: true,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: _TimeGaugePainter(fraction.clamp(0.0, 1.0)),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: size * 0.22,
-                height: 1,
-                fontWeight: FontWeight.w900,
-                color: AppColors.ink,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TimeGaugePainter extends CustomPainter {
-  final double fraction;
-
-  _TimeGaugePainter(this.fraction);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width / 2;
-    final ringWidth = size.width * 0.07;
-    final pieRadius = radius - ringWidth;
-    canvas.drawCircle(center, radius, Paint()..color = AppColors.gaugeRing);
-    canvas.drawCircle(center, pieRadius, Paint()..color = AppColors.gaugeEmpty);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: pieRadius),
-      -math.pi / 2,
-      2 * math.pi * fraction,
-      true,
-      Paint()..color = AppColors.gaugeBlue,
-    );
-    canvas.drawCircle(center, pieRadius * 0.7, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TimeGaugePainter oldDelegate) => oldDelegate.fraction != fraction;
 }
 
 /// A chunky candy-colored pill button: candy gradient on a solid [CandyColors.outline] drop

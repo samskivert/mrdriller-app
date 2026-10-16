@@ -80,7 +80,7 @@ matched in the other.
 **Visual theme:** an arcade look inspired by Namco's Mr. Driller games: a navy "playfield" for drill
 notation, cream "HUD" panels, candy-colored blocks and buttons, and banner labels. The palette and
 font names are in `lib/util/colors.dart`, and the shared pieces (puffy/outlined text, HUD banners
-and digit tiles, the time gauge, candy buttons, drips, bubbles) are in `lib/widgets/arcade.dart`.
+and digit tiles, the depth ruler, candy buttons, drips, bubbles) are in `lib/widgets/arcade.dart`.
 Strokes are candy blocks: color = hand (blue R, orange L), a big iced rounded block = accent vs. a
 smaller round candy = unaccented, pointed shape = down/up stroke. Screens with a playfield (drill
 overview and practice, plan-entry config, the daily practice run-through, the pattern trainer run)
