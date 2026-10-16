@@ -213,7 +213,7 @@ _PState _tick(_PState prev, Drill drill, int drillRepeatTarget, bool replayIntro
   final drillRepeat = prev.drillRepeat + 1;
   if (drillRepeat < drillRepeatTarget) {
     final bpm = (prev.bpm + prev.bpmIncrease).clamp(0, maxBpm);
-    final restart = (prev.bpmIncrease > 0 && replayIntroOnBpmIncrease) || drill.forceIntro;
+    final restart = prev.bpmIncrease > 0 && replayIntroOnBpmIncrease;
     return _PState(
       playing: true,
       intro: restart ? true : intro,

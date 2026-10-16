@@ -88,7 +88,6 @@ class Drill {
   final int bpm; // beats per measure
   final List<int>? beeps; // beats on which to beep
   final double scale; // scales the quarter note duration (default is 1)
-  final bool forceIntro; // always show ichi-ni-so-re (vs only on BPM increase)
   final List<DrillRow> rows;
 
   const Drill({
@@ -97,7 +96,6 @@ class Drill {
     required this.bpm,
     this.beeps,
     this.scale = 1,
-    this.forceIntro = false,
     required this.rows,
   });
 }
@@ -144,7 +142,6 @@ Drill swapHands(Drill drill) => Drill(
   bpm: drill.bpm,
   beeps: drill.beeps,
   scale: drill.scale,
-  forceIntro: drill.forceIntro,
   rows: drill.rows.map(_swapRowHands).toList(),
 );
 
@@ -181,8 +178,8 @@ double computeDrillDuration(
     final tickMs = (60 * 1000 / currentBpm / 4) * scale;
 
     // First repeat always has intro; subsequent repeats have intro if bpmIncrease > 0 (and the
-    // setting allows it) or forceIntro
-    final hasIntro = rep == 0 || (bpmIncrease > 0 && replayIntroOnBpmIncrease) || drill.forceIntro;
+    // config allows it)
+    final hasIntro = rep == 0 || (bpmIncrease > 0 && replayIntroOnBpmIncrease);
     final beats = drillBeats + (hasIntro ? introBeats : 0);
     totalSeconds += (beats * tickMs) / 1000;
   }

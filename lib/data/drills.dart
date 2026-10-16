@@ -250,7 +250,6 @@ final Drill oneEAndA = Drill(
   id: "one-e-and-a",
   title: "One e and a (1e+a)",
   bpm: 4,
-  forceIntro: true,
   rows: [
     [
       oneLineSection("Accent 1", 4, [measure([R, l, r, l])]),
@@ -280,7 +279,6 @@ final Drill diddleAndA = Drill(
   id: "diddle-and-a",
   title: "Diddle and a",
   bpm: 4,
-  forceIntro: true,
   rows: [
     [
       oneLineSection("Accent 1", 2, [measure([R, l, r, r]), measure([L, r, l, l])]),

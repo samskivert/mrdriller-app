@@ -88,9 +88,7 @@ void main() {
   });
 
   testWidgets('the count switch changes the time only when the bpm goes up', (tester) async {
-    // (A drill that always counts in before every loop isn't affected by it at all.)
-    final index = data.drills.indexWhere((d) => !d.forceIntro);
-    await _pumpDrillScreen(tester, const Size(390, 844), index);
+    await _pumpDrillScreen(tester, const Size(390, 844), 0);
     String time() => tester.widget<TimeChip>(find.byType(TimeChip)).time;
     Future<void> toggleCount() async {
       await tester.tap(
