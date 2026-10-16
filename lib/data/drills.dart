@@ -251,6 +251,7 @@ final Drill oneEAndA = Drill(
   title: "One e and a (1e+a)",
   bpm: 4,
   rows: [
+    [oneLineSection("No Accents", 4, [measure([r, l, r, l])])],
     [
       oneLineSection("Accent 1", 4, [measure([R, l, r, l])]),
       oneLineSection("Accent 2", 4, [measure([r, L, r, l])]),
@@ -280,6 +281,7 @@ final Drill diddleAndA = Drill(
   title: "Diddle and a",
   bpm: 4,
   rows: [
+    [oneLineSection("No Accents", 2, [measure([r, l, r, r]), measure([l, r, l, l])])],
     [
       oneLineSection("Accent 1", 2, [measure([R, l, r, r]), measure([L, r, l, l])]),
       oneLineSection("Accent 2", 2, [measure([r, L, r, r]), measure([l, R, l, l])]),
