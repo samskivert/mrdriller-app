@@ -54,7 +54,7 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
+    final picked = await showCandyTimePicker(context, initialTime: _time);
     if (picked != null) setState(() => _time = picked);
   }
 

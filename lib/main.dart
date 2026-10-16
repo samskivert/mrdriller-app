@@ -10,6 +10,7 @@ import 'screens/menu_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
 import 'screens/practice_plan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/unknown_screen.dart';
 import 'services/reminder_scheduler.dart';
 import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
@@ -52,17 +53,38 @@ class MrDrillerApp extends StatelessWidget {
       ),
       initialRoute: '/',
       onGenerateRoute: _onGenerateRoute,
-      onUnknownRoute: (settings) => MaterialPageRoute(
-        settings: settings,
-        builder: (_) => _UnknownRoute(id: settings.name ?? ''),
-      ),
+      onGenerateInitialRoutes: _onGenerateInitialRoutes,
+      onUnknownRoute: _unknownRoute,
     );
   }
 }
 
-// Returns null for unknown routes (handled by onUnknownRoute) so that when the app is launched with a
-// deep link like /drills/paradiddle, Navigator skips any intermediate path prefixes that aren't routes
-// when it builds the back stack.
+Route<dynamic> _unknownRoute(RouteSettings settings) => MaterialPageRoute(
+  settings: settings,
+  builder: (_) => UnknownScreen(path: settings.name ?? ''),
+);
+
+// The back stack for a deep link the app is launched with (e.g. /drills/paradiddle): the menu,
+// then each prefix of the path that's a route of its own (/drills), then the route itself. Unlike
+// Flutter's default (which quietly falls back to just the menu), a link to something that doesn't
+// exist (e.g. a mistyped drill) ends on the unknown page, saying so.
+List<Route<dynamic>> _onGenerateInitialRoutes(String initialRoute) {
+  final routes = [_onGenerateRoute(const RouteSettings(name: '/'))!];
+  final segments = Uri.parse(initialRoute).pathSegments.where((s) => s.isNotEmpty).toList();
+  for (var i = 1; i <= segments.length; i++) {
+    final name = '/${segments.take(i).join('/')}';
+    final route = _onGenerateRoute(RouteSettings(name: name));
+    if (route != null) {
+      routes.add(route);
+    } else if (i == segments.length) {
+      routes.add(_unknownRoute(RouteSettings(name: initialRoute)));
+    }
+  }
+  return routes;
+}
+
+// Returns null for unknown routes (handled by onUnknownRoute), so that _onGenerateInitialRoutes can
+// tell which prefixes of a deep link are routes of their own.
 Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
   final uri = Uri.parse(routeSettings.name ?? '/');
   final segments = uri.pathSegments;
@@ -98,30 +120,4 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
     }
   }
   return null;
-}
-
-class _UnknownRoute extends StatelessWidget {
-  final String id;
-
-  const _UnknownRoute({required this.id});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Unknown drill or tool: $id'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('← Back'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

@@ -607,3 +607,78 @@ class BannerCard extends StatelessWidget {
     );
   }
 }
+
+/// Flutter's time picker dialog, themed to match the app: cream, with the picked hour/minute (and
+/// the clock's hand) in magenta, and the app's fonts.
+Future<TimeOfDay?> showCandyTimePicker(BuildContext context, {required TimeOfDay initialTime}) {
+  const accent = AppColors.bannerMagenta;
+  Color picked(Set<WidgetState> states, Color yes, Color no) =>
+      states.contains(WidgetState.selected) ? yes : no;
+  final buttonStyle = TextButton.styleFrom(
+    foregroundColor: AppColors.ink,
+    textStyle: const TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: 15,
+      fontWeight: FontWeight.w900,
+    ),
+  );
+  return showTimePicker(
+    context: context,
+    initialTime: initialTime,
+    builder: (context, child) => Theme(
+      data: Theme.of(context).copyWith(
+        timePickerTheme: TimePickerThemeData(
+          backgroundColor: AppColors.cream,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          helpTextStyle: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+            color: AppColors.inkMuted,
+          ),
+          hourMinuteShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          hourMinuteColor: WidgetStateColor.resolveWith(
+            (states) => picked(states, accent, Colors.white),
+          ),
+          hourMinuteTextColor: WidgetStateColor.resolveWith(
+            (states) => picked(states, Colors.white, AppColors.ink),
+          ),
+          hourMinuteTextStyle: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 50,
+            fontWeight: FontWeight.w900,
+          ),
+          dayPeriodColor: WidgetStateColor.resolveWith(
+            (states) => picked(states, accent, Colors.white),
+          ),
+          dayPeriodTextColor: WidgetStateColor.resolveWith(
+            (states) => picked(states, Colors.white, AppColors.inkMuted),
+          ),
+          dayPeriodBorderSide: const BorderSide(color: AppColors.creamShadow, width: 2),
+          dayPeriodTextStyle: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+          dialBackgroundColor: Colors.white,
+          dialHandColor: accent,
+          dialTextColor: WidgetStateColor.resolveWith(
+            (states) => picked(states, Colors.white, AppColors.ink),
+          ),
+          dialTextStyle: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+          entryModeIconColor: AppColors.inkMuted,
+          cancelButtonStyle: buttonStyle,
+          confirmButtonStyle: buttonStyle.copyWith(
+            foregroundColor: const WidgetStatePropertyAll(accent),
+          ),
+        ),
+      ),
+      child: child!,
+    ),
+  );
+}

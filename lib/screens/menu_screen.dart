@@ -311,7 +311,7 @@ class _Footer extends StatelessWidget {
       TextSpan(
         style: style,
         children: [
-          const TextSpan(text: 'Made with '),
+          TextSpan(text: 'v$appVersion · made with '),
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: Icon(
@@ -321,7 +321,7 @@ class _Footer extends StatelessWidget {
               semanticLabel: 'love',
             ),
           ),
-          TextSpan(text: ' by MDB + Claude · v$appVersion'),
+          const TextSpan(text: ' by MDB + Claude'),
         ],
       ),
     );

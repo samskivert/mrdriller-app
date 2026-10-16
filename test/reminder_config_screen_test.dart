@@ -95,4 +95,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(reminders.entries, isEmpty);
   });
+
+  testWidgets('tapping the time opens the (themed) time picker', (tester) async {
+    await _open(tester, const Size(390, 844));
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Time: ')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimePickerDialog), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimePickerDialog), findsNothing);
+  });
 }
