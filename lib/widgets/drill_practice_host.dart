@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../model/model.dart';
 import '../services/metronome.dart';
 import '../state/drill_config.dart';
-import '../state/settings.dart';
 import 'arcade.dart';
 import 'drill_practice_view.dart';
 import 'drill_status_view.dart';
@@ -50,13 +49,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
       drillRepeat: widget.config.drillRepeat,
       drillRepeatCount: 0,
       elapsedSeconds: 0,
-      totalSeconds: computeDrillDuration(
-        widget.drill,
-        widget.config.bpm,
-        widget.config.bpmIncrease,
-        widget.config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      ),
+      totalSeconds: drillDuration(widget.drill, widget.config),
     ),
   );
 

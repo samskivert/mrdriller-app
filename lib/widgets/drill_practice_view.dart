@@ -473,7 +473,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
         next,
         widget.drill,
         widget.config.drillRepeat,
-        settings.replayIntroOnBpmIncrease,
+        widget.config.replayIntroOnBpmIncrease,
       );
       if (!next.playing) break;
     }

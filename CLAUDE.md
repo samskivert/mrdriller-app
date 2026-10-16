@@ -87,8 +87,9 @@ overview and practice, plan-entry config, the daily practice run-through, the pa
 are built on `HudLayout` (`lib/widgets/hud_layout.dart`), which handles the portrait HUD vs.
 landscape sidebar, cutout-aware safe areas, and keeping the playfield's state across rotation; the
 drill config screens share `DrillConfigLayout`. The other screens are cream `CreamScreen`s (same
-file) of white `BannerCard`s. Shared controls (steppers, hands toggle, START!, time chip, candy
-switch and segmented picker, delete confirmation) are in `lib/widgets/hud_controls.dart`.
+file) of white `BannerCard`s. Shared controls (steppers, hands toggle, count switch, START!, time
+chip, candy switch and segmented picker, delete confirmation) are in
+`lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
 `practicePlan`, `practiceLog`, `reminders`), each `load()`ed in `main()` before `runApp` and

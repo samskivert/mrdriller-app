@@ -3,7 +3,6 @@ import 'package:flutter/rendering.dart';
 
 import '../model/model.dart';
 import '../state/drill_config.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
 import 'measure_view.dart';
@@ -238,15 +237,7 @@ class _SettingsLine extends StatelessWidget {
       if (config.drillRepeat > 1) '×${config.drillRepeat}',
       if (config.swapHands) 'L↔R',
     ];
-    final time = formatDrillClock(
-      computeDrillDuration(
-        drill,
-        config.bpm,
-        config.bpmIncrease,
-        config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      ),
-    );
+    final time = formatDrillClock(drillDuration(drill, config));
     return Row(
       children: [
         Expanded(

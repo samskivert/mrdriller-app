@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../model/model.dart';
 import '../state/drill_config.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
 import 'components.dart';
 import 'drill_overview_view.dart';
@@ -12,7 +11,7 @@ import 'hud_layout.dart';
 /// The layout for configuring how a drill is played, shared by the drill overview and the
 /// screen for adding a drill to the practice plan (see [HudLayout]): a static preview of [drill]
 /// (with its hands swapped, if [config] says so) on the playfield, and a HUD with [title], the
-/// BPM / BPM UP / LOOPS steppers and HANDS toggle, and the screen's own buttons below them, from
+/// BPM / BPM UP / LOOPS steppers, HANDS toggle and COUNT switch, and the screen's own buttons below them, from
 /// [buildActions].
 ///
 /// Changes are reported via [onConfigUpdate] as an update to apply to the screen's latest config,
@@ -109,24 +108,15 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
     onChanged: (v) => widget.onConfigUpdate((c) => c.copyWith(swapHands: v)),
   );
 
-  // The drill's total time depends on a setting (whether the count-in replays when the bpm goes
-  // up), so the actions are rebuilt if that changes, e.g. via the settings button.
-  Widget _actions({required bool sidebar}) => ListenableBuilder(
-    listenable: settings,
-    builder: (context, _) {
-      final config = widget.config;
-      final time = formatDrillClock(
-        computeDrillDuration(
-          widget.drill,
-          config.bpm,
-          config.bpmIncrease,
-          config.drillRepeat,
-          replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-        ),
-      );
-      return widget.buildActions(context, TimeChip(time: time, fontSize: 16), sidebar);
-    },
+  Widget _countIn() => CountInToggle(
+    value: widget.config.replayIntroOnBpmIncrease,
+    onChanged: (v) => widget.onConfigUpdate((c) => c.copyWith(replayIntroOnBpmIncrease: v)),
   );
+
+  Widget _actions({required bool sidebar}) {
+    final time = formatDrillClock(drillDuration(widget.drill, widget.config));
+    return widget.buildActions(context, TimeChip(time: time, fontSize: 16), sidebar);
+  }
 
   Widget _header({required bool sidebar}) => Row(
     children: [
@@ -164,6 +154,8 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            HudRowsCard(children: [_countIn()]),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: _actions(sidebar: false)),
           ],
@@ -174,7 +166,9 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
         children: [
           _header(sidebar: true),
           const SizedBox(height: 12),
-          HudRowsCard(children: [for (final s in steppers) HudStepperRow(s), _hands(row: true)]),
+          HudRowsCard(
+            children: [for (final s in steppers) HudStepperRow(s), _hands(row: true), _countIn()],
+          ),
           const SizedBox(height: 12),
           _actions(sidebar: true),
         ],

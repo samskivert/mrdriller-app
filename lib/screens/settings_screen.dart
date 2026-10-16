@@ -41,16 +41,6 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: settings.setShowBouncingDot,
                     preview: _HighlightPreview(on: settings.showBouncingDot),
                   ),
-                  const SizedBox(height: 14),
-                  _SettingCard(
-                    label: 'Count in on BPM up',
-                    bannerColor: AppColors.bannerRed,
-                    description:
-                        'When the BPM goes up for the next loop, count in again (ichi, ni, so, '
-                        're) at the new tempo. When off, the next loop starts straight away.',
-                    value: settings.replayIntroOnBpmIncrease,
-                    onChanged: settings.setReplayIntroOnBpmIncrease,
-                  ),
                   const SizedBox(height: 28),
                   Text(
                     '${appName()} v$appVersion',

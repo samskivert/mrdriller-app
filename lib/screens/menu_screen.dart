@@ -8,8 +8,8 @@ import '../model/model.dart';
 import '../services/taiko_drum.dart';
 import '../state/app_info.dart';
 import '../state/app_name.dart';
+import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/drill_practice_view.dart';
@@ -396,7 +396,7 @@ class _MenuButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     void go(String route) => Navigator.of(context).pushNamed(route);
     return ListenableBuilder(
-      listenable: Listenable.merge([practicePlan, settings]),
+      listenable: practicePlan,
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -438,13 +438,7 @@ class _MenuButtons extends StatelessWidget {
     for (final entry in entries) {
       final drill = data.findDrillById(entry.drillId);
       if (drill == null) continue;
-      seconds += computeDrillDuration(
-        drill,
-        entry.config.bpm,
-        entry.config.bpmIncrease,
-        entry.config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      );
+      seconds += drillDuration(drill, entry.config);
     }
     final drills = entries.length == 1 ? '1 drill' : '${entries.length} drills';
     return '$drills · ${formatDrillDuration(seconds)}';

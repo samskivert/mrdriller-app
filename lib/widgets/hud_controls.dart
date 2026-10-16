@@ -309,6 +309,88 @@ class HandsToggle extends StatelessWidget {
   }
 }
 
+/// The COUNT setting: whether to count in again when the bpm goes up for the next loop. A row
+/// (in a [HudRowsCard]) of its banner, then a [CandySwitch] and a ? button that explains it.
+class CountInToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const CountInToggle({super.key, required this.value, required this.onChanged});
+
+  void _explain(BuildContext context) => showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: AppColors.cream,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              HudBanner(
+                label: 'Count in on BPM up',
+                color: AppColors.bannerBlue,
+                fontSize: 15,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'When the BPM goes up for the next loop, count in again (ichi, ni, so, re) at the '
+                'new tempo. When off, the next loop starts straight away.',
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 15,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: HudBanner(
+              label: 'Count',
+              color: AppColors.bannerBlue,
+              borderRadius: BorderRadius.circular(9),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+            ),
+          ),
+          const Spacer(),
+          Semantics(
+            label: 'Count in on BPM up',
+            child: CandySwitch(value: value, onChanged: onChanged),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            onPressed: () => _explain(context),
+            tooltip: 'What does this do?',
+            icon: const Icon(Icons.help_outline_rounded),
+            iconSize: 28,
+            color: AppColors.inkMuted,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The big green START! button (or another [label]), optionally with the total [time] it'll take
 /// (e.g. "3:12") in a chip below.
 class StartButton extends StatelessWidget {

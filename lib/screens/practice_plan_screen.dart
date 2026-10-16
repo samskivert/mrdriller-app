@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/drills.dart' as data;
 import '../model/model.dart';
+import '../state/drill_config.dart';
 import '../state/practice_plan.dart';
 import '../state/reminders.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/drill_card.dart';
@@ -37,7 +37,7 @@ class PracticePlanScreen extends StatelessWidget {
         ),
       ],
       child: ListenableBuilder(
-        listenable: Listenable.merge([practicePlan, reminders, settings]),
+        listenable: Listenable.merge([practicePlan, reminders]),
         builder: (context, _) {
           final entries = practicePlan.entries;
           final reminderEntries = reminders.entries;
@@ -108,13 +108,7 @@ class PracticePlanScreen extends StatelessWidget {
     for (final entry in entries) {
       final drill = data.findDrillById(entry.drillId);
       if (drill == null) continue;
-      total += computeDrillDuration(
-        drill,
-        entry.config.bpm,
-        entry.config.bpmIncrease,
-        entry.config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      );
+      total += drillDuration(drill, entry.config);
     }
     return total;
   }

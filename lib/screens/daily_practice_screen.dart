@@ -8,7 +8,6 @@ import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/practice_log.dart';
 import '../state/practice_plan.dart';
-import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/drill_overview_view.dart';
@@ -272,15 +271,7 @@ class _IntroView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = formatDrillClock(
-      computeDrillDuration(
-        drill,
-        config.bpm,
-        config.bpmIncrease,
-        config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      ),
-    );
+    final time = formatDrillClock(drillDuration(drill, config));
     final details = [
       '${config.bpm} BPM',
       if (config.bpmIncrease > 0) '+${config.bpmIncrease}',
@@ -403,13 +394,7 @@ class PracticeResults extends StatelessWidget {
   double get _totalSeconds {
     var total = 0.0;
     for (final c in _completed) {
-      total += computeDrillDuration(
-        c.drill,
-        c.config.bpm,
-        c.config.bpmIncrease,
-        c.config.drillRepeat,
-        replayIntroOnBpmIncrease: settings.replayIntroOnBpmIncrease,
-      );
+      total += drillDuration(c.drill, c.config);
     }
     return total;
   }

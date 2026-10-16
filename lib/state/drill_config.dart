@@ -4,32 +4,44 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../model/model.dart';
+
 class DrillConfig {
   final int bpm;
   final int bpmIncrease;
   final int drillRepeat;
   final bool swapHands;
+  // Whether to count in again (at the new tempo) when the bpm goes up for the next loop.
+  final bool replayIntroOnBpmIncrease;
 
   const DrillConfig({
     this.bpm = 60,
     this.bpmIncrease = 0,
     this.drillRepeat = 1,
     this.swapHands = false,
+    this.replayIntroOnBpmIncrease = true,
   });
 
-  DrillConfig copyWith({int? bpm, int? bpmIncrease, int? drillRepeat, bool? swapHands}) =>
-      DrillConfig(
-        bpm: bpm ?? this.bpm,
-        bpmIncrease: bpmIncrease ?? this.bpmIncrease,
-        drillRepeat: drillRepeat ?? this.drillRepeat,
-        swapHands: swapHands ?? this.swapHands,
-      );
+  DrillConfig copyWith({
+    int? bpm,
+    int? bpmIncrease,
+    int? drillRepeat,
+    bool? swapHands,
+    bool? replayIntroOnBpmIncrease,
+  }) => DrillConfig(
+    bpm: bpm ?? this.bpm,
+    bpmIncrease: bpmIncrease ?? this.bpmIncrease,
+    drillRepeat: drillRepeat ?? this.drillRepeat,
+    swapHands: swapHands ?? this.swapHands,
+    replayIntroOnBpmIncrease: replayIntroOnBpmIncrease ?? this.replayIntroOnBpmIncrease,
+  );
 
   Map<String, dynamic> toJson() => {
     'bpm': bpm,
     'bpmIncrease': bpmIncrease,
     'drillRepeat': drillRepeat,
     'swapHands': swapHands,
+    'replayIntroOnBpmIncrease': replayIntroOnBpmIncrease,
   };
 
   factory DrillConfig.fromJson(Map<String, dynamic> json) => DrillConfig(
@@ -37,8 +49,18 @@ class DrillConfig {
     bpmIncrease: json['bpmIncrease'] as int? ?? 0,
     drillRepeat: json['drillRepeat'] as int? ?? 1,
     swapHands: json['swapHands'] as bool? ?? false,
+    replayIntroOnBpmIncrease: json['replayIntroOnBpmIncrease'] as bool? ?? true,
   );
 }
+
+/// How long [drill] takes to play at [config], in seconds.
+double drillDuration(Drill drill, DrillConfig config) => computeDrillDuration(
+  drill,
+  config.bpm,
+  config.bpmIncrease,
+  config.drillRepeat,
+  replayIntroOnBpmIncrease: config.replayIntroOnBpmIncrease,
+);
 
 Future<DrillConfig> loadDrillConfig(String drillId) async {
   final prefs = await SharedPreferences.getInstance();

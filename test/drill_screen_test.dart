@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/data/drills.dart' as data;
@@ -60,5 +62,28 @@ void main() {
     expect(find.bySemanticsLabel(RegExp(r'^BPM: 61\.')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Loops: ×2\.')), findsOneWidget);
     expect(tester.widget<HandsToggle>(find.byType(HandsToggle)).swapped, isTrue);
+  });
+
+  testWidgets('the count switch is saved with the drill, and ? explains it', (tester) async {
+    await _pumpDrillScreen(tester, const Size(390, 844), 0);
+    final drill = data.drills[0];
+
+    final countIn = find.byType(CountInToggle);
+    expect(tester.widget<CountInToggle>(countIn).value, isTrue);
+    await tester.tap(find.descendant(of: countIn, matching: find.byType(CandySwitch)));
+    await tester.pumpAndSettle();
+    expect(tester.widget<CountInToggle>(countIn).value, isFalse);
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('config.${drill.id}')!) as Map<String, dynamic>;
+    expect(saved['replayIntroOnBpmIncrease'], isFalse);
+
+    // The explanation pops up, and tapping outside it dismisses it.
+    final explanation = find.textContaining('count in again');
+    await tester.tap(find.byTooltip('What does this do?'));
+    await tester.pumpAndSettle();
+    expect(explanation, findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(explanation, findsNothing);
   });
 }
