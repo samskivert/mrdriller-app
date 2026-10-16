@@ -86,4 +86,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(explanation, findsNothing);
   });
+
+  testWidgets('the count switch changes the time only when the bpm goes up', (tester) async {
+    // (A drill that always counts in before every loop isn't affected by it at all.)
+    final index = data.drills.indexWhere((d) => !d.forceIntro);
+    await _pumpDrillScreen(tester, const Size(390, 844), index);
+    String time() => tester.widget<TimeChip>(find.byType(TimeChip)).time;
+    Future<void> toggleCount() async {
+      await tester.tap(
+        find.descendant(of: find.byType(CountInToggle), matching: find.byType(CandySwitch)),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // More than one loop, but at the same bpm: no count-in to replay either way.
+    await tester.tap(find.byTooltip('More loops'));
+    await tester.pumpAndSettle();
+    final sameBpm = time();
+    await toggleCount();
+    expect(time(), sameBpm);
+    await toggleCount();
+
+    // With the bpm going up each loop, counting in again takes longer.
+    await tester.tap(find.byTooltip('Bigger bpm increase each loop'));
+    await tester.pumpAndSettle();
+    final countingIn = time();
+    await toggleCount();
+    expect(time(), isNot(countingIn));
+  });
 }

@@ -26,7 +26,6 @@ class DrillConfigLayout extends StatefulWidget {
   final DrillConfig config;
   final void Function(DrillConfig Function(DrillConfig config) update) onConfigUpdate;
   final String title;
-  final bool showSettings;
   final Widget Function(BuildContext context, Widget time, bool sidebar) buildActions;
 
   const DrillConfigLayout({
@@ -35,7 +34,6 @@ class DrillConfigLayout extends StatefulWidget {
     required this.config,
     required this.onConfigUpdate,
     required this.title,
-    this.showSettings = true,
     required this.buildActions,
   });
 
@@ -108,7 +106,8 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
     onChanged: (v) => widget.onConfigUpdate((c) => c.copyWith(swapHands: v)),
   );
 
-  Widget _countIn() => CountInToggle(
+  Widget _countIn({bool row = false}) => CountInToggle(
+    row: row,
     value: widget.config.replayIntroOnBpmIncrease,
     onChanged: (v) => widget.onConfigUpdate((c) => c.copyWith(replayIntroOnBpmIncrease: v)),
   );
@@ -123,7 +122,6 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
       const HudBackButton(),
       SizedBox(width: sidebar ? 10 : 12),
       Expanded(child: HudTitle(widget.title, sidebar: sidebar)),
-      if (widget.showSettings) ...[SizedBox(width: sidebar ? 10 : 12), const HudSettingsButton()],
     ],
   );
 
@@ -146,16 +144,21 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final stepper in steppers) ...[
-                    Expanded(child: HudStepperCard(stepper)),
-                    const SizedBox(width: 8),
+                  for (var i = 0; i < steppers.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(child: HudStepperCard(steppers[i])),
                   ],
-                  Expanded(child: _hands()),
                 ],
               ),
             ),
             const SizedBox(height: 10),
-            HudRowsCard(children: [_countIn()]),
+            Row(
+              children: [
+                Expanded(child: _hands()),
+                const SizedBox(width: 8),
+                Expanded(child: _countIn()),
+              ],
+            ),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: _actions(sidebar: false)),
           ],
@@ -167,7 +170,11 @@ class _DrillConfigLayoutState extends State<DrillConfigLayout> {
           _header(sidebar: true),
           const SizedBox(height: 12),
           HudRowsCard(
-            children: [for (final s in steppers) HudStepperRow(s), _hands(row: true), _countIn()],
+            children: [
+              for (final s in steppers) HudStepperRow(s),
+              _hands(row: true),
+              _countIn(row: true),
+            ],
           ),
           const SizedBox(height: 12),
           _actions(sidebar: true),

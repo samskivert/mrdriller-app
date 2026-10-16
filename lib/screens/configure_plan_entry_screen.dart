@@ -146,7 +146,6 @@ class _ConfigurePlanEntryScreenState extends State<ConfigurePlanEntryScreen> {
       config: _config,
       onConfigUpdate: (update) => setState(() => _config = update(_config)),
       title: widget.drillTitle,
-      showSettings: false,
       buildActions: (context, time, sidebar) => _actions(time, sidebar),
     );
   }

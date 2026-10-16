@@ -184,15 +184,7 @@ class HudStepperRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        SizedBox(
-          width: 72,
-          child: HudBanner(
-            label: spec.label,
-            color: spec.bannerColor,
-            borderRadius: BorderRadius.circular(9),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-          ),
-        ),
+        _rowBanner(spec.label, spec.bannerColor),
         const SizedBox(width: 6),
         _stepButton(spec, -1, 34),
         Expanded(child: Center(child: _value(context, spec, 30))),
@@ -229,9 +221,44 @@ class HudRowsCard extends StatelessWidget {
   }
 }
 
+// A short white HUD card with a [label] banner tab in its top-left corner and [child] to its
+// right, right-aligned (and scaled down if it's too wide to fit).
+Widget _bannerCard(String label, Color color, Widget child) => Container(
+  height: 52,
+  clipBehavior: Clip.antiAlias,
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+  ),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      HudBanner(label: label, color: color),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+          child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: child),
+        ),
+      ),
+    ],
+  ),
+);
+
+// The banner for a row of a [HudRowsCard].
+Widget _rowBanner(String label, Color color) => SizedBox(
+  width: 72,
+  child: HudBanner(
+    label: label,
+    color: color,
+    borderRadius: BorderRadius.circular(9),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+  ),
+);
+
 /// The HANDS setting: shows which hand a drill leads with (R then L normally, L then R once
-/// [swapped]), and tapping it swaps them. A card (alongside [HudStepperCard]s) by default, or a
-/// [row] (alongside [HudStepperRow]s in a [HudRowsCard]).
+/// [swapped]), and tapping it swaps them. A short card with its banner in the corner by default,
+/// or a [row] (alongside [HudStepperRow]s in a [HudRowsCard]).
 class HandsToggle extends StatelessWidget {
   final bool swapped;
   final ValueChanged<bool> onChanged;
@@ -254,47 +281,17 @@ class HandsToggle extends StatelessWidget {
         ],
       ),
     );
-    final Widget content;
-    if (row) {
-      content = SizedBox(
-        height: 38,
-        child: Row(
-          children: [
-            SizedBox(
-              width: 72,
-              child: HudBanner(
-                label: 'Hands',
-                color: AppColors.bannerGreen,
-                borderRadius: BorderRadius.circular(9),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-              ),
+    final content = row
+        ? SizedBox(
+            height: 38,
+            child: Row(
+              children: [
+                _rowBanner('Hands', AppColors.bannerGreen),
+                Expanded(child: Center(child: hands)),
+              ],
             ),
-            Expanded(child: Center(child: hands)),
-          ],
-        ),
-      );
-    } else {
-      content = Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const HudBanner(label: 'Hands', color: AppColors.bannerGreen),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-                child: Center(child: hands),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+          )
+        : _bannerCard('Hands', AppColors.bannerGreen, hands);
     return Semantics(
       button: true,
       toggled: swapped,
@@ -309,13 +306,15 @@ class HandsToggle extends StatelessWidget {
   }
 }
 
-/// The COUNT setting: whether to count in again when the bpm goes up for the next loop. A row
-/// (in a [HudRowsCard]) of its banner, then a [CandySwitch] and a ? button that explains it.
+/// The COUNT setting: whether to count in again when the bpm goes up for the next loop, as a ?
+/// button that explains it and a [CandySwitch]. A short card with its banner in the corner by
+/// default, or a [row] (alongside [HudStepperRow]s in a [HudRowsCard]).
 class CountInToggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool row;
 
-  const CountInToggle({super.key, required this.value, required this.onChanged});
+  const CountInToggle({super.key, required this.value, required this.onChanged, this.row = false});
 
   void _explain(BuildContext context) => showDialog<void>(
     context: context,
@@ -357,36 +356,29 @@ class CountInToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: () => _explain(context),
+          tooltip: 'What does this do?',
+          icon: const Icon(Icons.help_outline_rounded),
+          iconSize: 28,
+          color: AppColors.inkMuted,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+        ),
+        const SizedBox(width: 6),
+        Semantics(
+          label: 'Count in on BPM up',
+          child: CandySwitch(value: value, onChanged: onChanged),
+        ),
+      ],
+    );
+    if (!row) return _bannerCard('Count', AppColors.bannerBlue, controls);
     return SizedBox(
       height: 38,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: HudBanner(
-              label: 'Count',
-              color: AppColors.bannerBlue,
-              borderRadius: BorderRadius.circular(9),
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-            ),
-          ),
-          const Spacer(),
-          Semantics(
-            label: 'Count in on BPM up',
-            child: CandySwitch(value: value, onChanged: onChanged),
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            onPressed: () => _explain(context),
-            tooltip: 'What does this do?',
-            icon: const Icon(Icons.help_outline_rounded),
-            iconSize: 28,
-            color: AppColors.inkMuted,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-          ),
-        ],
-      ),
+      child: Row(children: [_rowBanner('Count', AppColors.bannerBlue), const Spacer(), controls]),
     );
   }
 }
