@@ -189,10 +189,9 @@ class _Logo extends StatelessWidget {
               color: AppColors.ink,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              // (Taiko Trainer already says what it is on the tin.)
-              mrDrillerUnlocked.value ? 'TAIKO DRILL TRAINER' : 'DRILLS · PATTERNS · PRACTICE',
-              style: const TextStyle(
+            child: const Text(
+              'TAIKO DRILL TRAINER',
+              style: TextStyle(
                 fontFamily: AppFonts.body,
                 fontSize: 11,
                 height: 1,

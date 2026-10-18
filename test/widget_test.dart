@@ -11,7 +11,7 @@ void main() {
     await tester.pumpWidget(const TaikoTrainerApp());
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('Taiko Trainer'), findsOneWidget);
+    expect(find.bySemanticsLabel('Dokodoko Drills'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Drills\.')), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp(r'^Pattern Trainer\.')), findsOneWidget);
   });

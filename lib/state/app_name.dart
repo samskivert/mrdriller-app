@@ -1,4 +1,4 @@
-// The app's name, as shown everywhere in the app. It's "Taiko Trainer" -- but a secret easter egg
+// The app's name, as shown everywhere in the app. It's "Dokodoko Drills" -- but a secret easter egg
 // (drumming the matsuri base beat on the menu's logo, see [DrumPatternDetector]) unlocks its
 // original name, "Mr. Driller", after the Namco game whose look inspired it.
 
@@ -13,8 +13,8 @@ const _key = 'easterEgg.mrDriller';
 /// rebuild when this changes.
 final ValueNotifier<bool> mrDrillerUnlocked = ValueNotifier(false);
 
-/// The app's name: "Taiko Trainer", or "Mr. Driller" once [mrDrillerUnlocked].
-String appName() => mrDrillerUnlocked.value ? 'Mr. Driller' : 'Taiko Trainer';
+/// The app's name: "Dokodoko Drills", or "Mr. Driller" once [mrDrillerUnlocked].
+String appName() => mrDrillerUnlocked.value ? 'Mr. Driller' : 'Dokodoko Drills';
 
 /// Restores whether the easter egg was unlocked last time. Call once at startup.
 Future<void> loadAppName() async {

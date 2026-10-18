@@ -11,8 +11,8 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(() => mrDrillerUnlocked.value = false);
 
-  test("the app's called Taiko Trainer, until the easter egg is unlocked", () {
-    expect(appName(), 'Taiko Trainer');
+  test("the app's called Dokodoko Drills, until the easter egg is unlocked", () {
+    expect(appName(), 'Dokodoko Drills');
     mrDrillerUnlocked.value = true;
     expect(appName(), 'Mr. Driller');
   });
@@ -20,8 +20,8 @@ void main() {
   testWidgets('unlocking the easter egg renames the app on screen, too', (tester) async {
     await tester.pumpWidget(const TaikoTrainerApp());
     await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('Taiko Trainer'), findsOneWidget);
-    expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).title, 'Taiko Trainer');
+    expect(find.bySemanticsLabel('Dokodoko Drills'), findsOneWidget);
+    expect(tester.widget<MaterialApp>(find.byType(MaterialApp)).title, 'Dokodoko Drills');
 
     mrDrillerUnlocked.value = true;
     await tester.pumpAndSettle();
@@ -123,7 +123,7 @@ void main() {
       await drum();
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
-      expect(appName(), 'Taiko Trainer');
+      expect(appName(), 'Dokodoko Drills');
     },
   );
 }

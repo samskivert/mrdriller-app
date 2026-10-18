@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Taiko Trainer is a Flutter app (iOS, Android, web, macOS) that displays drumming drills (mostly
-taiko) and animates them in time with a metronome. It was originally called Mr. Driller, after the
-Namco games its look is inspired by, and it still is internally (package name, bundle IDs, web
-path). The name shown anywhere in the app must come from `appName()` (`lib/state/app_name.dart`),
-never be hard-coded: a secret easter egg can switch it back to "Mr. Driller". It's a port of an
-earlier TypeScript web app in the sibling directory `../web/`, which is where the "translated from
-web/src/drills.ts" comment in `lib/data/drills.dart` points.
+Dokodoko Drills (formerly Taiko Trainer) is a Flutter app (iOS, Android, web, macOS) that
+displays drumming drills (mostly taiko) and animates them in time with a metronome. It was
+originally called Mr. Driller, after the Namco games its look is inspired by, and it still is
+internally (package name, bundle IDs, web path). The name shown anywhere in the app must come from
+`appName()` (`lib/state/app_name.dart`), never be hard-coded: a secret easter egg can switch it
+back to "Mr. Driller". It's a port of an earlier TypeScript web app in the sibling directory
+`../web/`, which is where the "translated from web/src/drills.ts" comment in
+`lib/data/drills.dart` points.
 
 ## Commands
 
