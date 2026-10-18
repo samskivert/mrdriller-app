@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/screens/reminder_config_screen.dart';
+import 'package:mrdriller/state/playlists.dart';
 import 'package:mrdriller/state/reminders.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'fake_notifications.dart';
 
 // Opens the screen on top of a stand-in for the plan screen (which it returns to when done).
 Future<void> _open(
@@ -68,6 +71,24 @@ void main() {
     expect(reminders.entries, hasLength(1));
     expect(reminders.entries.single.days, {6, 7});
     expect(find.byType(ReminderConfigScreen), findsNothing);
+  });
+
+  testWidgets("a reminder linked to a playlist schedules notifications that open it", (
+    tester,
+  ) async {
+    await playlists.load();
+    final playlist = playlists.create('Warm Up');
+    addTearDown(() => playlists.delete(playlist.id));
+    await _open(tester, const Size(390, 844));
+    await tester.tap(find.text('Warm Up'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('ADD'));
+    await tester.pumpAndSettle();
+    expect(reminders.entries.single.playlistId, playlist.id);
+    // Every day, for the next week (less today, if it's already past 9:00).
+    final scheduled = fakeNotifications.scheduled.values;
+    expect(scheduled.length, inInclusiveRange(6, 7));
+    expect(scheduled.map((n) => n.payload).toSet(), {'/playlists/${playlist.id}'});
   });
 
   testWidgets("can't be saved without any days picked", (tester) async {
