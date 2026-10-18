@@ -27,6 +27,7 @@ flutter run -d macos    # native macOS
 flutter run -d ios      # iOS simulator
 
 ./deploy-web.sh         # build web with --base-href /mrdriller/ and rsync to samskivert.com
+./test-flight-build.sh  # build the iOS ipa and upload it to TestFlight (as Xcode's Apple account)
 ```
 
 The web build is served from `/mrdriller/` by Apache. `web/.htaccess` falls back to `index.html`
