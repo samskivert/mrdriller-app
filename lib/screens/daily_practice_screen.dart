@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/playlists.dart';
+import '../state/practice_log.dart';
 import '../state/reminders.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
@@ -9,11 +10,15 @@ import '../widgets/hud_layout.dart';
 import 'practice_log_screen.dart';
 import 'reminder_config_screen.dart';
 
-/// Daily practice: the user's practice reminders (tap one to edit it, or add another), and a button
-/// up top for their practice history (see [PracticeLogScreen]). The practicing itself happens
-/// elsewhere -- a reminder linked to a playlist opens it when its notification is tapped.
+/// Daily practice: a summary of this week's practice, with a button through to the full practice
+/// log (see [PracticeLogScreen]), and the user's practice reminders (tap one to edit it, or add
+/// another). The practicing itself happens elsewhere -- a reminder linked to a playlist opens it
+/// when its notification is tapped.
 class DailyPracticeScreen extends StatelessWidget {
-  const DailyPracticeScreen({super.key});
+  /// For tests: what counts as "now" (and so today), instead of the real time.
+  final DateTime? now;
+
+  const DailyPracticeScreen({super.key, this.now});
 
   @override
   Widget build(BuildContext context) {
@@ -22,15 +27,8 @@ class DailyPracticeScreen extends StatelessWidget {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     return CreamScreen(
       title: 'Daily Practice',
-      actions: [
-        RoundIconButton(
-          icon: Icons.history_rounded,
-          tooltip: 'Practice log',
-          onPressed: () => push(const PracticeLogScreen()),
-        ),
-      ],
       child: ListenableBuilder(
-        listenable: Listenable.merge([reminders, playlists]),
+        listenable: Listenable.merge([reminders, playlists, practiceLog]),
         builder: (context, _) {
           final reminderEntries = reminders.entries;
           return SingleChildScrollView(
@@ -41,6 +39,18 @@ class DailyPracticeScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const SectionHeading('This Week', AppColors.bannerGreen),
+                    _ThisWeekCard(today: practiceDay(now ?? DateTime.now())),
+                    const SizedBox(height: 14),
+                    CandyButton(
+                      label: 'PRACTICE LOG',
+                      icon: Icons.history_rounded,
+                      colors: AppColors.candyGreen,
+                      height: 50,
+                      fontSize: 17,
+                      onPressed: () => push(PracticeLogScreen(now: now)),
+                    ),
+                    const SizedBox(height: 30),
                     const SectionHeading('Reminders', AppColors.bannerMagenta),
                     if (reminderEntries.isEmpty)
                       const EmptyCard(
@@ -72,6 +82,95 @@ class DailyPracticeScreen extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// This week's practice (Monday to Sunday): which days had any, and the current streak, how many
+/// drills, and how long.
+class _ThisWeekCard extends StatelessWidget {
+  final DateTime today;
+
+  const _ThisWeekCard({required this.today});
+
+  static const _weekdayInitials = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  Widget build(BuildContext context) {
+    final monday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
+    final entries = practiceLog.entries;
+    final practiced = {for (final e in entries) practiceDay(e.completedAt)};
+    final thisWeek = [
+      for (final e in entries)
+        if (!practiceDay(e.completedAt).isBefore(monday)) e,
+    ];
+    final streak = practiceStreak(practiced, today);
+    const label = TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: 11,
+      height: 1,
+      fontWeight: FontWeight.w900,
+      color: AppColors.inkMuted,
+    );
+    Widget stat(String name, String value) => Expanded(
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: DigitTiles(value: value, height: 30),
+          ),
+          const SizedBox(height: 6),
+          Text(name, style: label.copyWith(letterSpacing: 1.2)),
+        ],
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 6.0;
+              final cell = ((constraints.maxWidth - gap * 6) / 7).clamp(20.0, 44.0);
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (var d = 0; d < 7; d++)
+                    Padding(
+                      padding: EdgeInsets.only(left: d == 0 ? 0 : gap),
+                      child: Column(
+                        children: [
+                          ExcludeSemantics(child: Text(_weekdayInitials[d], style: label)),
+                          const SizedBox(height: 6),
+                          PracticeDayCell(
+                            day: DateTime(monday.year, monday.month, monday.day + d),
+                            today: today,
+                            practiced: practiced,
+                            size: cell,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              stat('STREAK', '$streak'),
+              stat('DRILLS', '${thisWeek.length}'),
+              stat('TIME', formatPracticeTotal(thisWeek.fold(0, (sum, e) => sum + e.seconds))),
+            ],
+          ),
+        ],
       ),
     );
   }

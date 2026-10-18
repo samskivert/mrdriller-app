@@ -52,6 +52,7 @@ class PracticeLog extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _prefs = prefs;
+    _entries = [];
     final saved = prefs.getString(_key);
     if (saved != null) {
       try {
@@ -85,6 +86,31 @@ class PracticeLog extends ChangeNotifier {
     _prefs?.setString(_key, jsonEncode([for (final e in _entries) e.toJson()]));
     notifyListeners();
   }
+}
+
+/// The local calendar day (no time of day) that [dateTime] falls on, for comparing which days
+/// drills were practiced on.
+DateTime practiceDay(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+/// How many days in a row, up to [today], have had practice (going by the [practiced] days). A
+/// streak that's still alive (practice yesterday, but not yet today) counts too.
+int practiceStreak(Set<DateTime> practiced, DateTime today) {
+  var day = practiced.contains(today) ? today : DateTime(today.year, today.month, today.day - 1);
+  var streak = 0;
+  while (practiced.contains(day)) {
+    streak++;
+    day = DateTime(day.year, day.month, day.day - 1);
+  }
+  return streak;
+}
+
+/// A total amount of practice, to the minute: e.g. "40m", or "1h5m".
+String formatPracticeTotal(int seconds) {
+  final minutes = (seconds / 60).round();
+  return minutes < 60 ? '${minutes}m' : '${minutes ~/ 60}h${minutes % 60}m';
 }
 
 /// App-wide singleton, initialized once at startup (see main.dart).

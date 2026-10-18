@@ -37,9 +37,7 @@ class PlaylistsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (all.isEmpty)
-                      const EmptyCard(
-                        'No playlists yet. Make one and fill it with drills!',
-                      )
+                      const EmptyCard('No playlists yet. Make one and fill it with drills!')
                     else
                       for (var i = 0; i < all.length; i++) ...[
                         if (i > 0) const SizedBox(height: 12),

@@ -25,12 +25,6 @@ const _monthNames = [
 
 const _weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// A local calendar day (no time of day), for comparing which days drills were practiced on.
-DateTime _day(DateTime dateTime) {
-  final local = dateTime.toLocal();
-  return DateTime(local.year, local.month, local.day);
-}
-
 /// The user's practice record: a summary (current streak, number of drills completed, total time),
 /// a calendar of which days they've practiced over the last few weeks, and the drills completed on
 /// each day, most recent first.
@@ -51,12 +45,12 @@ class PracticeLogScreen extends StatelessWidget {
         builder: (context, _) {
           final entries = [...practiceLog.entries]
             ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
-          final today = _day(now ?? DateTime.now());
-          final practiced = {for (final e in entries) _day(e.completedAt)};
+          final today = practiceDay(now ?? DateTime.now());
+          final practiced = {for (final e in entries) practiceDay(e.completedAt)};
           // Each day's drills, in the order completed (most recent day first).
           final days = <DateTime, List<PracticeLogEntry>>{};
           for (final e in entries.reversed) {
-            days.putIfAbsent(_day(e.completedAt), () => []).add(e);
+            days.putIfAbsent(practiceDay(e.completedAt), () => []).add(e);
           }
           final dayList = days.entries.toList().reversed.toList();
           return SingleChildScrollView(
@@ -71,7 +65,7 @@ class PracticeLogScreen extends StatelessWidget {
                       const _EmptyCard()
                     else ...[
                       _StatsCard(
-                        streak: _streak(practiced, today),
+                        streak: practiceStreak(practiced, today),
                         drills: entries.length,
                         totalSeconds: entries.fold(0, (sum, e) => sum + e.seconds),
                       ),
@@ -102,18 +96,6 @@ class PracticeLogScreen extends StatelessWidget {
         },
       ),
     );
-  }
-
-  // How many days in a row, up to today, have had practice. A streak that's still alive (practice
-  // yesterday, but not yet today) counts too.
-  static int _streak(Set<DateTime> practiced, DateTime today) {
-    var day = practiced.contains(today) ? today : today.subtract(const Duration(days: 1));
-    var streak = 0;
-    while (practiced.contains(day)) {
-      streak++;
-      day = DateTime(day.year, day.month, day.day - 1);
-    }
-    return streak;
   }
 }
 
@@ -155,8 +137,7 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final minutes = (totalSeconds / 60).round();
-    final total = minutes < 60 ? '${minutes}m' : '${minutes ~/ 60}h${minutes % 60}m';
+    final total = formatPracticeTotal(totalSeconds);
     Widget row(String label, Color color, String value, String unit) => Row(
       children: [
         SizedBox(
@@ -232,7 +213,6 @@ class _CalendarCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final thisMonday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
     final start = DateTime(thisMonday.year, thisMonday.month, thisMonday.day - 7 * (_weeks - 1));
-    final green = AppColors.candyGreen;
     const label = TextStyle(
       fontFamily: AppFonts.body,
       fontSize: 11,
@@ -271,63 +251,14 @@ class _CalendarCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         for (var d = 0; d < 7; d++)
-                          Builder(
-                            builder: (context) {
-                              final day = DateTime(start.year, start.month, start.day + w * 7 + d);
-                              final done = practiced.contains(day);
-                              final isToday = day == today;
-                              final future = day.isAfter(today);
-                              return Semantics(
-                                label:
-                                    '${_weekdayNames[d]} ${_monthNames[day.month - 1]} ${day.day}'
-                                    '${done ? ', practiced' : ''}${isToday ? ', today' : ''}',
-                                excludeSemantics: true,
-                                child: Container(
-                                  width: cell,
-                                  height: cell,
-                                  margin: EdgeInsets.only(left: d == 0 ? 0 : gap),
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(cell * 0.28),
-                                    gradient: done
-                                        ? LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [green.hi, green.base, green.lo],
-                                          )
-                                        : null,
-                                    color: done
-                                        ? null
-                                        : (future ? Colors.transparent : const Color(0xFFF3EEE2)),
-                                    border: isToday
-                                        ? Border.all(color: AppColors.gold, width: 3)
-                                        : null,
-                                    boxShadow: done
-                                        ? [
-                                            BoxShadow(
-                                              color: green.outline,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: done
-                                      ? Icon(
-                                          Icons.check_rounded,
-                                          size: cell * 0.6,
-                                          color: Colors.white,
-                                        )
-                                      : Text(
-                                          '${day.day}',
-                                          style: label.copyWith(
-                                            color: AppColors.inkMuted.withValues(
-                                              alpha: future ? 0.35 : 0.8,
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                              );
-                            },
+                          Padding(
+                            padding: EdgeInsets.only(left: d == 0 ? 0 : gap),
+                            child: PracticeDayCell(
+                              day: DateTime(start.year, start.month, start.day + w * 7 + d),
+                              today: today,
+                              practiced: practiced,
+                              size: cell,
+                            ),
                           ),
                       ],
                     ),
@@ -336,6 +267,67 @@ class _CalendarCard extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// A day on a practice calendar, as a rounded square: checked off in candy green if it's one of
+/// the [practiced] days, outlined in gold if it's [today], and faded out if it's still to come.
+class PracticeDayCell extends StatelessWidget {
+  final DateTime day;
+  final DateTime today;
+  final Set<DateTime> practiced;
+  final double size;
+
+  const PracticeDayCell({
+    super.key,
+    required this.day,
+    required this.today,
+    required this.practiced,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final green = AppColors.candyGreen;
+    final done = practiced.contains(day);
+    final isToday = day == today;
+    final future = day.isAfter(today);
+    return Semantics(
+      label:
+          '${_weekdayNames[day.weekday - 1]} ${_monthNames[day.month - 1]} ${day.day}'
+          '${done ? ', practiced' : ''}${isToday ? ', today' : ''}',
+      excludeSemantics: true,
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.28),
+          gradient: done
+              ? LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [green.hi, green.base, green.lo],
+                )
+              : null,
+          color: done ? null : (future ? Colors.transparent : const Color(0xFFF3EEE2)),
+          border: isToday ? Border.all(color: AppColors.gold, width: 3) : null,
+          boxShadow: done ? [BoxShadow(color: green.outline, offset: const Offset(0, 2))] : null,
+        ),
+        child: done
+            ? Icon(Icons.check_rounded, size: size * 0.6, color: Colors.white)
+            : Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.inkMuted.withValues(alpha: future ? 0.35 : 0.8),
+                ),
+              ),
       ),
     );
   }
