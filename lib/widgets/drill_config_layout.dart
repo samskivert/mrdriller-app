@@ -9,7 +9,7 @@ import 'hud_controls.dart';
 import 'hud_layout.dart';
 
 /// The layout for configuring how a drill is played, shared by the drill overview and the
-/// screen for adding a drill to the practice plan (see [HudLayout]): a static preview of [drill]
+/// screen for adding a drill to a playlist (see [HudLayout]): a static preview of [drill]
 /// (with its hands swapped, if [config] says so) on the playfield, and a HUD with [title], the
 /// BPM / BPM UP / LOOPS steppers, HANDS toggle and COUNT switch, and the screen's own buttons below them, from
 /// [buildActions].

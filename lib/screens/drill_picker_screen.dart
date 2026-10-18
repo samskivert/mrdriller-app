@@ -7,7 +7,7 @@ import '../widgets/drill_card.dart';
 import '../widgets/hud_layout.dart';
 
 /// A "stage select" of every drill, for screens whose only job is picking one -- what happens on
-/// tap is up to the caller (deep-linking to it, configuring it for a practice plan, etc). Each
+/// tap is up to the caller (deep-linking to it, configuring it for a playlist, etc). Each
 /// drill's card shows a preview of its notes and its saved settings, which are reloaded once
 /// [onDrillTap]'s future completes (e.g. on returning from the drill's screen, where they may
 /// have been changed).

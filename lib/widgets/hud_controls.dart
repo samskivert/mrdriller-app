@@ -563,6 +563,96 @@ Future<bool> confirmDelete(
   return confirmed == true;
 }
 
+/// Asks for a name (e.g. a new playlist's), starting from [initial]: the trimmed name if
+/// [confirmLabel] is tapped (or the keyboard's done key pressed) with one entered, or null if
+/// cancelled.
+Future<String?> promptForName(
+  BuildContext context, {
+  required String title,
+  String initial = '',
+  required String confirmLabel,
+}) => showDialog<String>(
+  context: context,
+  builder: (context) => _NameDialog(title: title, initial: initial, confirmLabel: confirmLabel),
+);
+
+class _NameDialog extends StatefulWidget {
+  final String title;
+  final String initial;
+  final String confirmLabel;
+
+  const _NameDialog({required this.title, required this.initial, required this.confirmLabel});
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _controller.text.trim();
+    if (name.isNotEmpty) Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.cream,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: HudBanner(
+          label: widget.title,
+          color: AppColors.bannerBlue,
+          fontSize: 15,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        style: const TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: AppColors.ink,
+        ),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          isDense: true,
+          contentPadding: const EdgeInsets.all(12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.bannerBlue, width: 2),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        CandyButton(label: widget.confirmLabel, colors: AppColors.candyGreen, onPressed: _submit),
+      ],
+    );
+  }
+}
+
 /// A row of candy pills for picking one of several [options] (value and label): the picked one in
 /// [colors], the rest outlined.
 class CandySegmented<T> extends StatelessWidget {
@@ -755,4 +845,62 @@ Future<TimeOfDay?> showCandyTimePicker(BuildContext context, {required TimeOfDay
       child: child!,
     ),
   );
+}
+
+/// A heading for a section of a cream screen: a banner on its own.
+class SectionHeading extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const SectionHeading(this.label, this.color, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Semantics(
+        header: true,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: HudBanner(
+            label: label,
+            color: color,
+            fontSize: 14,
+            borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A white card with a message in it, standing in for an empty list.
+class EmptyCard extends StatelessWidget {
+  final String message;
+
+  const EmptyCard(this.message, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.creamShadow, width: 2),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 14,
+          height: 1.4,
+          fontWeight: FontWeight.w700,
+          color: AppColors.inkMuted,
+        ),
+      ),
+    );
+  }
 }

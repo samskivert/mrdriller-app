@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/drills.dart' as data;
 import '../model/model.dart';
 import '../state/practice_log.dart';
 import '../util/colors.dart';
@@ -24,15 +25,15 @@ const _monthNames = [
 
 const _weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// A local calendar day (no time of day), for comparing which days sessions happened on.
+// A local calendar day (no time of day), for comparing which days drills were practiced on.
 DateTime _day(DateTime dateTime) {
   final local = dateTime.toLocal();
   return DateTime(local.year, local.month, local.day);
 }
 
-/// The user's practice record: a summary (current streak, number of sessions, total time), a
-/// calendar of which days they've practiced over the last few weeks, and every completed daily
-/// practice session (see daily_practice_screen.dart), most recent first.
+/// The user's practice record: a summary (current streak, number of drills completed, total time),
+/// a calendar of which days they've practiced over the last few weeks, and the drills completed on
+/// each day, most recent first.
 class PracticeLogScreen extends StatelessWidget {
   /// For tests: what counts as "now" (and so today), instead of the real time.
   final DateTime? now;
@@ -52,6 +53,12 @@ class PracticeLogScreen extends StatelessWidget {
             ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
           final today = _day(now ?? DateTime.now());
           final practiced = {for (final e in entries) _day(e.completedAt)};
+          // Each day's drills, in the order completed (most recent day first).
+          final days = <DateTime, List<PracticeLogEntry>>{};
+          for (final e in entries.reversed) {
+            days.putIfAbsent(_day(e.completedAt), () => []).add(e);
+          }
+          final dayList = days.entries.toList().reversed.toList();
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
             child: Center(
@@ -65,8 +72,8 @@ class PracticeLogScreen extends StatelessWidget {
                     else ...[
                       _StatsCard(
                         streak: _streak(practiced, today),
-                        sessions: entries.length,
-                        totalSeconds: entries.fold(0, (sum, e) => sum + e.totalSeconds),
+                        drills: entries.length,
+                        totalSeconds: entries.fold(0, (sum, e) => sum + e.seconds),
                       ),
                       const SizedBox(height: 14),
                       _CalendarCard(practiced: practiced, today: today),
@@ -82,9 +89,9 @@ class PracticeLogScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      for (var i = 0; i < entries.length; i++) ...[
+                      for (var i = 0; i < dayList.length; i++) ...[
                         if (i > 0) const SizedBox(height: 10),
-                        _SessionCard(entry: entries[i]),
+                        _DayCard(day: dayList[i].key, entries: dayList[i].value),
                       ],
                     ],
                   ],
@@ -123,7 +130,7 @@ class _EmptyCard extends StatelessWidget {
         border: Border.all(color: AppColors.creamShadow, width: 2),
       ),
       child: const Text(
-        'No practice sessions logged yet. Finish a daily practice and log it, and it’ll show '
+        'No practice logged yet. Every drill you finish, on its own or in a playlist, will show '
         'up here!',
         textAlign: TextAlign.center,
         style: TextStyle(
@@ -138,13 +145,13 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-/// The headline numbers: the current streak, how many sessions, and how long, all told.
+/// The headline numbers: the current streak, how many drills, and how long, all told.
 class _StatsCard extends StatelessWidget {
   final int streak;
-  final int sessions;
+  final int drills;
   final int totalSeconds;
 
-  const _StatsCard({required this.streak, required this.sessions, required this.totalSeconds});
+  const _StatsCard({required this.streak, required this.drills, required this.totalSeconds});
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +209,7 @@ class _StatsCard extends StatelessWidget {
         children: [
           row('Streak', AppColors.bannerRed, '$streak', streak == 1 ? 'day' : 'days'),
           const SizedBox(height: 10),
-          row('Sessions', AppColors.bannerBlue, '$sessions', ''),
+          row('Drills', AppColors.bannerBlue, '$drills', ''),
           const SizedBox(height: 10),
           row('Total', AppColors.bannerMagenta, total, ''),
         ],
@@ -334,21 +341,18 @@ class _CalendarCard extends StatelessWidget {
   }
 }
 
-/// One logged session: a calendar-page badge for its date, how many drills and how long, and the
-/// day and time it finished.
-class _SessionCard extends StatelessWidget {
-  final PracticeLogEntry entry;
+/// One day's practice: a calendar-page badge for its date, how many drills and how long, which
+/// weekday, and a chip for each drill completed (in the order they were completed).
+class _DayCard extends StatelessWidget {
+  final DateTime day;
+  final List<PracticeLogEntry> entries;
 
-  const _SessionCard({required this.entry});
+  const _DayCard({required this.day, required this.entries});
 
   @override
   Widget build(BuildContext context) {
-    final local = entry.completedAt.toLocal();
-    final time = MaterialLocalizations.of(context).formatTimeOfDay(
-      TimeOfDay.fromDateTime(local),
-      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-    );
-    final drills = entry.drillCount == 1 ? '1 drill' : '${entry.drillCount} drills';
+    final drills = entries.length == 1 ? '1 drill' : '${entries.length} drills';
+    final seconds = entries.fold(0, (sum, e) => sum + e.seconds);
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -357,6 +361,7 @@ class _SessionCard extends StatelessWidget {
         boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // A little page off a calendar.
           Container(
@@ -375,7 +380,7 @@ class _SessionCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 3),
                   alignment: Alignment.center,
                   child: Text(
-                    _monthNames[local.month - 1].toUpperCase(),
+                    _monthNames[day.month - 1].toUpperCase(),
                     style: const TextStyle(
                       fontFamily: AppFonts.body,
                       fontSize: 11,
@@ -389,7 +394,7 @@ class _SessionCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Text(
-                    '${local.day}',
+                    '${day.day}',
                     style: const TextStyle(
                       fontFamily: AppFonts.display,
                       fontSize: 22,
@@ -407,7 +412,7 @@ class _SessionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$drills · ${formatDrillDuration(entry.totalSeconds.toDouble())}',
+                  '$drills · ${formatDrillDuration(seconds.toDouble())}',
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 16,
@@ -417,7 +422,7 @@ class _SessionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_weekdayNames[local.weekday - 1]}, ${local.year} · $time',
+                  '${_weekdayNames[day.weekday - 1]}, ${day.year}',
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 13,
@@ -425,11 +430,62 @@ class _SessionCard extends StatelessWidget {
                     color: AppColors.inkMuted,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final e in entries)
+                      _DrillChip(
+                        title: data.findDrillById(e.drillId)?.title ?? e.drillId,
+                        bpm: e.config.bpm,
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
-          const Icon(Icons.check_circle_rounded, color: Color(0xFF49C96B), size: 26),
         ],
+      ),
+    );
+  }
+}
+
+/// A completed drill: its title and the bpm it started at.
+class _DrillChip extends StatelessWidget {
+  final String title;
+  final int bpm;
+
+  const _DrillChip({required this.title, required this.bpm});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.creamShadow, width: 1.5),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: title),
+            TextSpan(
+              text: ' · $bpm BPM',
+              style: const TextStyle(color: AppColors.inkMuted),
+            ),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          color: AppColors.ink,
+        ),
       ),
     );
   }

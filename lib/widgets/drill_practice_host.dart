@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../model/model.dart';
 import '../services/metronome.dart';
 import '../state/drill_config.dart';
+import '../state/practice_log.dart';
 import 'arcade.dart';
 import 'drill_practice_view.dart';
 import 'drill_status_view.dart';
@@ -12,7 +13,8 @@ import 'hud_layout.dart';
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
 /// and a cream HUD (back button, [title] and [subtitle], the [DrillStatusView] readouts and a
 /// [PauseButton]).
-/// Owns the [Metronome] and live-status notifier that the playfield and HUD share.
+/// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
+/// finishes on its own, it's recorded in the [practiceLog] before [onDone] is called.
 ///
 /// Give this a fresh [Key] (e.g. keyed by the drill's id or an index) when reusing it across a
 /// sequence of drills, so each gets its own freshly-initialized metronome/status/drill state
@@ -60,6 +62,11 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
     super.dispose();
   }
 
+  void _handleDone() {
+    practiceLog.recordDrill(widget.drill, widget.config);
+    widget.onDone();
+  }
+
   Widget _statusView({required bool vertical}) => ValueListenableBuilder(
     valueListenable: _status,
     builder: (context, status, _) => DrillStatusView(status: status, vertical: vertical),
@@ -85,7 +92,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               clearText: widget.clearText,
               metronome: _metronome,
               status: _status,
-              onDone: widget.onDone,
+              onDone: _handleDone,
             ),
           ),
         ],

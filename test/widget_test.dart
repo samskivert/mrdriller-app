@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mrdriller/data/drills.dart' as data;
 import 'package:mrdriller/main.dart';
+import 'package:mrdriller/widgets/taiko_drum_head.dart';
 
 void main() {
   testWidgets('Menu screen shows the title, a Drills link, and Pattern Trainer', (
@@ -40,4 +41,22 @@ void main() {
       expect(find.bySemanticsLabel(RegExp(r'^Daily Practice\.')), findsOneWidget);
     });
   }
+
+  testWidgets('in portrait, the drum shrinks so everything fits on an iPhone Pro', (tester) async {
+    // An iPhone 17 Pro's screen, and its status bar and home indicator.
+    tester.view.physicalSize = const Size(402, 874) * 3;
+    tester.view.devicePixelRatio = 3;
+    tester.view.padding = const FakeViewPadding(top: 62 * 3, bottom: 34 * 3);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const TaikoTrainerApp());
+    await tester.pumpAndSettle();
+    // No scrolling needed...
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    expect(scroll.maxScrollExtent, 0);
+    // ...and no room left over either: the column fills the screen between the insets (less its
+    // padding, and the bits of the insets it tucks into), which together mean
+    // _TallMenu.nonHeroHeight is exactly right.
+    final column = find.ancestor(of: find.byType(DrumBadge), matching: find.byType(Column)).first;
+    expect(tester.getSize(column).height, moreOrLessEquals(874 - (62 - 22) - (34 - 26) - 16 - 12));
+  });
 }

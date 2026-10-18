@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/reminder_scheduler.dart';
 import '../state/app_name.dart';
+import '../state/playlists.dart';
 import '../state/reminders.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
@@ -13,7 +14,8 @@ import '../widgets/taiko_drum_head.dart';
 
 /// Adds a new practice reminder, or edits an existing one in place (reached from the daily
 /// practice screen's ADD REMINDER button, or by tapping a reminder): a time of day, which days of
-/// the week it repeats on, and a custom message (with a preview of the notification). When adding,
+/// the week it repeats on, a custom message (with a preview of the notification), and optionally a
+/// playlist for its notification to open when tapped. When adding,
 /// CANCEL backs out without creating one; when editing, that slot is instead a DELETE button (with
 /// a confirmation).
 ///
@@ -32,6 +34,7 @@ class ReminderConfigScreen extends StatefulWidget {
 class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
   late TimeOfDay _time;
   late Set<int> _days;
+  String? _playlistId;
   late final TextEditingController _messageController;
 
   bool get _isEditing => widget.editIndex != null;
@@ -42,6 +45,7 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
     final initial = widget.initialReminder;
     _time = initial?.timeOfDay ?? const TimeOfDay(hour: 9, minute: 0);
     _days = initial != null ? {...initial.days} : {...allWeekdays};
+    _playlistId = initial?.playlistId;
     _messageController = TextEditingController(text: initial?.message ?? defaultReminderMessage);
   }
 
@@ -80,6 +84,7 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
       minute: _time.minute,
       days: _days,
       message: message.isEmpty ? defaultReminderMessage : message,
+      playlistId: _playlistId,
     );
     if (_isEditing) {
       reminders.updateAt(widget.editIndex!, reminder);
@@ -132,6 +137,15 @@ class _ReminderConfigScreenState extends State<ReminderConfigScreen> {
                   label: 'Message',
                   color: AppColors.bannerOrange,
                   child: _MessageEditor(controller: _messageController),
+                ),
+                const SizedBox(height: 14),
+                BannerCard(
+                  label: 'Opens',
+                  color: AppColors.bannerGreen,
+                  child: _PlaylistPicker(
+                    playlistId: _playlistId,
+                    onChanged: (id) => setState(() => _playlistId = id),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -400,6 +414,56 @@ class _PresetButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Which playlist tapping the reminder's notification opens: one of the user's playlists, or none
+/// (it just opens the app).
+class _PlaylistPicker extends StatelessWidget {
+  final String? playlistId;
+  final ValueChanged<String?> onChanged;
+
+  const _PlaylistPicker({required this.playlistId, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final all = playlists.playlists;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _PresetButton(
+              label: 'Just the app',
+              selected: playlistId == null,
+              onTap: () => onChanged(null),
+            ),
+            for (final playlist in all)
+              _PresetButton(
+                label: playlist.name,
+                selected: playlistId == playlist.id,
+                onTap: () => onChanged(playlist.id),
+              ),
+          ],
+        ),
+        if (all.isEmpty) ...[
+          const SizedBox(height: 10),
+          const Text(
+            'Make a playlist, and a reminder can open it.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppFonts.body,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.inkMuted,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

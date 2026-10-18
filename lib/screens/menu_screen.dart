@@ -8,8 +8,8 @@ import '../model/model.dart';
 import '../services/taiko_drum.dart';
 import '../state/app_info.dart';
 import '../state/app_name.dart';
-import '../state/drill_config.dart';
-import '../state/practice_plan.dart';
+import '../state/playlists.dart';
+import '../state/reminders.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/drill_practice_view.dart';
@@ -38,8 +38,10 @@ class MenuScreen extends StatelessWidget {
                 bubbles: [(0.0, 0.18, 90), (0.12, 0.09, 32), (1.0, 0.42, 75), (0.0, 1.0, 60)],
               ),
             ),
+            // Only the sides: the menus keep clear of the top and bottom insets themselves, so that
+            // what scrolls can scroll under them.
             Padding(
-              padding: EdgeInsets.fromLTRB(safe.left, safe.top, safe.right, safe.bottom),
+              padding: EdgeInsets.only(left: safe.left, right: safe.right),
               child: LayoutBuilder(
                 builder: (context, constraints) => constraints.maxWidth > constraints.maxHeight
                     ? _WideMenu(constraints.biggest)
@@ -58,21 +60,34 @@ class MenuScreen extends StatelessWidget {
   }
 }
 
-/// Portrait: the logo and artwork stacked above the buttons, all centered in a column (which
-/// scrolls if the screen is too short to fit it).
+/// Portrait: the logo and artwork stacked above the buttons, all centered in a column. The artwork
+/// shrinks to fit everything on screen, down to a point, past which the column scrolls (under the
+/// top and bottom insets).
 class _TallMenu extends StatelessWidget {
   final Size size;
 
   const _TallMenu(this.size);
 
+  // The column's height, less the artwork's: the logo, buttons, footer, spacing, and the rings
+  // around the artwork. (test/widget_test.dart checks that this keeps up with them.)
+  static const nonHeroHeight = 642.0;
+
   @override
   Widget build(BuildContext context) {
-    final heroSize = (size.shortestSide * 0.52).clamp(140.0, 260.0);
+    final insets = MediaQuery.paddingOf(context);
+    // With a notch or Dynamic Island (a tall top inset), the logo tucks up into the bottom of the
+    // status bar, which is empty in the middle, below the cutout. And the footer drops down into
+    // the home indicator's inset, stopping just above the indicator itself.
+    final top = insets.top >= 44 ? insets.top - 22 : insets.top;
+    final bottom = math.max(insets.bottom - 26, 0.0);
+    final height = size.height - top - bottom;
+    final heroSize = math.min(size.width * 0.52, height - nonHeroHeight).clamp(110.0, 260.0);
     return SingleChildScrollView(
+      padding: EdgeInsets.only(top: top, bottom: bottom),
       child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: size.height),
+        constraints: BoxConstraints(minHeight: height),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -80,11 +95,11 @@ class _TallMenu extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const _Logo(),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 16),
                   _DrumPad(child: _Hero(size: heroSize)),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 24),
                   const _MenuButtons(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   const _Footer(),
                 ],
               ),
@@ -96,7 +111,8 @@ class _TallMenu extends StatelessWidget {
   }
 }
 
-/// Landscape (or a wide screen): the logo and artwork on the left, and the buttons on the right.
+/// Landscape (or a wide screen): the logo and artwork on the left, and the buttons on the right
+/// (which scroll, under the top and bottom insets, if they don't fit).
 class _WideMenu extends StatelessWidget {
   final Size size;
 
@@ -104,23 +120,27 @@ class _WideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final insets = MediaQuery.paddingOf(context);
     // Room for the logo above it, and the rings around it.
-    final heroSize = (size.height - 190).clamp(100.0, 300.0);
+    final heroSize = (size.height - insets.vertical - 190).clamp(100.0, 300.0);
     return Row(
       children: [
         Expanded(
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const _Logo(),
-                    const SizedBox(height: 20),
-                    _DrumPad(child: _Hero(size: heroSize)),
-                  ],
+          child: Padding(
+            padding: EdgeInsets.only(top: insets.top, bottom: insets.bottom),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const _Logo(),
+                      const SizedBox(height: 20),
+                      _DrumPad(child: _Hero(size: heroSize)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -129,7 +149,7 @@ class _WideMenu extends StatelessWidget {
         Expanded(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 70, 24, 16),
+              padding: EdgeInsets.fromLTRB(16, insets.top + 70, 24, insets.bottom + 16),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: const Column(
@@ -395,7 +415,7 @@ class _MenuButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     void go(String route) => Navigator.of(context).pushNamed(route);
     return ListenableBuilder(
-      listenable: practicePlan,
+      listenable: Listenable.merge([playlists, reminders]),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -408,8 +428,16 @@ class _MenuButtons extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           CandyMenuButton(
+            title: 'Playlists',
+            subtitle: _playlistsSummary(),
+            icon: Icons.queue_music_rounded,
+            colors: AppColors.candyOrange,
+            onPressed: () => go('/playlists'),
+          ),
+          const SizedBox(height: 12),
+          CandyMenuButton(
             title: 'Daily Practice',
-            subtitle: _planSummary(),
+            subtitle: _remindersSummary(),
             icon: Icons.event_available_rounded,
             colors: AppColors.candyPink,
             onPressed: () => go('/daily-practice'),
@@ -429,18 +457,18 @@ class _MenuButtons extends StatelessWidget {
     );
   }
 
-  // E.g. "5 drills · 18m 40s", or a nudge to set one up.
-  static String _planSummary() {
-    final entries = practicePlan.entries;
-    if (entries.isEmpty) return 'Plan your practice routine';
-    var seconds = 0.0;
-    for (final entry in entries) {
-      final drill = data.findDrillById(entry.drillId);
-      if (drill == null) continue;
-      seconds += drillDuration(drill, entry.config);
-    }
-    final drills = entries.length == 1 ? '1 drill' : '${entries.length} drills';
-    return '$drills · ${formatDrillDuration(seconds)}';
+  // E.g. "3 playlists", or a nudge to make one.
+  static String _playlistsSummary() {
+    final count = playlists.playlists.length;
+    if (count == 0) return 'Line up drills to play in a row';
+    return count == 1 ? '1 playlist' : '$count playlists';
+  }
+
+  // E.g. "2 reminders", or a nudge to set one up.
+  static String _remindersSummary() {
+    final count = reminders.entries.length;
+    if (count == 0) return 'Reminders and your practice log';
+    return count == 1 ? '1 reminder · practice log' : '$count reminders · practice log';
   }
 }
 

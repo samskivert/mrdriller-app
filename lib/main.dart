@@ -7,8 +7,10 @@ import 'data/drills.dart' as data;
 import 'screens/drill_menu_screen.dart';
 import 'screens/drill_screen.dart';
 import 'screens/menu_screen.dart';
+import 'screens/daily_practice_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
-import 'screens/practice_plan_screen.dart';
+import 'screens/playlist_screen.dart';
+import 'screens/playlists_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/unknown_screen.dart';
 import 'services/reminder_scheduler.dart';
@@ -16,7 +18,7 @@ import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
 import 'state/app_name.dart';
 import 'state/practice_log.dart';
-import 'state/practice_plan.dart';
+import 'state/playlists.dart';
 import 'state/reminders.dart';
 import 'state/settings.dart';
 import 'util/colors.dart';
@@ -25,20 +27,39 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
   await settings.load();
-  await practicePlan.load();
+  await playlists.load();
   await practiceLog.load();
   await reminders.load();
   await loadAppInfo();
   await loadAppName();
   initScreenCutout();
+  // A reminder's notification, tapped to launch the app, opens the playlist it's linked to; one
+  // tapped while the app's already running opens it over whatever's on screen.
+  final launchRoute = await notificationLaunchRoute();
+  onNotificationRoute = _openDeepLink;
   // Not awaited -- this involves a native plugin round-trip and (on iOS/Android) a permission
   // prompt, neither of which should delay the app's first frame.
   unawaited(refreshScheduledReminders());
-  runApp(const TaikoTrainerApp());
+  runApp(TaikoTrainerApp(initialRoute: launchRoute ?? '/'));
+}
+
+final _navigatorKey = GlobalKey<NavigatorState>();
+
+// Replaces the back stack with the one a deep link launching the app would get.
+void _openDeepLink(String link) {
+  final navigator = _navigatorKey.currentState;
+  if (navigator == null) return;
+  navigator.popUntil((route) => route.isFirst);
+  for (final route in _onGenerateInitialRoutes(link).skip(1)) {
+    navigator.push(route);
+  }
 }
 
 class TaikoTrainerApp extends StatelessWidget {
-  const TaikoTrainerApp({super.key});
+  // Only honored off the web, where the browser's URL decides instead.
+  final String initialRoute;
+
+  const TaikoTrainerApp({super.key, this.initialRoute = '/'});
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +69,7 @@ class TaikoTrainerApp extends StatelessWidget {
 
   Widget _app() {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: appName(),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -58,7 +80,7 @@ class TaikoTrainerApp extends StatelessWidget {
         // have to lazily download a fallback font for them (showing tofu until it arrives).
         fontFamily: AppFonts.body,
       ),
-      initialRoute: '/',
+      initialRoute: initialRoute,
       onGenerateRoute: _onGenerateRoute,
       onGenerateInitialRoutes: _onGenerateInitialRoutes,
       onUnknownRoute: _unknownRoute,
@@ -114,8 +136,20 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
       );
     }
   }
+  if (segments[0] == 'playlists' && segments.length == 1) {
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const PlaylistsScreen());
+  }
+  if (segments[0] == 'playlists' && segments.length > 1) {
+    final id = segments[1];
+    if (playlists.byId(id) != null) {
+      return MaterialPageRoute(
+        settings: routeSettings,
+        builder: (_) => PlaylistScreen(playlistId: id),
+      );
+    }
+  }
   if (segments[0] == 'daily-practice') {
-    return MaterialPageRoute(settings: routeSettings, builder: (_) => const PracticePlanScreen());
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const DailyPracticeScreen());
   }
   if (segments[0] == 'tool' && segments.length > 1) {
     final id = segments[1];

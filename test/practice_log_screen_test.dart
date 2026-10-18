@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mrdriller/data/drills.dart' as data;
 import 'package:mrdriller/screens/practice_log_screen.dart';
+import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/practice_log.dart';
 import 'package:mrdriller/widgets/arcade.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,11 +12,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 // A Sunday.
 final _now = DateTime(2026, 10, 4, 20, 0);
 
-Future<void> _load(List<DateTime> sessions) async {
+// Each drill completed takes ten minutes.
+Future<void> _load(List<DateTime> drills) async {
   SharedPreferences.setMockInitialValues({
     'practiceLog.entries': jsonEncode([
-      for (final at in sessions)
-        PracticeLogEntry(completedAt: at, drillCount: 5, totalSeconds: 600).toJson(),
+      for (final at in drills)
+        PracticeLogEntry(
+          completedAt: at,
+          drillId: data.drills.first.id,
+          config: const DrillConfig(bpm: 90),
+          seconds: 600,
+        ).toJson(),
     ]),
   });
   await practiceLog.load();
@@ -35,7 +43,7 @@ void main() {
   testWidgets('an empty log says so', (tester) async {
     await _load([]);
     await _pump(tester, const Size(390, 844));
-    expect(find.textContaining('No practice sessions logged yet'), findsOneWidget);
+    expect(find.textContaining('No practice logged yet'), findsOneWidget);
   });
 
   testWidgets('the streak counts consecutive days up to today, and the totals add up', (
@@ -49,7 +57,7 @@ void main() {
       DateTime(2026, 9, 30, 12),
     ]);
     await _pump(tester, const Size(390, 844));
-    // Streak, sessions, and total time, in digit tiles.
+    // Streak, drills, and total time, in digit tiles.
     expect(_tiles('3'), findsOneWidget);
     expect(find.text('days'), findsOneWidget);
     expect(_tiles('4'), findsOneWidget);
@@ -63,6 +71,13 @@ void main() {
     await _pump(tester, const Size(390, 844));
     expect(_tiles('2'), findsWidgets);
     expect(find.text('days'), findsOneWidget);
+  });
+
+  testWidgets("a day's drills are grouped together", (tester) async {
+    await _load([DateTime(2026, 10, 4, 9), DateTime(2026, 10, 4, 9, 15), DateTime(2026, 10, 3)]);
+    await _pump(tester, const Size(390, 844));
+    expect(find.text('2 drills · 20m 00s'), findsOneWidget);
+    expect(find.text('1 drill · 10m 00s'), findsOneWidget);
   });
 
   for (final size in const [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)]) {

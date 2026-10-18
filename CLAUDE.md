@@ -51,9 +51,12 @@ drill has to be added to the `drills` list to appear in the app and to be reacha
 `/drills/<id>`.
 
 **Routing** (`lib/main.dart`): path URLs (`usePathUrlStrategy`) parsed in `_onGenerateRoute`:
-`/`, `/settings`, `/drills`, `/drills/<id>`, `/daily-practice`, `/tool/pattern-trainer`. Unknown
-routes return null on purpose so deep links skip prefixes that aren't routes when the back stack
-is built.
+`/`, `/settings`, `/drills`, `/drills/<id>`, `/playlists`, `/playlists/<id>`, `/daily-practice`,
+`/tool/pattern-trainer`. Unknown routes return null on purpose so deep links skip prefixes that
+aren't routes when the back stack is built. A reminder linked to a playlist carries its route as
+the notification's payload: a tap that launches the app becomes `MaterialApp`'s initial route (see
+`notificationLaunchRoute()`), and one while it's running rebuilds the back stack via
+`_openDeepLink`.
 
 **Timing and playback:**
 - `services/metronome.dart`: polls every 5ms against `clock.now()` and reports how many ticks are
@@ -66,8 +69,9 @@ is built.
   with a bpm increase per drill repeat). It also auto-scrolls, plays sounds, and handles the
   wakelock.
 - `widgets/drill_practice_host.dart`: the screen shell that owns the `Metronome` and a
-  `ValueNotifier<DrillRunStatus>`. It's reused by single-drill practice and by daily practice
-  (which keys a fresh host per drill).
+  `ValueNotifier<DrillRunStatus>`. It's reused by single-drill practice and by playlist runs
+  (`screens/playlist_run_screen.dart`, which keys a fresh host per drill). It records every drill
+  that finishes on its own in `practiceLog`, so that's the only place drills are logged.
 - `screens/pattern_trainer_run_screen.dart`: a separate state machine for the pattern trainer
   tool, which plays randomly generated listen/repeat patterns.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
@@ -85,16 +89,16 @@ font names are in `lib/util/colors.dart`, and the shared pieces (puffy/outlined 
 and digit tiles, the depth ruler, candy buttons, drips, bubbles) are in `lib/widgets/arcade.dart`.
 Strokes are candy blocks: color = hand (blue R, orange L), a big iced rounded block = accent vs. a
 smaller round candy = unaccented, pointed shape = down/up stroke. Screens with a playfield (drill
-overview and practice, plan-entry config, the daily practice run-through, the pattern trainer run)
+overview and practice, playlist-entry config, the playlist run-through, the pattern trainer run)
 are built on `HudLayout` (`lib/widgets/hud_layout.dart`), which handles the portrait HUD vs.
 landscape sidebar, cutout-aware safe areas, and keeping the playfield's state across rotation; the
 drill config screens share `DrillConfigLayout`. The other screens are cream `CreamScreen`s (same
 file) of white `BannerCard`s. Shared controls (steppers, hands toggle, count switch, START!, time
-chip, candy switch and segmented picker, delete confirmation) are in
+chip, candy switch and segmented picker, delete confirmation, name prompt, section headings) are in
 `lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
-`practicePlan`, `practiceLog`, `reminders`), each `load()`ed in `main()` before `runApp` and
+`playlists`, `practiceLog`, `reminders`), each `load()`ed in `main()` before `runApp` and
 persisted with `shared_preferences`. Per-drill config is stored under `config.<drillId>`, and the
 pattern trainer's under `config.pattern-trainer`. There's no state-management package; widgets
 listen to these singletons directly.

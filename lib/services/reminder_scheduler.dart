@@ -1,7 +1,12 @@
 // Schedules the user's practice reminders (see state/reminders.dart) as OS-level local
 // notifications for the next _daysToSchedule days, using flutter_local_notifications. Everything
 // previously scheduled by this app is cleared and replaced from scratch each time
-// refreshScheduledReminders() runs (currently just once, at app startup -- see main.dart).
+// refreshScheduledReminders() runs (at app startup -- see main.dart -- and whenever the reminders
+// change).
+//
+// A reminder linked to a playlist deep-links to it: its notification's payload is the playlist's
+// route, which the app opens when the notification is tapped (see notificationLaunchRoute() and
+// onNotificationRoute).
 //
 // No-ops entirely on web: there's no meaningful way for a browser tab to deliver a notification
 // while it isn't open, so scheduling anything there would be misleading. dart:io's Platform isn't
@@ -25,7 +30,33 @@ const _androidChannelDescription = "Reminders to practice your taiko drills";
 
 final _plugin = FlutterLocalNotificationsPlugin();
 
+bool _pluginInitialized = false;
 bool _initialized = false;
+
+/// Called with a tapped notification's route (e.g. `/playlists/<id>`) when it's tapped while the app
+/// is running. (When a tap launches the app, see [notificationLaunchRoute] instead.)
+void Function(String route)? onNotificationRoute;
+
+/// The route of the notification whose tap launched the app, if it was launched that way.
+Future<String?> notificationLaunchRoute() async {
+  if (kIsWeb) return null;
+  // Nothing could have been scheduled without a reminder, and initializing the plugin is a native
+  // round-trip that'd hold up the app's first frame for nothing.
+  if (reminders.entries.isEmpty) return null;
+  try {
+    await _ensurePluginInitialized();
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    if (details == null || !details.didNotificationLaunchApp) return null;
+    return details.notificationResponse?.payload;
+  } catch (error, stackTrace) {
+    debugPrint('notificationLaunchRoute failed: $error\n$stackTrace');
+    return null;
+  }
+}
+
+/// The route a reminder's notification opens when tapped, if any.
+String? _reminderRoute(ReminderConfig reminder) =>
+    reminder.playlistId == null ? null : '/playlists/${reminder.playlistId}';
 
 /// Cancels every notification this app has previously scheduled and schedules fresh ones for the
 /// next [_daysToSchedule] days, based on the user's current reminder configuration. Safe to call
@@ -64,6 +95,7 @@ Future<void> refreshScheduledReminders() async {
           title: appName(),
           body: reminder.message,
           scheduledDate: scheduledDate,
+          payload: _reminderRoute(reminder),
           notificationDetails: const NotificationDetails(
             android: AndroidNotificationDetails(
               _androidChannelId,
@@ -90,6 +122,25 @@ Future<void> _ensureInitialized() async {
   final timeZone = await FlutterTimezone.getLocalTimezone();
   tz.setLocalLocation(tz.getLocation(timeZone.identifier));
 
+  await _ensurePluginInitialized();
+
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    await _plugin
+        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+  } else if (defaultTargetPlatform == TargetPlatform.android) {
+    await _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
+}
+
+// Just the plugin itself, without asking for permission, which is all that's needed to find out
+// whether a notification launched the app.
+Future<void> _ensurePluginInitialized() async {
+  if (_pluginInitialized) return;
+  _pluginInitialized = true;
+
   // The status bar icon: Android draws notification icons as a single-color silhouette, so it's
   // the mitsudomoe in white (rendered by tool/generate_icons_test.dart), not the full-color app
   // icon. See also res/raw/keep.xml, which stops release builds from stripping it out.
@@ -101,15 +152,9 @@ Future<void> _ensureInitialized() async {
   );
   await _plugin.initialize(
     settings: const InitializationSettings(android: androidSettings, iOS: iosSettings),
+    onDidReceiveNotificationResponse: (response) {
+      final route = response.payload;
+      if (route != null) onNotificationRoute?.call(route);
+    },
   );
-
-  if (defaultTargetPlatform == TargetPlatform.iOS) {
-    await _plugin
-        .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
-        ?.requestPermissions(alert: true, badge: true, sound: true);
-  } else if (defaultTargetPlatform == TargetPlatform.android) {
-    await _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
-  }
 }

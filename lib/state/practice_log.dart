@@ -1,33 +1,42 @@
-// A log of completed daily practice sessions (see daily_practice_screen.dart), persisted to local
-// storage. An entry is only recorded when the user reaches the end of a session and confirms it
-// via the outro screen's "Log it!" button -- bailing out early logs nothing.
+// A log of every drill the user has completed, persisted to local storage. A drill is recorded as
+// soon as it finishes on its own (see DrillPracticeHost), however it was started: on its own, or as
+// part of a playlist. Bailing out of a drill partway through records nothing.
 
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../model/model.dart';
+import 'drill_config.dart';
+
 class PracticeLogEntry {
   final DateTime completedAt;
-  final int drillCount;
-  final int totalSeconds;
+  final String drillId;
+  final DrillConfig config;
+  // The drill's computed duration when it was completed (not wall-clock time, so pausing doesn't
+  // count), kept rather than recomputed so that changes to the drill don't rewrite history.
+  final int seconds;
 
   const PracticeLogEntry({
     required this.completedAt,
-    required this.drillCount,
-    required this.totalSeconds,
+    required this.drillId,
+    required this.config,
+    required this.seconds,
   });
 
   Map<String, dynamic> toJson() => {
     'completedAt': completedAt.toIso8601String(),
-    'drillCount': drillCount,
-    'totalSeconds': totalSeconds,
+    'drillId': drillId,
+    'config': config.toJson(),
+    'seconds': seconds,
   };
 
   factory PracticeLogEntry.fromJson(Map<String, dynamic> json) => PracticeLogEntry(
     completedAt: DateTime.parse(json['completedAt'] as String),
-    drillCount: json['drillCount'] as int,
-    totalSeconds: json['totalSeconds'] as int,
+    drillId: json['drillId'] as String,
+    config: DrillConfig.fromJson(json['config'] as Map<String, dynamic>),
+    seconds: json['seconds'] as int,
   );
 }
 
@@ -37,7 +46,7 @@ class PracticeLog extends ChangeNotifier {
   List<PracticeLogEntry> _entries = [];
   SharedPreferences? _prefs;
 
-  /// Most recently completed session first.
+  /// Most recently completed drill first.
   List<PracticeLogEntry> get entries => List.unmodifiable(_entries);
 
   Future<void> load() async {
@@ -61,6 +70,16 @@ class PracticeLog extends ChangeNotifier {
     _entries = [entry, ..._entries];
     _save();
   }
+
+  /// Records that [drill] was just completed at [config].
+  void recordDrill(Drill drill, DrillConfig config) => add(
+    PracticeLogEntry(
+      completedAt: DateTime.now(),
+      drillId: drill.id,
+      config: config,
+      seconds: drillDuration(drill, config).round(),
+    ),
+  );
 
   void _save() {
     _prefs?.setString(_key, jsonEncode([for (final e in _entries) e.toJson()]));

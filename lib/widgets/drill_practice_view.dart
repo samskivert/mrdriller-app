@@ -250,7 +250,7 @@ List<_FlatSection> _flattenSections(Drill drill) => [
 /// This is the reusable "run one drill" content, with no [Scaffold]/header/navigation of its own:
 /// [onDone] fires once when the drill finishes all its repeats on its own, and it's up to the
 /// caller to decide what that means (pop back to an overview screen, advance to the next drill in
-/// a practice plan, etc). There's no dedicated "stop" affordance here -- the caller's own back
+/// a playlist, etc). There's no dedicated "stop" affordance here -- the caller's own back
 /// button already abandons the session.
 ///
 /// [metronome] is created and owned by the caller (typically [DrillPracticeHost]), not by this

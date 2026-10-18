@@ -34,6 +34,9 @@ class ReminderConfig {
   final int minute;
   final Set<int> days;
   final String message;
+  // The playlist that tapping the reminder's notification opens, if any (otherwise it just opens
+  // the app).
+  final String? playlistId;
 
   const ReminderConfig({
     required this.id,
@@ -41,6 +44,7 @@ class ReminderConfig {
     required this.minute,
     required this.days,
     this.message = defaultReminderMessage,
+    this.playlistId,
   });
 
   TimeOfDay get timeOfDay => TimeOfDay(hour: hour, minute: minute);
@@ -52,6 +56,7 @@ class ReminderConfig {
         minute: minute ?? this.minute,
         days: days ?? this.days,
         message: message ?? this.message,
+        playlistId: playlistId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -60,6 +65,7 @@ class ReminderConfig {
     'minute': minute,
     'days': days.toList()..sort(),
     'message': message,
+    'playlistId': playlistId,
   };
 
   factory ReminderConfig.fromJson(Map<String, dynamic> json) => ReminderConfig(
@@ -71,6 +77,7 @@ class ReminderConfig {
       null || _oldDefaultReminderMessage => defaultReminderMessage,
       final message => message,
     },
+    playlistId: json['playlistId'] as String?,
   );
 }
 
@@ -110,6 +117,24 @@ class ReminderList extends ChangeNotifier {
 
   void removeAt(int index) {
     _entries = [..._entries]..removeAt(index);
+    _save();
+  }
+
+  /// Unlinks every reminder from the playlist [playlistId] (e.g. because it was deleted), leaving
+  /// them to just open the app.
+  void unlinkPlaylist(String playlistId) {
+    _entries = [
+      for (final e in _entries)
+        e.playlistId == playlistId
+            ? ReminderConfig(
+                id: e.id,
+                hour: e.hour,
+                minute: e.minute,
+                days: e.days,
+                message: e.message,
+              )
+            : e,
+    ];
     _save();
   }
 
