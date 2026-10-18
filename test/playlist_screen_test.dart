@@ -55,7 +55,7 @@ void main() {
     _setSize(tester, const Size(390, 844));
     await tester.pumpWidget(const MaterialApp(home: PlaylistsScreen()));
     await tester.pumpAndSettle();
-    expect(find.textContaining('No playlists yet'), findsOneWidget);
+    expect(find.textContaining('No playlists'), findsOneWidget);
   });
 
   testWidgets('NEW PLAYLIST asks for a name, then opens the new playlist', (tester) async {
