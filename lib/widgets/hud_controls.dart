@@ -603,52 +603,92 @@ class _NameDialogState extends State<_NameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final banner = HudBanner(
+      label: widget.title,
+      color: AppColors.bannerBlue,
+      fontSize: 15,
+      borderRadius: BorderRadius.circular(10),
+    );
+    final field = TextField(
+      controller: _controller,
+      autofocus: true,
+      textCapitalization: TextCapitalization.words,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _submit(),
+      style: const TextStyle(
+        fontFamily: AppFonts.body,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: AppColors.ink,
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.all(12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.bannerBlue, width: 2),
+        ),
+      ),
+    );
+    final cancel = TextButton(
+      onPressed: () => Navigator.of(context).pop(),
+      child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
+    );
+    final confirm = CandyButton(
+      label: widget.confirmLabel,
+      colors: AppColors.candyGreen,
+      onPressed: _submit,
+    );
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(20));
+
+    // With the keyboard up on a landscape phone there's too little height left for the usual
+    // stacked layout, so put the field and buttons on one row under the banner and trim the
+    // padding.
+    final media = MediaQuery.of(context);
+    final compact = media.size.height - media.viewInsets.bottom < 300;
+    if (compact) {
+      return Dialog(
+        backgroundColor: AppColors.cream,
+        shape: shape,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                banner,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: field),
+                    const SizedBox(width: 8),
+                    cancel,
+                    const SizedBox(width: 4),
+                    confirm,
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return AlertDialog(
       backgroundColor: AppColors.cream,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Align(
-        alignment: Alignment.centerLeft,
-        child: HudBanner(
-          label: widget.title,
-          color: AppColors.bannerBlue,
-          fontSize: 15,
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textCapitalization: TextCapitalization.words,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => _submit(),
-        style: const TextStyle(
-          fontFamily: AppFonts.body,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: AppColors.ink,
-        ),
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          isDense: true,
-          contentPadding: const EdgeInsets.all(12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.bannerBlue, width: 2),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
-        ),
-        CandyButton(label: widget.confirmLabel, colors: AppColors.candyGreen, onPressed: _submit),
-      ],
+      shape: shape,
+      title: Align(alignment: Alignment.centerLeft, child: banner),
+      content: field,
+      actions: [cancel, confirm],
     );
   }
 }
