@@ -43,6 +43,10 @@ class _OverviewSectionView extends StatelessWidget {
       expand: false,
       child: _HeaderOverBody(
         header: Row(
+          // Not a Spacer between the two: that would only get half the free space, sharing it with
+          // the banner's Flexible, which leaves whatever the banner doesn't use after the repeat
+          // count instead of before it.
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             if (label != null && label.isNotEmpty)
               Flexible(
@@ -56,8 +60,10 @@ class _OverviewSectionView extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.fromLTRB(12, 7, 14, 7),
                 ),
-              ),
-            const Spacer(),
+              )
+            else
+              // (Keeps the repeat count over on the right.)
+              const SizedBox.shrink(),
             if (section.repeat > 1)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
