@@ -62,12 +62,20 @@ class DrillStatusView extends StatelessWidget {
       );
     }
 
-    return Row(
-      children: [
-        Expanded(child: _wideCard('BPM', AppColors.bannerOrange, bpm, increase)),
-        const SizedBox(width: 10),
-        Expanded(child: _wideCard(loopLabel, AppColors.bannerRed, loop, null)),
-      ],
+    // Each card at its natural width, the pair centered, and all shrunk to fit if too wide (e.g. a
+    // long loop count on a small phone).
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _wideCard('BPM', AppColors.bannerOrange, bpm, increase),
+            const SizedBox(width: 10),
+            _wideCard(loopLabel, AppColors.bannerRed, loop, null),
+          ],
+        ),
+      ),
     );
   }
 
@@ -84,34 +92,20 @@ class DrillStatusView extends StatelessWidget {
     decoration: _cardDecoration,
     child: IntrinsicHeight(
       child: Row(
-        // Puts any of the left half the banner doesn't use between the two, not after the digits.
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Gets up to half the card, shrinking [sub] to fit on a narrow phone.
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                HudBanner(label: label, color: color),
-                if (sub != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 0, 10),
-                    child: FittedBox(fit: BoxFit.scaleDown, child: _sub(sub)),
-                  ),
-              ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              HudBanner(label: label, color: color),
+              if (sub != null)
+                Padding(padding: const EdgeInsets.fromLTRB(10, 8, 0, 10), child: _sub(sub)),
+            ],
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 10, 10),
-              // Shrinks to fit a narrow card (e.g. a long loop count on a small phone).
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: DigitTiles(value: value),
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            child: Center(child: DigitTiles(value: value)),
           ),
         ],
       ),

@@ -5,17 +5,36 @@ import 'package:flutter/rendering.dart';
 
 import '../model/model.dart';
 import '../util/colors.dart';
+import '../util/size_config.dart';
 import 'arcade.dart';
 import 'measure_view.dart';
 
 // Compact, so that more of the drill fits on screen at once; it's for looking over, not playing.
 const double _strokeSize = 30;
 
+/// The stroke size for [section] in [width]: the compact size, unless its widest measure (which
+/// can't wrap, unlike a line's measures) needs smaller strokes to fit, down to [minStrokeSize].
+double _strokeSizeFor(Section section, double width) {
+  final beats = section.lines
+      .expand((line) => line.measures)
+      .fold(0, (most, measure) => math.max(most, measure.length));
+  if (beats == 0 || !width.isFinite) return _strokeSize;
+  // Less the panel's 2px border and the body's 10px padding on each side, and 4px of margin on each
+  // side of every beat (see MeasureView), with a pixel to spare for rounding.
+  final fit = (width - 2 * 2 - 2 * 10 - 1) / beats - 8;
+  return fit.clamp(minStrokeSize, _strokeSize).floorToDouble();
+}
+
 class _OverviewSectionView extends StatelessWidget {
   final Section section;
   final Color bannerColor;
+  final double strokeSize;
 
-  const _OverviewSectionView({required this.section, required this.bannerColor});
+  const _OverviewSectionView({
+    required this.section,
+    required this.bannerColor,
+    required this.strokeSize,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +94,7 @@ class _OverviewSectionView extends StatelessWidget {
                       for (final measure in line.measures)
                         MeasureView(
                           measure: measure,
-                          strokeSize: _strokeSize,
+                          strokeSize: strokeSize,
                           labelColor: AppColors.cream,
                         ),
                     ],
@@ -196,8 +215,9 @@ class _RowView extends StatelessWidget {
   final DrillRow row;
   // The index of the row's first section within the whole drill, for picking banner colors.
   final int firstIndex;
+  final double width;
 
-  const _RowView({required this.row, required this.firstIndex});
+  const _RowView({required this.row, required this.firstIndex, required this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +227,11 @@ class _RowView extends StatelessWidget {
       runSpacing: 12,
       children: [
         for (var i = 0; i < row.length; i++)
-          _OverviewSectionView(section: row[i], bannerColor: AppColors.banner(firstIndex + i)),
+          _OverviewSectionView(
+            section: row[i],
+            bannerColor: AppColors.banner(firstIndex + i),
+            strokeSize: _strokeSizeFor(row[i], width),
+          ),
       ],
     );
   }
@@ -222,20 +246,24 @@ class DrillOverviewView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1200),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var r = 0; r < drill.rows.length; r++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _RowView(
-                row: drill.rows[r],
-                firstIndex: drill.rows.take(r).fold(0, (n, row) => n + row.length),
+    const maxWidth = 1200.0;
+    return LayoutBuilder(
+      builder: (context, constraints) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: maxWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var r = 0; r < drill.rows.length; r++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _RowView(
+                  row: drill.rows[r],
+                  firstIndex: drill.rows.take(r).fold(0, (n, row) => n + row.length),
+                  width: math.min(constraints.maxWidth, maxWidth),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
