@@ -307,6 +307,20 @@ class _CandyButtonState extends State<CandyButton> {
     );
   }
 
+  /// Trims the blank margin off the leading side of [icon] (of [size]), which would otherwise shift
+  /// a button's icon and label off center: Material icons leave a sixth or so of their width blank
+  /// on each side (a third on the play arrow's left), so this splits the difference at 5/24.
+  Widget _trimmed(Widget icon, {required double size}) => SizedBox(
+    width: size * 19 / 24,
+    height: size,
+    child: OverflowBox(
+      minWidth: size,
+      maxWidth: size,
+      alignment: Alignment.centerRight,
+      child: icon,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -321,6 +335,13 @@ class _CandyButtonState extends State<CandyButton> {
       letterSpacing: widget.fontSize * 0.08,
     );
     final label = widget.label;
+    Widget icon(double size) => Icon(
+      widget.icon,
+      size: size,
+      color: Colors.white,
+      shadows: [Shadow(color: c.outline, offset: const Offset(0, 1.5))],
+    );
+    final iconSize = widget.fontSize * 1.2;
     final button = Semantics(
       button: true,
       enabled: widget.onPressed != null,
@@ -335,7 +356,11 @@ class _CandyButtonState extends State<CandyButton> {
           padding: EdgeInsets.only(top: sink, bottom: depth - sink),
           child: Container(
             width: label == null ? widget.height : null,
-            padding: label == null ? null : EdgeInsets.symmetric(horizontal: widget.height * 0.38),
+            // Enough to keep the label clear of the rounded ends, but capped: on a tall button the
+            // label is much shorter than the button, so the ends barely curve in beside it.
+            padding: label == null
+                ? null
+                : EdgeInsets.symmetric(horizontal: math.min(widget.height * 0.38, 18)),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.height / 2),
               gradient: LinearGradient(
@@ -355,15 +380,12 @@ class _CandyButtonState extends State<CandyButton> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (widget.icon != null)
-                      Icon(
-                        widget.icon,
-                        size: label == null ? widget.height * 0.6 : widget.fontSize * 1.2,
-                        color: Colors.white,
-                        shadows: [Shadow(color: c.outline, offset: const Offset(0, 1.5))],
-                      ),
+                      label == null
+                          ? icon(widget.height * 0.6)
+                          : _trimmed(icon(iconSize), size: iconSize),
                     if (widget.icon != null && label != null)
                       SizedBox(width: widget.fontSize * 0.4),
-                    if (label != null)
+                    if (label != null) ...[
                       OutlinedText(
                         label,
                         style: textStyle,
@@ -371,6 +393,11 @@ class _CandyButtonState extends State<CandyButton> {
                         outline: c.outline,
                         outlineWidth: 2,
                       ),
+                      // The font has no italic, so the label is slanted synthetically, which
+                      // leans its top past the end of its box: make room for that, so the label
+                      // looks centered.
+                      SizedBox(width: widget.fontSize * 0.2),
+                    ],
                   ],
                 ),
               ),

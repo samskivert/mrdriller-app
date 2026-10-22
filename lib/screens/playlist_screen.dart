@@ -62,16 +62,167 @@ class PlaylistScreen extends StatelessWidget {
     }
   }
 
+  Widget _playButton(BuildContext context, Playlist playlist) => StartButton(
+    label: 'PLAY',
+    time: formatDrillClock(playlistSeconds(playlist.entries)),
+    onPressed: () => _play(context, playlist, shuffle: false),
+  );
+
+  /// [fontSize] defaults to the ADD DRILL and DELETE buttons' size.
+  Widget _shuffleButton(
+    BuildContext context,
+    Playlist playlist, {
+    required double height,
+    double fontSize = 17,
+  }) => CandyButton(
+    label: 'SHUFFLE',
+    icon: Icons.shuffle_rounded,
+    colors: AppColors.candyBlue,
+    height: height,
+    fontSize: fontSize,
+    onPressed: () => _play(context, playlist, shuffle: true),
+  );
+
+  Widget _addButton(BuildContext context, Playlist playlist) => CandyButton(
+    label: 'ADD DRILL',
+    icon: Icons.add_rounded,
+    colors: AppColors.candyBlue,
+    height: 50,
+    fontSize: 17,
+    onPressed: () => _push(context, SelectDrillForPlaylistScreen(playlistId: playlist.id)),
+  );
+
+  Widget _deleteButton(BuildContext context, Playlist playlist) => CandyButton(
+    label: 'DELETE PLAYLIST',
+    icon: Icons.delete_rounded,
+    colors: AppColors.candyRed,
+    height: 50,
+    fontSize: 17,
+    onPressed: () => _delete(context, playlist),
+  );
+
+  static const _emptyMessage = 'No drills in this playlist yet. Add one to get started!';
+
+  /// Everything in one scrolling column: PLAY and SHUFFLE, the drills, then ADD DRILL and DELETE.
+  Widget _narrow(BuildContext context, Playlist playlist, EdgeInsets safe) {
+    final entries = playlist.entries;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 32),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (entries.isNotEmpty) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _playButton(context, playlist)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _shuffleButton(
+                        context,
+                        playlist,
+                        height: 76,
+                        // Matching PLAY's label beside it (see StartButton).
+                        fontSize: 76 * 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+              ],
+              const SectionHeading('Drills', AppColors.bannerOrange),
+              if (entries.isEmpty)
+                const EmptyCard(_emptyMessage)
+              else
+                _EntryList(playlistId: playlist.id, entries: entries),
+              const SizedBox(height: 14),
+              _addButton(context, playlist),
+              const SizedBox(height: 30),
+              _deleteButton(context, playlist),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The drills scrolling on their own on the left, and the buttons in a column on the right.
+  Widget _wide(BuildContext context, Playlist playlist, EdgeInsets safe) {
+    final entries = playlist.entries;
+    const heading = SectionHeading('Drills', AppColors.bannerOrange);
+    return Padding(
+      padding: EdgeInsets.only(left: safe.left, right: safe.right),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Two thirds of the width for the drills and one for the buttons, each centered in its
+          // share.
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: entries.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [heading, EmptyCard(_emptyMessage)],
+                        ),
+                      )
+                    : _EntryList(
+                        playlistId: playlist.id,
+                        entries: entries,
+                        header: heading,
+                        padding: EdgeInsets.fromLTRB(16, 8, 16, safe.bottom + 32),
+                      ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, safe.bottom + 16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 260),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (entries.isNotEmpty) ...[
+                        _playButton(context, playlist),
+                        const SizedBox(height: 12),
+                        _shuffleButton(context, playlist, height: 50),
+                        const SizedBox(height: 22),
+                      ],
+                      _addButton(context, playlist),
+                      const SizedBox(height: 30),
+                      _deleteButton(context, playlist),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final safe = MediaQuery.paddingOf(context);
+    final media = MediaQuery.of(context);
+    // Side by side on a phone held sideways, and on anything wide enough (tablets, desktop).
+    final wide = media.size.width > media.size.height || media.size.width >= 700;
     return ListenableBuilder(
       listenable: playlists,
       builder: (context, _) {
         final playlist = playlists.byId(playlistId);
         // (Just deleted, and on its way out.)
         if (playlist == null) return const CreamScreen(title: '', child: SizedBox());
-        final entries = playlist.entries;
         return CreamScreen(
           title: playlist.name,
           actions: [
@@ -81,89 +232,33 @@ class PlaylistScreen extends StatelessWidget {
               onPressed: () => _rename(context, playlist),
             ),
           ],
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 32),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (entries.isNotEmpty) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: StartButton(
-                              label: 'PLAY',
-                              time: formatDrillClock(playlistSeconds(entries)),
-                              onPressed: () => _play(context, playlist, shuffle: false),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: CandyButton(
-                              label: 'SHUFFLE',
-                              icon: Icons.shuffle_rounded,
-                              colors: AppColors.candyBlue,
-                              height: 76,
-                              fontSize: 17,
-                              onPressed: () => _play(context, playlist, shuffle: true),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                    ],
-                    const SectionHeading('Drills', AppColors.bannerOrange),
-                    if (entries.isEmpty)
-                      const EmptyCard('No drills in this playlist yet. Add one to get started!')
-                    else
-                      _EntryList(playlistId: playlist.id, entries: entries),
-                    const SizedBox(height: 14),
-                    CandyButton(
-                      label: 'ADD DRILL',
-                      icon: Icons.add_rounded,
-                      colors: AppColors.candyBlue,
-                      height: 50,
-                      fontSize: 17,
-                      onPressed: () =>
-                          _push(context, SelectDrillForPlaylistScreen(playlistId: playlist.id)),
-                    ),
-                    const SizedBox(height: 30),
-                    CandyButton(
-                      label: 'DELETE PLAYLIST',
-                      icon: Icons.delete_rounded,
-                      colors: AppColors.candyRed,
-                      height: 50,
-                      fontSize: 17,
-                      onPressed: () => _delete(context, playlist),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          child: wide
+              ? _wide(context, playlist, media.padding)
+              : _narrow(context, playlist, media.padding),
         );
       },
     );
   }
 }
 
-/// The playlist's drills as cards, reorderable by dragging their handles.
+/// The playlist's drills as cards, reorderable by dragging their handles. Laid out in full within
+/// an enclosing scroll view, or, given a [padding], scrolling on its own (with [header] at the top).
 class _EntryList extends StatelessWidget {
   final String playlistId;
   final List<PlaylistEntry> entries;
+  final Widget? header;
+  final EdgeInsets? padding;
 
-  const _EntryList({required this.playlistId, required this.entries});
+  const _EntryList({required this.playlistId, required this.entries, this.header, this.padding});
 
   @override
   Widget build(BuildContext context) {
+    final scrolls = padding != null;
     return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: !scrolls,
+      physics: scrolls ? null : const NeverScrollableScrollPhysics(),
+      padding: padding,
+      header: header,
       // The default drag handle only shows up on desktop platforms -- on iOS/Android there'd be no
       // visible affordance at all (just an undiscoverable long-press-anywhere gesture). An explicit
       // handle works the same, visibly, everywhere.
