@@ -182,8 +182,9 @@ class HudSettingsButton extends StatelessWidget {
   );
 }
 
-/// A screen's title in the HUD, in the display font: one line in a portrait HUD, or up to two
-/// (smaller) in a landscape sidebar. An optional [subtitle] goes on a line of its own below it.
+/// A screen's title in the HUD, in the display font: one line in a portrait HUD (shrinking to fit),
+/// or up to two (smaller) in a landscape sidebar. An optional [subtitle] goes on a line of its own
+/// below it.
 class HudTitle extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -193,17 +194,19 @@ class HudTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Text(
-      title,
-      maxLines: sidebar ? 2 : 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontFamily: AppFonts.display,
-        fontSize: sidebar ? 17 : 21,
-        height: 1.15,
-        color: AppColors.ink,
-      ),
+    final style = TextStyle(
+      fontFamily: AppFonts.display,
+      fontSize: sidebar ? 17 : 21,
+      height: 1.15,
+      color: AppColors.ink,
     );
+    final text = sidebar
+        ? Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: style)
+        : FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(title, maxLines: 1, style: style),
+          );
     final subtitle = this.subtitle;
     if (subtitle == null) return text;
     return Column(
