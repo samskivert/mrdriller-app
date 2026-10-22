@@ -123,6 +123,7 @@ class _PatternTrainerScreenState extends State<PatternTrainerScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: HandsToggle(
+                          tall: true,
                           swapped: c.swapHands,
                           onChanged: (v) => _setConfig(_config.copyWith(swapHands: v)),
                         ),

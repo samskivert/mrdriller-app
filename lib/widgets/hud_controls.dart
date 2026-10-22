@@ -258,17 +258,29 @@ Widget _rowBanner(String label, Color color) => SizedBox(
 
 /// The HANDS setting: shows which hand a drill leads with (R then L normally, L then R once
 /// [swapped]), and tapping it swaps them. A short card with its banner in the corner by default,
-/// or a [row] (alongside [HudStepperRow]s in a [HudRowsCard]).
+/// a [row] (alongside [HudStepperRow]s in a [HudRowsCard]), or a [tall] card with the hands
+/// centered below the banner (alongside [HudStepperCard]s).
 class HandsToggle extends StatelessWidget {
   final bool swapped;
   final ValueChanged<bool> onChanged;
   final bool row;
+  final bool tall;
 
-  const HandsToggle({super.key, required this.swapped, required this.onChanged, this.row = false});
+  const HandsToggle({
+    super.key,
+    required this.swapped,
+    required this.onChanged,
+    this.row = false,
+    this.tall = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final miniSize = row ? 26.0 : 30.0;
+    final miniSize = row
+        ? 26.0
+        : tall
+        ? 40.0
+        : 30.0;
     Widget mini(Hand hand) => StrokeView(stroke: hit(hand, true), size: miniSize);
     final hands = FittedBox(
       fit: BoxFit.scaleDown,
@@ -281,7 +293,31 @@ class HandsToggle extends StatelessWidget {
         ],
       ),
     );
-    final content = row
+    final content = tall
+        ? Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: HudBanner(label: 'Hands', color: AppColors.bannerGreen),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                    child: Center(child: hands),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : row
         ? SizedBox(
             height: 38,
             child: Row(
