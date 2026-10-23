@@ -17,6 +17,11 @@ Future<void> _pump(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // A day with twenty minutes of practice gets a spinning drum, which would never settle.
+  tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+    disableAnimations: true,
+  );
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   await tester.pumpWidget(MaterialApp(home: DailyPracticeScreen(now: _now)));
   await tester.pumpAndSettle();
 }
@@ -88,7 +93,7 @@ void main() {
         find.byWidgetPredicate((widget) => widget is DigitTiles && widget.value == value);
     expect(tiles('3'), findsNWidgets(2)); // A three-day streak, and three drills this week.
     expect(tiles('15m'), findsOneWidget);
-    expect(find.bySemanticsLabel('Mon Oct 12, practiced'), findsOneWidget);
+    expect(find.bySemanticsLabel('Mon Oct 12, practiced 5 minutes'), findsOneWidget);
     expect(find.bySemanticsLabel('Wed Oct 14, today'), findsOneWidget);
 
     await tester.tap(find.bySemanticsLabel('PRACTICE LOG'));

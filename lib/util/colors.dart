@@ -50,6 +50,15 @@ class AppColors {
   static const gaugeBlue = Color(0xFF2E7BE6);
   static const gaugeEmpty = Color(0xFFD8E6FA);
   static const gaugeRing = Color(0xFF3FBF68);
+  // The depth ruler's rainbow, top to bottom.
+  static const rainbow = [
+    Color(0xFFFF5A6E),
+    Color(0xFFFFA23B),
+    Color(0xFFFFE15C),
+    Color(0xFF5BD37A),
+    Color(0xFF3BA4F0),
+    Color(0xFF8B6CF0),
+  ];
 
   // Banner colors: dark enough for white bold text to meet contrast, in the order sections cycle
   // through them.

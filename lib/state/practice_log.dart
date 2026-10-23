@@ -184,6 +184,33 @@ DateTime practiceDay(DateTime dateTime) {
   return DateTime(local.year, local.month, local.day);
 }
 
+/// How long was spent practicing on each day (see [practiceDay]) that had any practice, in
+/// seconds.
+Map<DateTime, int> practiceByDay(Iterable<PracticeLogEntry> entries) {
+  final byDay = <DateTime, int>{};
+  for (final e in entries) {
+    byDay.update(practiceDay(e.completedAt), (s) => s + e.seconds, ifAbsent: () => e.seconds);
+  }
+  return byDay;
+}
+
+/// How a day's practice ranks by how long it was (shown as fancier and fancier badges on the
+/// practice calendars).
+enum PracticeTier {
+  none,
+  practiced,
+  tenMinutes,
+  twentyMinutes;
+
+  /// The tier for a day with [seconds] of practice (null for none at all).
+  static PracticeTier of(int? seconds) => switch (seconds) {
+    null => none,
+    < 600 => practiced,
+    < 1200 => tenMinutes,
+    _ => twentyMinutes,
+  };
+}
+
 /// How many days in a row, up to [today], have had practice (going by the [practiced] days). A
 /// streak that's still alive (practice yesterday, but not yet today) counts too.
 int practiceStreak(Set<DateTime> practiced, DateTime today) {

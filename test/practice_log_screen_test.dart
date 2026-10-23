@@ -7,6 +7,8 @@ import 'package:mrdriller/screens/practice_log_screen.dart';
 import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/practice_log.dart';
 import 'package:mrdriller/widgets/arcade.dart';
+import 'package:mrdriller/widgets/rainbow_drum.dart';
+import 'package:mrdriller/widgets/taiko_drum_head.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // A Sunday.
@@ -35,6 +37,11 @@ Future<void> _pump(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  // A day with twenty minutes of practice gets a spinning drum, which would never settle.
+  tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+    disableAnimations: true,
+  );
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   await tester.pumpWidget(MaterialApp(home: PracticeLogScreen(now: _now)));
   await tester.pumpAndSettle();
 }
@@ -62,7 +69,7 @@ void main() {
     expect(find.text('days'), findsOneWidget);
     expect(_tiles('4'), findsOneWidget);
     expect(_tiles('40m'), findsOneWidget);
-    expect(find.bySemanticsLabel('Sun Oct 4, practiced, today'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sun Oct 4, practiced 10 minutes, today'), findsOneWidget);
     expect(find.bySemanticsLabel('Thu Oct 1'), findsOneWidget);
   });
 
@@ -90,4 +97,42 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  test('practice tiers go up at ten and twenty minutes', () {
+    expect(PracticeTier.of(null), PracticeTier.none);
+    expect(PracticeTier.of(1), PracticeTier.practiced);
+    expect(PracticeTier.of(599), PracticeTier.practiced);
+    expect(PracticeTier.of(600), PracticeTier.tenMinutes);
+    expect(PracticeTier.of(1199), PracticeTier.tenMinutes);
+    expect(PracticeTier.of(1200), PracticeTier.twentyMinutes);
+  });
+
+  testWidgets('practiced days get fancier the longer the practice', (tester) async {
+    final days = [for (var d = 1; d <= 3; d++) DateTime(2026, 10, d)];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Row(
+          children: [
+            for (final day in days)
+              PracticeDayCell(
+                day: day,
+                today: _now,
+                practice: {days[0]: 60, days[1]: 900, days[2]: 1500},
+                size: 40,
+              ),
+          ],
+        ),
+      ),
+    );
+    expect(find.bySemanticsLabel('Thu Oct 1, practiced 1 minute'), findsOneWidget);
+    expect(find.bySemanticsLabel('Fri Oct 2, practiced 15 minutes'), findsOneWidget);
+    expect(find.bySemanticsLabel('Sat Oct 3, practiced 25 minutes'), findsOneWidget);
+    // A plain mitsudomoe, then one on a drum head, then the rainbow drum.
+    expect(find.byType(Mitsudomoe), findsNWidgets(2));
+    expect(find.byType(TaikoDrumHead), findsOneWidget);
+    expect(find.byType(RainbowDrum), findsOneWidget);
+    // It keeps on turning (but stops along with everything else at the end of the test).
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.hasRunningAnimations, isTrue);
+  });
 }

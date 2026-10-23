@@ -71,6 +71,17 @@ class Mitsudomoe extends StatelessWidget {
   }
 }
 
+/// Paints the mitsudomoe with [paint], filling the circle of [radius] around [center]. A shader in
+/// [paint] is in the mitsudomoe's own coordinates: centered on the origin, and filling a circle of
+/// radius 1.
+void paintMitsudomoe(Canvas canvas, Offset center, double radius, Paint paint) {
+  canvas.save();
+  canvas.translate(center.dx, center.dy);
+  canvas.scale(radius * _fill);
+  canvas.drawPath(_mitsudomoe, paint);
+  canvas.restore();
+}
+
 class _MitsudomoePainter extends CustomPainter {
   final Color color;
 
@@ -78,10 +89,12 @@ class _MitsudomoePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    canvas.translate(center.dx, center.dy);
-    canvas.scale(size.shortestSide / 2 * _fill);
-    canvas.drawPath(_mitsudomoe, Paint()..color = color);
+    paintMitsudomoe(
+      canvas,
+      size.center(Offset.zero),
+      size.shortestSide / 2,
+      Paint()..color = color,
+    );
   }
 
   @override

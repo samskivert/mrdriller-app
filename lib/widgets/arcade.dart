@@ -540,14 +540,7 @@ class _DepthRulerPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFF5A6E),
-            Color(0xFFFFA23B),
-            Color(0xFFFFE15C),
-            Color(0xFF5BD37A),
-            Color(0xFF3BA4F0),
-            Color(0xFF8B6CF0),
-          ],
+          colors: AppColors.rainbow,
         ).createShader(Offset.zero & size),
     );
     final tick = Paint()..color = AppColors.navyBottom.withValues(alpha: 0.6);

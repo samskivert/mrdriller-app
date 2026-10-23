@@ -100,12 +100,12 @@ class _ThisWeekCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final monday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
     final entries = practiceLog.entries;
-    final practiced = {for (final e in entries) practiceDay(e.completedAt)};
+    final practice = practiceByDay(entries);
     final thisWeek = [
       for (final e in entries)
         if (!practiceDay(e.completedAt).isBefore(monday)) e,
     ];
-    final streak = practiceStreak(practiced, today);
+    final streak = practiceStreak(practice.keys.toSet(), today);
     const label = TextStyle(
       fontFamily: AppFonts.body,
       fontSize: 11,
@@ -152,7 +152,7 @@ class _ThisWeekCard extends StatelessWidget {
                           PracticeDayCell(
                             day: DateTime(monday.year, monday.month, monday.day + d),
                             today: today,
-                            practiced: practiced,
+                            practice: practice,
                             size: cell,
                           ),
                         ],

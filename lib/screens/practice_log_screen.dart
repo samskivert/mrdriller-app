@@ -7,6 +7,8 @@ import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/rainbow_drum.dart';
+import '../widgets/taiko_drum_head.dart';
 
 const _monthNames = [
   'Jan',
@@ -46,7 +48,7 @@ class PracticeLogScreen extends StatelessWidget {
           final entries = [...practiceLog.entries]
             ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
           final today = practiceDay(now ?? DateTime.now());
-          final practiced = {for (final e in entries) practiceDay(e.completedAt)};
+          final practice = practiceByDay(entries);
           // Each day's drills, in the order completed (most recent day first).
           final days = <DateTime, List<PracticeLogEntry>>{};
           for (final e in entries.reversed) {
@@ -65,12 +67,12 @@ class PracticeLogScreen extends StatelessWidget {
                       const _EmptyCard()
                     else ...[
                       _StatsCard(
-                        streak: practiceStreak(practiced, today),
+                        streak: practiceStreak(practice.keys.toSet(), today),
                         drills: entries.length,
                         totalSeconds: entries.fold(0, (sum, e) => sum + e.seconds),
                       ),
                       const SizedBox(height: 14),
-                      _CalendarCard(practiced: practiced, today: today),
+                      _CalendarCard(practice: practice, today: today),
                       const SizedBox(height: 22),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -199,13 +201,12 @@ class _StatsCard extends StatelessWidget {
   }
 }
 
-/// The last five weeks, a row per week (Monday first): practiced days in candy green, and today
-/// outlined in gold.
+/// The last five weeks, a row per week (Monday first), as [PracticeDayCell]s.
 class _CalendarCard extends StatelessWidget {
-  final Set<DateTime> practiced;
+  final Map<DateTime, int> practice;
   final DateTime today;
 
-  const _CalendarCard({required this.practiced, required this.today});
+  const _CalendarCard({required this.practice, required this.today});
 
   static const _weeks = 5;
 
@@ -256,7 +257,7 @@ class _CalendarCard extends StatelessWidget {
                             child: PracticeDayCell(
                               day: DateTime(start.year, start.month, start.day + w * 7 + d),
                               today: today,
-                              practiced: practiced,
+                              practice: practice,
                               size: cell,
                             ),
                           ),
@@ -272,53 +273,116 @@ class _CalendarCard extends StatelessWidget {
   }
 }
 
-/// A day on a practice calendar, as a rounded square: checked off in candy green if it's one of
-/// the [practiced] days, outlined in gold if it's [today], and faded out if it's still to come.
+/// A day on a practice calendar, as a rounded square, badged with a taiko motif that gets fancier
+/// the longer the day's [practice] was: a white mitsudomoe on candy green, then a drum head on
+/// candy blue (like the app's badge) from ten minutes, then a glowing navy tile with a spinning
+/// rainbow drum and sparkles from twenty. A little gold cursor points at it if it's [today], and
+/// it's faded out if it's still to come.
 class PracticeDayCell extends StatelessWidget {
   final DateTime day;
   final DateTime today;
-  final Set<DateTime> practiced;
+  // Seconds of practice by day (see practiceByDay).
+  final Map<DateTime, int> practice;
   final double size;
 
   const PracticeDayCell({
     super.key,
     required this.day,
     required this.today,
-    required this.practiced,
+    required this.practice,
     required this.size,
   });
 
   @override
   Widget build(BuildContext context) {
-    final green = AppColors.candyGreen;
-    final done = practiced.contains(day);
+    final seconds = practice[day];
+    final tier = PracticeTier.of(seconds);
+    final done = tier != PracticeTier.none;
     final isToday = day == today;
     final future = day.isAfter(today);
+    final minutes = ((seconds ?? 0) / 60).round();
     return Semantics(
       label:
           '${_weekdayNames[day.weekday - 1]} ${_monthNames[day.month - 1]} ${day.day}'
-          '${done ? ', practiced' : ''}${isToday ? ', today' : ''}',
+          '${done ? ', practiced $minutes ${minutes == 1 ? 'minute' : 'minutes'}' : ''}'
+          '${isToday ? ', today' : ''}',
       excludeSemantics: true,
-      child: Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(size * 0.28),
-          gradient: done
-              ? LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [green.hi, green.base, green.lo],
-                )
-              : null,
-          color: done ? null : (future ? Colors.transparent : const Color(0xFFF3EEE2)),
-          border: isToday ? Border.all(color: AppColors.gold, width: 3) : null,
-          boxShadow: done ? [BoxShadow(color: green.outline, offset: const Offset(0, 2))] : null,
-        ),
-        child: done
-            ? Icon(Icons.check_rounded, size: size * 0.6, color: Colors.white)
-            : Text(
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.bottomCenter,
+        children: [
+          _tile(tier, future, size),
+          // Today gets a little gold cursor pointing up at it, poking out from under it.
+          if (isToday)
+            Positioned(
+              bottom: -size * 0.12,
+              child: CustomPaint(
+                size: Size(size * 0.4, size * 0.24),
+                painter: const _TodayCursorPainter(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(PracticeTier tier, bool future, double size) {
+    final done = tier != PracticeTier.none;
+    final superstar = tier == PracticeTier.twentyMinutes;
+    final candy = switch (tier) {
+      PracticeTier.practiced => AppColors.candyGreen,
+      PracticeTier.tenMinutes => AppColors.candyBlue,
+      _ => null,
+    };
+    // A day gone by without practice is a hole in the card, showing the screen's cream through it,
+    // with a thin shadow in the card's shadow color (see BannerCard) across the top of it.
+    final hole = !done && !future;
+    final radius = BorderRadius.circular(size * 0.28);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      clipBehavior: hole ? Clip.antiAlias : Clip.none,
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: candy != null
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [candy.hi, candy.base, candy.lo],
+              )
+            : superstar
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.panel, AppColors.navy],
+              )
+            : null,
+        color: hole ? AppColors.creamShadow : null,
+        border: superstar ? Border.all(color: AppColors.gold, width: 1.5) : null,
+        boxShadow: [
+          if (candy != null) BoxShadow(color: candy.outline, offset: const Offset(0, 2)),
+          if (superstar) ...[
+            BoxShadow(color: AppColors.gold.withValues(alpha: 0.7), blurRadius: size * 0.2),
+            const BoxShadow(color: AppColors.inkShadow, offset: Offset(0, 2)),
+          ],
+        ],
+      ),
+      child: switch (tier) {
+        // Filling the whole tile, not just shrinking to fit the date.
+        PracticeTier.none => SizedBox.expand(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (hole)
+                Positioned.fill(
+                  top: 2,
+                  bottom: -2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: AppColors.cream, borderRadius: radius),
+                  ),
+                ),
+              Text(
                 '${day.day}',
                 style: TextStyle(
                   fontFamily: AppFonts.body,
@@ -328,9 +392,48 @@ class PracticeDayCell extends StatelessWidget {
                   color: AppColors.inkMuted.withValues(alpha: future ? 0.35 : 0.8),
                 ),
               ),
-      ),
+            ],
+          ),
+        ),
+        PracticeTier.practiced => SizedBox.square(
+          dimension: size * 0.8,
+          child: const Mitsudomoe(color: Colors.white),
+        ),
+        PracticeTier.tenMinutes => SizedBox.square(
+          dimension: size * 0.83,
+          child: const TaikoDrumHead(),
+        ),
+        PracticeTier.twentyMinutes => RainbowDrum(
+          size: size,
+          seed: day.millisecondsSinceEpoch ~/ Duration.millisecondsPerDay,
+        ),
+      },
     );
   }
+}
+
+class _TodayCursorPainter extends CustomPainter {
+  const _TodayCursorPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final cursor = Path()
+      ..moveTo(w / 2, 0)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    final outline = Paint()
+      ..color = AppColors.goldOutline
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(cursor, outline);
+    canvas.drawPath(cursor, Paint()..color = AppColors.gold);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TodayCursorPainter oldDelegate) => false;
 }
 
 /// One day's practice: a calendar-page badge for its date, how many drills and how long, which
