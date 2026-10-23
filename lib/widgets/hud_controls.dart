@@ -70,12 +70,41 @@ Widget _value(BuildContext context, HudStepperSpec spec, double height) => Seman
 );
 
 Future<void> _editValue(BuildContext context, HudStepperSpec spec) async {
-  final controller = TextEditingController(text: '${spec.value}');
-  controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
-  int? parse() => int.tryParse(controller.text);
-  final result = await showDialog<int>(
-    context: context,
-    builder: (context) => AlertDialog(
+  final result = await showDialog<int>(context: context, builder: (_) => _ValueDialog(spec));
+  if (result != null) {
+    final clamped = result.clamp(spec.min, spec.max);
+    if (clamped != spec.value) spec.onChanged(clamped);
+  }
+}
+
+// A dialog to type [spec]'s value into, completing with what was typed (or null if cancelled).
+// It owns its text field's controller, which can only be disposed once the dialog has finished
+// animating away (not as soon as it's popped).
+class _ValueDialog extends StatefulWidget {
+  final HudStepperSpec spec;
+
+  const _ValueDialog(this.spec);
+
+  @override
+  State<_ValueDialog> createState() => _ValueDialogState();
+}
+
+class _ValueDialogState extends State<_ValueDialog> {
+  late final _controller = TextEditingController(text: '${widget.spec.value}')
+    ..selection = TextSelection(baseOffset: 0, extentOffset: '${widget.spec.value}'.length);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _done() => Navigator.of(context).pop(int.tryParse(_controller.text));
+
+  @override
+  Widget build(BuildContext context) {
+    final spec = widget.spec;
+    return AlertDialog(
       backgroundColor: AppColors.cream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Align(
@@ -88,7 +117,7 @@ Future<void> _editValue(BuildContext context, HudStepperSpec spec) async {
         ),
       ),
       content: TextField(
-        controller: controller,
+        controller: _controller,
         autofocus: true,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -103,34 +132,27 @@ Future<void> _editValue(BuildContext context, HudStepperSpec spec) async {
           helperText: '${spec.min} – ${spec.max}',
           helperStyle: const TextStyle(color: AppColors.inkMuted, fontWeight: FontWeight.w700),
         ),
-        onSubmitted: (_) => Navigator.of(context).pop(parse()),
+        onSubmitted: (_) => _done(),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
-        CandyButton(
-          label: 'OK',
-          colors: AppColors.candyGreen,
-          onPressed: () => Navigator.of(context).pop(parse()),
-        ),
+        CandyButton(label: 'OK', colors: AppColors.candyGreen, onPressed: _done),
       ],
-    ),
-  );
-  controller.dispose();
-  if (result != null) {
-    final clamped = result.clamp(spec.min, spec.max);
-    if (clamped != spec.value) spec.onChanged(clamped);
+    );
   }
 }
 
 /// A stepper as a HUD card (for a row of them across a portrait HUD): the banner, the value in
-/// digit tiles, and -/+ candy buttons below. Fills the height it's given (so give it one).
+/// digit tiles, and -/+ candy buttons below, or beside it if [inline] (for a shorter card). Fills
+/// the height it's given (so give it one).
 class HudStepperCard extends StatelessWidget {
   final HudStepperSpec spec;
+  final bool inline;
 
-  const HudStepperCard(this.spec, {super.key});
+  const HudStepperCard(this.spec, {super.key, this.inline = false});
 
   @override
   Widget build(BuildContext context) {
@@ -148,46 +170,88 @@ class HudStepperCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: HudBanner(label: spec.label, color: spec.bannerColor),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Center(child: _value(context, spec, 32)),
+          if (inline)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                child: Row(
+                  children: [
+                    _stepButton(spec, -1, 34),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Center(child: _value(context, spec, 32)),
+                      ),
+                    ),
+                    _stepButton(spec, 1, 34),
+                  ],
+                ),
+              ),
+            )
+          else ...[
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Center(child: _value(context, spec, 32)),
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Smaller buttons in a narrow card (e.g. on a small phone), leaving a gap between.
-                final size = ((constraints.maxWidth - 6) / 2).clamp(24.0, 38.0);
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [_stepButton(spec, -1, size), _stepButton(spec, 1, size)],
-                );
-              },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Smaller buttons in a narrow card (e.g. on a small phone), leaving a gap between.
+                  final size = ((constraints.maxWidth - 6) / 2).clamp(24.0, 38.0);
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [_stepButton(spec, -1, size), _stepButton(spec, 1, size)],
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// A stepper as one row of a HUD card (for a stack of them in a landscape sidebar): the banner,
-/// then -, the value in digit tiles, and +.
+/// A stepper as one row of a HUD card (for a stack of them in a landscape sidebar): the banner
+/// ([bannerWidth] wide, so that a stack of them line up), then -, the value in digit tiles, and +.
+/// With [digits], the value is right-aligned in room for that many digits, so that the digits of a
+/// stack of them line up too.
 class HudStepperRow extends StatelessWidget {
   final HudStepperSpec spec;
+  final double bannerWidth;
+  final int? digits;
 
-  const HudStepperRow(this.spec, {super.key});
+  const HudStepperRow(this.spec, {super.key, this.bannerWidth = 72, this.digits});
 
   @override
   Widget build(BuildContext context) {
+    final digits = this.digits;
+    final value = _value(context, spec, 30);
     return Row(
       children: [
-        _rowBanner(spec.label, spec.bannerColor),
+        _rowBanner(spec.label, spec.bannerColor, width: bannerWidth),
         const SizedBox(width: 6),
         _stepButton(spec, -1, 34),
-        Expanded(child: Center(child: _value(context, spec, 30))),
+        Expanded(
+          child: Center(
+            child: digits == null
+                ? value
+                : Stack(
+                    alignment: Alignment.centerRight,
+                    children: [
+                      // Takes up the room for the digits, unseen.
+                      Visibility.maintain(
+                        visible: false,
+                        child: DigitTiles(value: '0' * digits, height: 30),
+                      ),
+                      value,
+                    ],
+                  ),
+          ),
+        ),
         _stepButton(spec, 1, 34),
       ],
     );
@@ -246,8 +310,8 @@ Widget _bannerCard(String label, Color color, Widget child) => Container(
 );
 
 // The banner for a row of a [HudRowsCard].
-Widget _rowBanner(String label, Color color) => SizedBox(
-  width: 72,
+Widget _rowBanner(String label, Color color, {double width = 72}) => SizedBox(
+  width: width,
   child: HudBanner(
     label: label,
     color: color,

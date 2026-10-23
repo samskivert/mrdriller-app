@@ -7,6 +7,8 @@ import 'data/drills.dart' as data;
 import 'screens/drill_menu_screen.dart';
 import 'screens/drill_screen.dart';
 import 'screens/menu_screen.dart';
+import 'screens/metronome_preset_screen.dart';
+import 'screens/metronome_screen.dart';
 import 'screens/daily_practice_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
 import 'screens/playlist_screen.dart';
@@ -18,6 +20,7 @@ import 'services/reminder_scheduler.dart';
 import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
 import 'state/app_name.dart';
+import 'state/metronome_settings.dart';
 import 'state/practice_log.dart';
 import 'state/playlists.dart';
 import 'state/reminders.dart';
@@ -31,6 +34,7 @@ Future<void> main() async {
   await cloudStore.load();
   await settings.load();
   await playlists.load();
+  await metronomePresets.load();
   await practiceLog.load();
   await reminders.load();
   await loadAppInfo();
@@ -148,6 +152,18 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
       return MaterialPageRoute(
         settings: routeSettings,
         builder: (_) => PlaylistScreen(playlistId: id),
+      );
+    }
+  }
+  if (segments[0] == 'metronome' && segments.length == 1) {
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const MetronomeScreen());
+  }
+  if (segments[0] == 'metronome' && segments.length > 1) {
+    final id = segments[1];
+    if (metronomePresets.byId(id) != null) {
+      return MaterialPageRoute(
+        settings: routeSettings,
+        builder: (_) => MetronomePresetScreen(presetId: id),
       );
     }
   }

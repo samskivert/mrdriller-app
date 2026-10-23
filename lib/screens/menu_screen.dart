@@ -8,6 +8,7 @@ import '../model/model.dart';
 import '../services/taiko_drum.dart';
 import '../state/app_info.dart';
 import '../state/app_name.dart';
+import '../state/metronome_settings.dart';
 import '../state/playlists.dart';
 import '../state/reminders.dart';
 import '../util/colors.dart';
@@ -80,7 +81,7 @@ class _TallMenu extends StatelessWidget {
 
   // The column's height, less the artwork's: the logo, buttons, footer, spacing, and the rings
   // around the artwork. (test/widget_test.dart checks that this keeps up with them.)
-  static const nonHeroHeight = 642.0;
+  static const nonHeroHeight = 729.0;
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +92,7 @@ class _TallMenu extends StatelessWidget {
     final top = insets.top >= 44 ? insets.top - 22 : insets.top;
     final bottom = math.max(insets.bottom - 26, 0.0);
     final height = size.height - top - bottom;
-    final heroSize = math.min(size.width * 0.52, height - nonHeroHeight).clamp(110.0, 260.0);
+    final heroSize = math.min(size.width * 0.52, height - nonHeroHeight).clamp(90.0, 260.0);
     return SingleChildScrollView(
       padding: EdgeInsets.only(top: top, bottom: bottom),
       child: ConstrainedBox(
@@ -426,7 +427,7 @@ class _MenuButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     void go(String route) => Navigator.of(context).pushNamed(route);
     return ListenableBuilder(
-      listenable: Listenable.merge([playlists, reminders]),
+      listenable: Listenable.merge([playlists, reminders, metronomePresets]),
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -453,6 +454,14 @@ class _MenuButtons extends StatelessWidget {
             colors: AppColors.candyPink,
             onPressed: () => go('/daily-practice'),
           ),
+          const SizedBox(height: 12),
+          CandyMenuButton(
+            title: 'Metronome',
+            subtitle: _metronomeSummary(),
+            icon: Icons.av_timer_rounded,
+            colors: AppColors.candyRed,
+            onPressed: () => go('/metronome'),
+          ),
           for (final tool in tools) ...[
             const SizedBox(height: 12),
             CandyMenuButton(
@@ -473,6 +482,13 @@ class _MenuButtons extends StatelessWidget {
     final count = playlists.playlists.length;
     if (count == 0) return 'Line up drills to play in a row';
     return count == 1 ? '1 playlist' : '$count playlists';
+  }
+
+  // E.g. "2 presets", or what it's for.
+  static String _metronomeSummary() {
+    final count = metronomePresets.presets.length;
+    if (count == 0) return 'Keep the beat, and speed it up';
+    return count == 1 ? '1 preset' : '$count presets';
   }
 
   // E.g. "2 reminders", or a nudge to set one up.

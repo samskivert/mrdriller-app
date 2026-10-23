@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/cloud_store.dart';
 import 'package:mrdriller/state/drill_config.dart';
+import 'package:mrdriller/state/metronome_settings.dart';
 import 'package:mrdriller/state/playlists.dart';
 import 'package:mrdriller/state/practice_log.dart';
 import 'package:mrdriller/state/settings.dart';
@@ -134,6 +135,20 @@ void main() {
       });
       expect(playlists.playlists.map((p) => p.name).toSet(), {'Synced', 'Unsynced'});
     });
+  });
+
+  test('metronome presets and settings come back from the cloud after a reinstall', () async {
+    SharedPreferences.setMockInitialValues({});
+    await metronomePresets.load();
+    final preset = metronomePresets.create('Fast', const MetronomeConfig(bpm: 180));
+    metronomePresets.save(preset.id, const MetronomeConfig(bpm: 200));
+    await saveMetronomeConfig(const MetronomeConfig(bpm: 70));
+
+    SharedPreferences.setMockInitialValues({});
+    await metronomePresets.load();
+    expect(metronomePresets.presets.single.name, 'Fast');
+    expect(metronomePresets.presets.single.config.bpm, 200);
+    expect((await loadMetronomeConfig()).bpm, 70);
   });
 
   test('the latest change to a drill config wins', () async {

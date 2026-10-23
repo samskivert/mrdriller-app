@@ -51,7 +51,7 @@ drill has to be added to the `drills` list to appear in the app and to be reacha
 
 **Routing** (`lib/main.dart`): path URLs (`usePathUrlStrategy`) parsed in `_onGenerateRoute`:
 `/`, `/settings`, `/drills`, `/drills/<id>`, `/playlists`, `/playlists/<id>`, `/daily-practice`,
-`/tool/pattern-trainer`. Unknown routes return null on purpose so deep links skip prefixes that
+`/metronome`, `/metronome/<presetId>`, `/tool/pattern-trainer`. Unknown routes return null on purpose so deep links skip prefixes that
 aren't routes when the back stack is built. A reminder linked to a playlist carries its route as
 the notification's payload: a tap that launches the app becomes `MaterialApp`'s initial route (see
 `notificationLaunchRoute()`), and one while it's running rebuilds the back stack via
@@ -73,6 +73,9 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   that finishes on its own in `practiceLog`, so that's the only place drills are logged.
 - `screens/pattern_trainer_run_screen.dart`: a separate state machine for the pattern trainer
   tool, which plays randomly generated listen/repeat patterns.
+- `services/metronome_player.dart`: plays the metronome tool (its screens are
+  `screens/metronome_screen.dart` and `screens/metronome_preset_screen.dart`): each beat of the
+  measure as beep (high), boop (low) or nothing, speeding up every so many measures.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.
 
@@ -97,21 +100,22 @@ chip, candy switch and segmented picker, delete confirmation, name prompt, secti
 `lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
-`playlists`, `practiceLog`, `reminders`), each `load()`ed in `main()` before `runApp` and
-persisted with `shared_preferences`. Per-drill config is stored under `config.<drillId>`, and the
-pattern trainer's under `config.pattern-trainer`. There's no state-management package; widgets
-listen to these singletons directly.
+`playlists`, `metronomePresets`, `practiceLog`, `reminders`), each `load()`ed in `main()` before
+`runApp` and persisted with `shared_preferences`. Per-drill config is stored under
+`config.<drillId>`, the pattern trainer's under `config.pattern-trainer`, and the metronome's
+main screen's under `config.metronome`. There's no state-management package; widgets listen to these
+singletons directly.
 
-**Sync** (`state/sync.dart`, `services/cloud_store.dart`): on iOS, everything but reminders is
-also kept in the iCloud key-value store (a method channel in `ios/Runner/AppDelegate.swift`, no
-plugin), so it survives the app being deleted and syncs between devices. Android relies on its
-default Auto Backup of `shared_preferences` instead. Each document is merged with its iCloud copy
-on load, on every local change, and when another device changes it: configs and settings are
-`Stamped` (latest change wins), playlists are stamped per playlist with deletion markers, and the
-practice log is a union of entries, kept in iCloud as compact per-month keys to fit its 1MB limit.
-Merges must cope with either side being empty or stale (a fresh install starts empty, and
-iCloud's copy can arrive after launch). Data saved before syncing existed still loads (stamped as
-oldest), so keep reading the old formats.
+**Sync** (`state/sync.dart`, `services/cloud_store.dart`): on iOS, everything but reminders is also
+kept in the iCloud key-value store (a method channel in `ios/Runner/AppDelegate.swift`, no plugin),
+so it survives the app being deleted and syncs between devices. Android relies on its default Auto
+Backup of `shared_preferences` instead. Each document is merged with its iCloud copy on load, on
+every local change, and when another device changes it: configs and settings are `Stamped` (latest
+change wins), playlists and metronome presets are `SyncedList`s (stamped per item, with deletion
+markers), and the practice log is a union of entries, kept in iCloud as compact per-month keys to
+fit its 1MB limit. Merges must cope with either side being empty or stale (a fresh install starts
+empty, and iCloud's copy can arrive after launch). Data saved before syncing existed still loads
+(stamped as oldest), so keep reading the old formats.
 
 **Reminders** (`services/reminder_scheduler.dart`): this clears and reschedules OS local
 notifications at startup. It does nothing on web, and it must not import `dart:io` because that
