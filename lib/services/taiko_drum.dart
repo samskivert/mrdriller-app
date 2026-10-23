@@ -9,10 +9,15 @@ import 'sound_engine.dart';
 
 Future<AudioSource>? _loading;
 
-Future<AudioSource> _load() => _loading ??= () async {
-  await ensureSoundEngine();
-  return SoLoud.instance.loadAsset('assets/sounds/don.mp3');
-}();
+Future<AudioSource> _load() => _loading ??=
+    () async {
+      await ensureSoundEngine();
+      return SoLoud.instance.loadAsset('assets/sounds/don.mp3');
+    }().catchError((Object error) {
+      // Try again on the next hit.
+      _loading = null;
+      throw error;
+    });
 
 /// Starts loading the drum sound ahead of time, so that the first hit isn't late -- except on the
 /// web, where browsers won't let audio start until the user has interacted with the page, and

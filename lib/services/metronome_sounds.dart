@@ -38,10 +38,16 @@ class MetronomeSounds {
     ready = _load();
   }
 
+  // If sound can't be started, this still completes (so the drill plays, silently), and the next
+  // drill tries again.
   Future<void> _load() async {
-    final tones = await (_loading ??= _initEngineAndLoad());
-    _beepSource = tones.beep;
-    _boopSource = tones.boop;
+    try {
+      final tones = await (_loading ??= _initEngineAndLoad());
+      _beepSource = tones.beep;
+      _boopSource = tones.boop;
+    } catch (_) {
+      _loading = null;
+    }
   }
 
   static Future<_Tones> _initEngineAndLoad() async {
