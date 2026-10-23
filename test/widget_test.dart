@@ -38,7 +38,8 @@ void main() {
       await tester.pumpWidget(const TaikoTrainerApp());
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.bySemanticsLabel(RegExp(r'^Daily Practice\.')), findsOneWidget);
+      // (Just "Practice" when it's half width.)
+      expect(find.bySemanticsLabel(RegExp(r'^(Daily )?Practice\.')), findsOneWidget);
     });
   }
 

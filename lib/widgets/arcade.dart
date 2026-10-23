@@ -664,6 +664,9 @@ class CandyMenuButton extends StatefulWidget {
   final IconData icon;
   final CandyColors colors;
   final VoidCallback onPressed;
+  // Squeezed in (e.g. two side by side on a phone): no chevron, less space, and the text shrinking
+  // to fit if need be.
+  final bool compact;
 
   const CandyMenuButton({
     super.key,
@@ -672,7 +675,11 @@ class CandyMenuButton extends StatefulWidget {
     required this.icon,
     required this.colors,
     required this.onPressed,
+    this.compact = false,
   });
+
+  /// How tall it is, including its drop shadow.
+  static const totalHeight = 75.0;
 
   @override
   State<CandyMenuButton> createState() => _CandyMenuButtonState();
@@ -688,8 +695,13 @@ class _CandyMenuButtonState extends State<CandyMenuButton> {
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
-    const height = 70.0;
     const depth = 5.0;
+    const height = CandyMenuButton.totalHeight - depth;
+    final compact = widget.compact;
+    // Shrinks [text] to fit, when compact.
+    Widget fit(Widget text) => compact
+        ? FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: text)
+        : text;
     final sink = _pressed ? 3.5 : 0.0;
     TextStyle style(double size) => TextStyle(
       fontFamily: AppFonts.body,
@@ -713,7 +725,7 @@ class _CandyMenuButtonState extends State<CandyMenuButton> {
             child: SizedBox(
               height: height,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 9, 16, 0),
+                padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 9, compact ? 12 : 16, 0),
                 child: Row(
                   children: [
                     Container(
@@ -725,38 +737,43 @@ class _CandyMenuButtonState extends State<CandyMenuButton> {
                       ),
                       child: Icon(widget.icon, color: Colors.white, size: 24),
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: compact ? 10 : 14),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          OutlinedText(
-                            widget.title,
-                            style: style(21),
-                            color: Colors.white,
-                            outline: c.outline,
-                            outlineWidth: 2,
-                            maxLines: 1,
+                          fit(
+                            OutlinedText(
+                              widget.title,
+                              style: style(21),
+                              color: Colors.white,
+                              outline: c.outline,
+                              outlineWidth: 2,
+                              maxLines: 1,
+                            ),
                           ),
                           const SizedBox(height: 6),
-                          OutlinedText(
-                            widget.subtitle,
-                            style: style(12),
-                            color: Colors.white,
-                            outline: c.outline,
-                            outlineWidth: 1.5,
-                            maxLines: 1,
+                          fit(
+                            OutlinedText(
+                              widget.subtitle,
+                              style: style(12),
+                              color: Colors.white,
+                              outline: c.outline,
+                              outlineWidth: 1.5,
+                              maxLines: 1,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.white,
-                      size: 30,
-                      shadows: [Shadow(color: c.outline, offset: const Offset(0, 2))],
-                    ),
+                    if (!compact)
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 30,
+                        shadows: [Shadow(color: c.outline, offset: const Offset(0, 2))],
+                      ),
                   ],
                 ),
               ),

@@ -80,8 +80,12 @@ class _TallMenu extends StatelessWidget {
   const _TallMenu(this.size);
 
   // The column's height, less the artwork's: the logo, buttons, footer, spacing, and the rings
-  // around the artwork. (test/widget_test.dart checks that this keeps up with them.)
+  // around the artwork, with every button on a row of its own. (test/widget_test.dart checks that
+  // this keeps up with them.)
   static const nonHeroHeight = 729.0;
+
+  // The smallest the artwork gets before the buttons double up to make room for it.
+  static const minFullHeroSize = 150.0;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +96,10 @@ class _TallMenu extends StatelessWidget {
     final top = insets.top >= 44 ? insets.top - 22 : insets.top;
     final bottom = math.max(insets.bottom - 26, 0.0);
     final height = size.height - top - bottom;
-    final heroSize = math.min(size.width * 0.52, height - nonHeroHeight).clamp(90.0, 260.0);
+    final doubled = height - nonHeroHeight < minFullHeroSize;
+    final heroSize = math
+        .min(size.width * 0.52, height - nonHeroHeight + (doubled ? _MenuButtons.rowSaved : 0))
+        .clamp(110.0, 260.0);
     return SingleChildScrollView(
       padding: EdgeInsets.only(top: top, bottom: bottom),
       child: ConstrainedBox(
@@ -109,7 +116,7 @@ class _TallMenu extends StatelessWidget {
                   const SizedBox(height: 16),
                   _DrumPad(child: _Hero(size: heroSize)),
                   const SizedBox(height: 24),
-                  const _MenuButtons(),
+                  _MenuButtons(doubled: doubled),
                   const SizedBox(height: 16),
                   const _Footer(),
                 ],
@@ -164,9 +171,18 @@ class _WideMenu extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, insets.top + 16, 16, insets.bottom + 16),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [_MenuButtons(), SizedBox(height: 20), _Footer()],
+                  children: [
+                    // Doubled up if they'd otherwise not all fit (with the footer below them).
+                    _MenuButtons(
+                      doubled:
+                          _MenuButtons.fullHeight + 20 + _Footer.height >
+                          size.height - insets.vertical - 32,
+                    ),
+                    const SizedBox(height: 20),
+                    const _Footer(),
+                  ],
                 ),
               ),
             ),
@@ -419,61 +435,92 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// The candy buttons for each activity, with a live subtitle under each.
+/// The candy buttons for each activity, with a live subtitle under each, each on a row of its own,
+/// or with Daily Practice and Metronome [doubled] up side by side at the bottom, when there isn't
+/// room for them all.
 class _MenuButtons extends StatelessWidget {
-  const _MenuButtons();
+  final bool doubled;
+
+  const _MenuButtons({required this.doubled});
+
+  static const _gap = 12.0;
+
+  // Drills, Playlists, the tools, Daily Practice, and Metronome.
+  static int get _rows => 4 + tools.length;
+
+  /// How tall they are, each on a row of its own.
+  static double get fullHeight => _rows * CandyMenuButton.totalHeight + (_rows - 1) * _gap;
+
+  /// How much shorter they are [doubled] up.
+  static const rowSaved = CandyMenuButton.totalHeight + _gap;
 
   @override
   Widget build(BuildContext context) {
     void go(String route) => Navigator.of(context).pushNamed(route);
     return ListenableBuilder(
       listenable: Listenable.merge([playlists, reminders, metronomePresets]),
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CandyMenuButton(
-            title: 'Drills',
-            subtitle: '${data.drills.length} drills to master',
-            icon: Icons.sports_martial_arts_rounded,
-            colors: AppColors.candyBlue,
-            onPressed: () => go('/drills'),
-          ),
-          const SizedBox(height: 12),
-          CandyMenuButton(
-            title: 'Playlists',
-            subtitle: _playlistsSummary(),
-            icon: Icons.queue_music_rounded,
-            colors: AppColors.candyOrange,
-            onPressed: () => go('/playlists'),
-          ),
-          const SizedBox(height: 12),
-          CandyMenuButton(
-            title: 'Daily Practice',
-            subtitle: _remindersSummary(),
-            icon: Icons.event_available_rounded,
-            colors: AppColors.candyPink,
-            onPressed: () => go('/daily-practice'),
-          ),
-          const SizedBox(height: 12),
-          CandyMenuButton(
-            title: 'Metronome',
-            subtitle: _metronomeSummary(),
-            icon: Icons.av_timer_rounded,
-            colors: AppColors.candyRed,
-            onPressed: () => go('/metronome'),
-          ),
-          for (final tool in tools) ...[
-            const SizedBox(height: 12),
+      builder: (context, _) {
+        final dailyPractice = CandyMenuButton(
+          title: doubled ? 'Practice' : 'Daily Practice',
+          subtitle: _remindersSummary(short: doubled),
+          icon: Icons.event_available_rounded,
+          colors: AppColors.candyPink,
+          compact: doubled,
+          onPressed: () => go('/daily-practice'),
+        );
+        final metronome = CandyMenuButton(
+          title: 'Metronome',
+          subtitle: _metronomeSummary(short: doubled),
+          icon: Icons.av_timer_rounded,
+          colors: AppColors.candyRed,
+          compact: doubled,
+          onPressed: () => go('/metronome'),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             CandyMenuButton(
-              title: tool.title,
-              subtitle: 'Listen, then repeat',
-              icon: Icons.hearing_rounded,
-              colors: AppColors.candyGreen,
-              onPressed: () => go('/tool/${tool.id}'),
+              title: 'Drills',
+              subtitle: '${data.drills.length} drills to master',
+              icon: Icons.sports_martial_arts_rounded,
+              colors: AppColors.candyBlue,
+              onPressed: () => go('/drills'),
             ),
+            const SizedBox(height: _gap),
+            CandyMenuButton(
+              title: 'Playlists',
+              subtitle: _playlistsSummary(),
+              icon: Icons.queue_music_rounded,
+              colors: AppColors.candyOrange,
+              onPressed: () => go('/playlists'),
+            ),
+            for (final tool in tools) ...[
+              const SizedBox(height: _gap),
+              CandyMenuButton(
+                title: tool.title,
+                subtitle: 'Listen, then repeat',
+                icon: Icons.hearing_rounded,
+                colors: AppColors.candyGreen,
+                onPressed: () => go('/tool/${tool.id}'),
+              ),
+            ],
+            const SizedBox(height: _gap),
+            if (doubled)
+              Row(
+                children: [
+                  Expanded(child: dailyPractice),
+                  const SizedBox(width: _gap),
+                  Expanded(child: metronome),
+                ],
+              )
+            else ...[
+              dailyPractice,
+              const SizedBox(height: _gap),
+              metronome,
+            ],
           ],
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -484,23 +531,27 @@ class _MenuButtons extends StatelessWidget {
     return count == 1 ? '1 playlist' : '$count playlists';
   }
 
-  // E.g. "2 presets", or what it's for.
-  static String _metronomeSummary() {
+  // E.g. "2 presets", or what it's for ([short] for a half-width button).
+  static String _metronomeSummary({required bool short}) {
     final count = metronomePresets.presets.length;
-    if (count == 0) return 'Keep the beat, and speed it up';
+    if (count == 0) return short ? 'Keep the beat' : 'Keep the beat, and speed it up';
     return count == 1 ? '1 preset' : '$count presets';
   }
 
-  // E.g. "2 reminders", or a nudge to set one up.
-  static String _remindersSummary() {
+  // E.g. "2 reminders", or a nudge to set one up ([short] for a half-width button).
+  static String _remindersSummary({required bool short}) {
     final count = reminders.entries.length;
-    if (count == 0) return 'Reminders and your practice log';
-    return count == 1 ? '1 reminder · practice log' : '$count reminders · practice log';
+    if (count == 0) return short ? 'Reminders & log' : 'Reminders and your practice log';
+    final reminderCount = count == 1 ? '1 reminder' : '$count reminders';
+    return short ? reminderCount : '$reminderCount · practice log';
   }
 }
 
 class _Footer extends StatelessWidget {
   const _Footer();
+
+  // About how tall it is (one line of text).
+  static const height = 18.0;
 
   @override
   Widget build(BuildContext context) {
