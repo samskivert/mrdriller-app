@@ -73,8 +73,8 @@ final Drill bachiHakobi = Drill(
   beeps: [1, 3],
   rows: [
     [
-      oneLineSection("Three - R", 1, [
-        [
+      section("Three - R", 1, [
+        line([[
           labeledBeat("1", [rd]),
           beat([ru]),
           null,
@@ -82,7 +82,9 @@ final Drill bachiHakobi = Drill(
           labeledBeat("2", [ld]),
           beat([lu]),
           null,
-          null,
+          null
+        ]]),
+        line([[
           labeledBeat("3", [rd]),
           labeledBeat("+", [ru, ld]),
           null,
@@ -91,10 +93,10 @@ final Drill bachiHakobi = Drill(
           beat([ru, lu]),
           null,
           null,
-        ],
+        ]]),
       ]),
-      oneLineSection("Three - L", 1, [
-        [
+      section("Three - L", 1, [
+        line([[
           labeledBeat("1", [ld]),
           beat([lu]),
           null,
@@ -103,6 +105,8 @@ final Drill bachiHakobi = Drill(
           beat([ru]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [ld]),
           labeledBeat("+", [lu, rd]),
           null,
@@ -111,13 +115,13 @@ final Drill bachiHakobi = Drill(
           beat([lu, ru]),
           null,
           null,
-        ],
+        ]]),
       ]),
     ],
 
     [
-      oneLineSection("Four - R", 1, [
-        [
+      section("Four - R", 1, [
+        line([[
           labeledBeat("1", [rd]),
           beat([ru]),
           null,
@@ -126,6 +130,8 @@ final Drill bachiHakobi = Drill(
           beat([lu]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [rd]),
           beat([ru]),
           null,
@@ -134,10 +140,10 @@ final Drill bachiHakobi = Drill(
           labeledBeat("+", [lu, rd]),
           null,
           null,
-        ],
+        ]]),
       ]),
-      oneLineSection("Four - L", 1, [
-        [
+      section("Four - L", 1, [
+        line([[
           labeledBeat("1", [ld]),
           beat([lu, ru]),
           null,
@@ -146,6 +152,8 @@ final Drill bachiHakobi = Drill(
           beat([ru]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [ld]),
           beat([lu]),
           null,
@@ -154,13 +162,13 @@ final Drill bachiHakobi = Drill(
           labeledBeat("+", [ru, ld]),
           null,
           null,
-        ],
+        ]]),
       ]),
     ],
 
     [
-      oneLineSection("One - R", 1, [
-        [
+      section("One - R", 1, [
+        line([[
           labeledBeat("1", [rd]),
           labeledBeat("+", [ru, ld]),
           null,
@@ -169,6 +177,8 @@ final Drill bachiHakobi = Drill(
           beat([ru, lu]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [ld]),
           beat([lu]),
           null,
@@ -177,10 +187,10 @@ final Drill bachiHakobi = Drill(
           beat([ru]),
           null,
           null,
-        ],
+        ]]),
       ]),
-      oneLineSection("One - L", 1, [
-        [
+      section("One - L", 1, [
+        line([[
           labeledBeat("1", [ld]),
           labeledBeat("+", [lu, rd]),
           null,
@@ -189,6 +199,8 @@ final Drill bachiHakobi = Drill(
           beat([lu, ru]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [rd]),
           beat([ru]),
           null,
@@ -197,13 +209,13 @@ final Drill bachiHakobi = Drill(
           beat([lu]),
           null,
           null,
-        ],
+        ]]),
       ]),
     ],
 
     [
-      oneLineSection("Two - R", 1, [
-        [
+      section("Two - R", 1, [
+        line([[
           labeledBeat("1", [rd]),
           beat([ru]),
           null,
@@ -212,6 +224,8 @@ final Drill bachiHakobi = Drill(
           labeledBeat("+", [lu, rd]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [ld]),
           beat([lu, ru]),
           null,
@@ -220,10 +234,10 @@ final Drill bachiHakobi = Drill(
           beat([ru]),
           null,
           null,
-        ],
+        ]]),
       ]),
-      oneLineSection("Two - L", 1, [
-        [
+      section("Two - L", 1, [
+        line([[
           labeledBeat("1", [ld]),
           beat([lu]),
           null,
@@ -232,6 +246,8 @@ final Drill bachiHakobi = Drill(
           labeledBeat("+", [ru, ld]),
           null,
           null,
+        ]]),
+        line([[
           labeledBeat("3", [rd]),
           beat([ru, lu]),
           null,
@@ -240,7 +256,7 @@ final Drill bachiHakobi = Drill(
           beat([lu]),
           null,
           null,
-        ],
+        ]]),
       ]),
     ],
   ],
