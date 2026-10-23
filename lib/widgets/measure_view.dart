@@ -7,6 +7,11 @@ import '../util/colors.dart';
 import 'components.dart';
 import 'stroke_view.dart';
 
+// The height of the label row above a beat's strokes (when any beat in its measure is labeled):
+// see _BeatView.
+double _labelRowHeight(double strokeSize) =>
+    (strokeSize * 0.7).roundToDouble() + (strokeSize * 0.14).roundToDouble();
+
 class _BeatView extends StatelessWidget {
   final Beat beat;
   final bool forceLabel;
@@ -86,7 +91,11 @@ class MeasureView extends StatelessWidget {
       children: [
         for (var i = 0; i < measure.length; i++)
           measure[i] == null
-              ? EmptyBeatPlaceholder(strokeSize: strokeSize)
+              // Level with the strokes, below the label row if the beats have one.
+              ? Padding(
+                  padding: EdgeInsets.only(top: hasAnyLabels ? _labelRowHeight(strokeSize) : 0),
+                  child: EmptyBeatPlaceholder(strokeSize: strokeSize),
+                )
               : _BeatView(
                   beat: measure[i]!,
                   forceLabel: hasAnyLabels,
