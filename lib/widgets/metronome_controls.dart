@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
@@ -35,7 +37,6 @@ class MetronomeControls extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                flex: 4,
                 child: HudStepperCard(
                   HudStepperSpec(
                     label: 'BPM',
@@ -51,9 +52,7 @@ class MetronomeControls extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // Narrower: it only ever has the one digit.
               Expanded(
-                flex: 3,
                 child: HudStepperCard(
                   HudStepperSpec(
                     label: 'Beats',
@@ -66,6 +65,10 @@ class MetronomeControls extends StatelessWidget {
                     increaseLabel: 'More beats',
                   ),
                   inline: true,
+                  trailing: _NoteButton(
+                    note: c.note,
+                    onTap: () => onChanged(c.copyWith(note: c.note.next)),
+                  ),
                 ),
               ),
             ],
@@ -243,6 +246,115 @@ class _Beat extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What note each beat is, drawn in notation (a quarter note, two eighths, three triplets, or four
+/// sixteenths): tap it to switch to the next.
+class _NoteButton extends StatelessWidget {
+  final NoteValue note;
+  final VoidCallback onTap;
+
+  const _NoteButton({required this.note, required this.onTap});
+
+  // How wide each note is drawn (centered in the widest's width).
+  static const _widths = {
+    NoteValue.quarter: 12.0,
+    NoteValue.eighth: 24.0,
+    NoteValue.triplet: 32.0,
+    NoteValue.sixteenth: 40.0,
+  };
+  static final _width = _widths.values.reduce(math.max);
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Beats are ${note.plural}. Tap to change.',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          // As wide as the widest notes (sixteenths), so that it doesn't change size as the note
+          // does, plus some space around them to tap.
+          width: _width + 2 * HudStepperCard.trailingInset,
+          height: 38,
+          padding: const EdgeInsets.fromLTRB(
+            HudStepperCard.trailingInset,
+            3,
+            HudStepperCard.trailingInset,
+            4,
+          ),
+          child: Center(
+            child: CustomPaint(size: Size(_widths[note]!, 31), painter: _NotesPainter(note)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Draws one beat's worth of [note]s: their heads along the bottom, stems up from them, and (for
+/// more than one) a beam across their tops -- doubled for sixteenths, with a 3 over it for
+/// triplets.
+class _NotesPainter extends CustomPainter {
+  final NoteValue note;
+
+  const _NotesPainter(this.note);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = note.perQuarter;
+    final h = size.height;
+    // Smaller heads when there are more of them, so they don't run into each other.
+    final headW = n == 1 ? h * 0.36 : math.min(h * 0.36, size.width / (n + 0.4));
+    final headH = headW * 0.72;
+    final stemW = h * 0.07, beamH = h * 0.12;
+    // Leave room at the top for the triplets' 3.
+    final top = note == NoteValue.triplet ? h * 0.3 : 0.0;
+    final spacing = n == 1 ? 0.0 : (size.width - headW) / (n - 1);
+    final ink = Paint()..color = AppColors.ink;
+    final xs = [
+      for (var i = 0; i < n; i++) (size.width - headW - spacing * (n - 1)) / 2 + spacing * i,
+    ];
+    for (final x in xs) {
+      final head = Offset(x + headW / 2, h - headH / 2);
+      canvas.save();
+      canvas.translate(head.dx, head.dy);
+      canvas.rotate(-0.35);
+      canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: headW, height: headH), ink);
+      canvas.restore();
+      // The stem rises from the head's right side.
+      canvas.drawRect(Rect.fromLTRB(x + headW - stemW, top, x + headW, head.dy), ink);
+    }
+    if (n == 1) return;
+    final left = xs.first + headW - stemW, right = xs.last + headW;
+    canvas.drawRect(Rect.fromLTRB(left, top, right, top + beamH), ink);
+    if (note == NoteValue.sixteenth) {
+      final y = top + beamH * 1.8;
+      canvas.drawRect(Rect.fromLTRB(left, y, right, y + beamH), ink);
+    }
+    if (note == NoteValue.triplet) {
+      final three = TextPainter(
+        text: TextSpan(
+          text: '3',
+          style: TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: top * 1.1,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            color: AppColors.ink,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      three.paint(canvas, Offset((left + right - three.width) / 2, top - three.height - h * 0.02));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NotesPainter oldDelegate) => oldDelegate.note != note;
 }
 
 /// PLAY, or PAUSE while [player] plays.

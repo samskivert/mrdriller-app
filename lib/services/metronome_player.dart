@@ -1,5 +1,6 @@
-// Plays the metronome tool: each beat of the measure as its high tone, low tone, or silence, at
-// the configured bpm, going faster every so many measures if it's set to.
+// Plays the metronome tool: each beat of the measure as its high tone, low tone, or silence, as
+// quarter notes (or eighths, etc.) at the configured bpm, going faster every so many measures if
+// it's set to.
 
 import 'package:flutter/foundation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -52,8 +53,8 @@ class MetronomePlayer extends ChangeNotifier {
     if (config.bpm != old.bpm) {
       _bpm = config.bpm;
       _measures = 0;
-      if (_playing) _metronome.ensureRunning(bpm: _bpm, scale: 4);
     }
+    if (_playing) _keepTime();
     notifyListeners();
   }
 
@@ -67,8 +68,13 @@ class MetronomePlayer extends ChangeNotifier {
     await sounds.ready;
     if (_disposed || !_playing) return;
     _playNext();
-    // (The Metronome counts sixteenth notes, so four of them make a beat.)
-    _metronome.ensureRunning(bpm: _bpm, scale: 4);
+    _keepTime();
+  }
+
+  // Has the Metronome tick once per beat, at the current bpm and note. (A no-op if it already is.)
+  void _keepTime() {
+    // It counts sixteenth notes, so four of its ticks make a quarter note.
+    _metronome.ensureRunning(bpm: _bpm, scale: 4 / _config.note.perQuarter);
   }
 
   void pause() {
@@ -107,7 +113,7 @@ class MetronomePlayer extends ChangeNotifier {
       if (faster != _bpm) {
         _bpm = faster;
         // From the next beat: the first of the next measure.
-        _metronome.ensureRunning(bpm: _bpm, scale: 4);
+        _keepTime();
       }
     }
     notifyListeners();

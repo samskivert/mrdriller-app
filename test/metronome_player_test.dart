@@ -77,6 +77,44 @@ void main() {
     });
   });
 
+  for (final (note, perSecond) in [
+    (NoteValue.eighth, 2),
+    (NoteValue.triplet, 3),
+    (NoteValue.sixteenth, 4),
+  ]) {
+    test('plays ${note.plural} $perSecond to a quarter note', () {
+      fakeAsync((async) {
+        final sounds = _FakeSounds();
+        final player = _player(
+          MetronomeConfig(bpm: 60, beats: const [_hi, _lo, _lo, _lo, _lo], note: note),
+          sounds,
+        );
+        player.play();
+        async.flushMicrotasks();
+        // (Just under a second, in case of rounding.)
+        async.elapse(const Duration(milliseconds: 999));
+        expect(sounds.played, hasLength(perSecond));
+        async.elapse(const Duration(milliseconds: 2));
+        expect(sounds.played, hasLength(perSecond + 1));
+        player.dispose();
+      });
+    });
+  }
+
+  test('changing the note while playing changes the pace from the next beat', () {
+    fakeAsync((async) {
+      final sounds = _FakeSounds();
+      const config = MetronomeConfig(bpm: 60, beats: [_hi, _lo, _lo, _lo]);
+      final player = _player(config, sounds);
+      player.play();
+      async.flushMicrotasks();
+      player.config = config.copyWith(note: NoteValue.sixteenth);
+      async.elapse(const Duration(milliseconds: 251));
+      expect(sounds.played, hasLength(2));
+      player.dispose();
+    });
+  });
+
   test("doesn't speed up past the most bpm allowed", () {
     fakeAsync((async) {
       final player = _player(
@@ -155,10 +193,19 @@ void main() {
     });
 
     test('survives being saved and loaded', () {
-      const c = MetronomeConfig(bpm: 72, beats: [_hi, _off, _lo], bpmIncrease: 3, increaseEvery: 8);
+      const c = MetronomeConfig(
+        bpm: 72,
+        beats: [_hi, _off, _lo],
+        note: NoteValue.triplet,
+        bpmIncrease: 3,
+        increaseEvery: 8,
+      );
       expect(MetronomeConfig.fromJson(c.toJson()), c);
       expect(MetronomeConfig.fromJson(c.toJson()).hashCode, c.hashCode);
       expect(c == c.copyWith(bpm: 73), isFalse);
+      expect(c == c.copyWith(note: NoteValue.eighth), isFalse);
+      // Saved before there were notes: quarters.
+      expect(MetronomeConfig.fromJson(c.toJson()..remove('note')).note, NoteValue.quarter);
     });
   });
 }

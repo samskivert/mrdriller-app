@@ -122,4 +122,16 @@ void main() {
     expect(find.bySemanticsLabel('BPM: 120. Tap to type a new value.'), findsOneWidget);
     expect((await loadMetronomeConfig()).bpm, 120);
   });
+
+  testWidgets('the note goes from quarters to eighths, triplets, sixteenths, and around', (
+    tester,
+  ) async {
+    await _openMetronome(tester);
+    for (final plural in ['eighths', 'triplets', 'sixteenths', 'quarters']) {
+      await tester.tap(find.bySemanticsLabel(RegExp(r'^Beats are ')));
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Beats are $plural. Tap to change.'), findsOneWidget);
+    }
+    expect((await loadMetronomeConfig()).note, NoteValue.quarter);
+  });
 }

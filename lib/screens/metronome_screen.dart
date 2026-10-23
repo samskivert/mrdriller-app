@@ -126,7 +126,7 @@ class _PresetCard extends StatelessWidget {
     final c = preset.config;
     final summary = [
       '${c.bpm} BPM',
-      '${c.beats.length} beats',
+      '${c.beats.length} ${c.note == NoteValue.quarter ? 'beats' : c.note.plural}',
       if (c.increaseEvery > 0)
         '+${c.bpmIncrease} every ${c.increaseEvery == 1 ? 'measure' : '${c.increaseEvery}'}',
     ].join(' · ');

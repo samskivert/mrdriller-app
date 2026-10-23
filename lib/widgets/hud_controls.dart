@@ -146,13 +146,20 @@ class _ValueDialogState extends State<_ValueDialog> {
 }
 
 /// A stepper as a HUD card (for a row of them across a portrait HUD): the banner, the value in
-/// digit tiles, and -/+ candy buttons below, or beside it if [inline] (for a shorter card). Fills
-/// the height it's given (so give it one).
+/// digit tiles, and -/+ candy buttons below, or beside it if [inline] (for a shorter card). An
+/// inline one can have a [trailing] widget (up to about 52 wide) after them, with the space spread
+/// evenly before, between, and after them. Fills the height it's given (so give it one).
 class HudStepperCard extends StatelessWidget {
   final HudStepperSpec spec;
   final bool inline;
+  final Widget? trailing;
 
-  const HudStepperCard(this.spec, {super.key, this.inline = false});
+  const HudStepperCard(this.spec, {super.key, this.inline = false, this.trailing})
+    : assert(trailing == null || inline);
+
+  /// How much blank space a [trailing] widget has on each side of what it shows (e.g. to be easier
+  /// to tap), which is matched before the -/+ buttons so that the spaces look even.
+  static const trailingInset = 6.0;
 
   @override
   Widget build(BuildContext context) {
@@ -173,18 +180,45 @@ class HudStepperCard extends StatelessWidget {
           if (inline)
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                child: Row(
-                  children: [
-                    _stepButton(spec, -1, 34),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Center(child: _value(context, spec, 32)),
+                padding: EdgeInsets.fromLTRB(
+                  trailing == null ? 8 : 0,
+                  4,
+                  trailing == null ? 8 : 0,
+                  8,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Smaller buttons in a narrow card (e.g. on a small phone), leaving room for
+                    // a digit or so between them, and the trailing widget.
+                    final room = constraints.maxWidth - (trailing == null ? 0 : 70) - 30;
+                    final size = (room / 2).clamp(24.0, 34.0);
+                    // The buttons hug the value.
+                    final steppers = Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _stepButton(spec, -1, size),
+                        const SizedBox(width: 8),
+                        Flexible(child: _value(context, spec, 32)),
+                        const SizedBox(width: 8),
+                        _stepButton(spec, 1, size),
+                      ],
+                    );
+                    return switch (trailing) {
+                      null => Center(child: steppers),
+                      final trailing => Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Flexible(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: trailingInset),
+                              child: steppers,
+                            ),
+                          ),
+                          trailing,
+                        ],
                       ),
-                    ),
-                    _stepButton(spec, 1, 34),
-                  ],
+                    };
+                  },
                 ),
               ),
             )
@@ -199,7 +233,8 @@ class HudStepperCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  // Smaller buttons in a narrow card (e.g. on a small phone), leaving a gap between.
+                  // Smaller buttons in a narrow card (e.g. on a small phone), leaving a gap
+                  // between.
                   final size = ((constraints.maxWidth - 6) / 2).clamp(24.0, 38.0);
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

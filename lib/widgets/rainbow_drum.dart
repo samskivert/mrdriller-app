@@ -10,8 +10,8 @@ import '../util/colors.dart';
 import 'taiko_drum_head.dart';
 
 /// The rainbow drum, [size] square: the drum head in the middle, and the sparkles in the corners,
-/// overlapping its edge. [seed] sets where in its cycle it starts, so that drums side by side don't turn and
-/// twinkle in step. It holds still if animations are turned off.
+/// overlapping its edge. [seed] sets where in its cycle it starts, so that drums side by side don't
+/// turn and twinkle in step. It holds still if animations are turned off.
 class RainbowDrum extends StatefulWidget {
   final double size;
   final int seed;

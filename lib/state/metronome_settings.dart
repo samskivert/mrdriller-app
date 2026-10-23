@@ -17,6 +17,25 @@ enum BeatLevel {
   BeatLevel get next => values[(index + 1) % values.length];
 }
 
+/// What note each beat of the measure is (at the bpm's quarter notes).
+enum NoteValue {
+  quarter(1, 'quarters'),
+  eighth(2, 'eighths'),
+  triplet(3, 'triplets'),
+  sixteenth(4, 'sixteenths');
+
+  /// How many of these notes there are to a quarter note.
+  final int perQuarter;
+
+  /// What a measure's worth of them are called, e.g. "8 eighths".
+  final String plural;
+
+  const NoteValue(this.perQuarter, this.plural);
+
+  /// The note a tap on the note switches it to: each shorter than the last, then back around.
+  NoteValue get next => values[(index + 1) % values.length];
+}
+
 const metronomeBpmLimits = (min: 30, max: maxBpm);
 const metronomeBeatLimits = (min: 2, max: 8);
 const metronomeIncreaseLimits = (min: 1, max: 50);
@@ -27,6 +46,7 @@ class MetronomeConfig {
   final int bpm;
   // One level per beat of the measure, so the measure is as many beats long as this.
   final List<BeatLevel> beats;
+  final NoteValue note;
   final int bpmIncrease;
   // The bpm goes up by [bpmIncrease] every this many measures, or never if it's zero.
   final int increaseEvery;
@@ -34,6 +54,7 @@ class MetronomeConfig {
   const MetronomeConfig({
     this.bpm = 100,
     this.beats = const [BeatLevel.high, BeatLevel.low, BeatLevel.low, BeatLevel.low],
+    this.note = NoteValue.quarter,
     this.bpmIncrease = 5,
     this.increaseEvery = 0,
   });
@@ -41,11 +62,13 @@ class MetronomeConfig {
   MetronomeConfig copyWith({
     int? bpm,
     List<BeatLevel>? beats,
+    NoteValue? note,
     int? bpmIncrease,
     int? increaseEvery,
   }) => MetronomeConfig(
     bpm: bpm ?? this.bpm,
     beats: beats ?? this.beats,
+    note: note ?? this.note,
     bpmIncrease: bpmIncrease ?? this.bpmIncrease,
     increaseEvery: increaseEvery ?? this.increaseEvery,
   );
@@ -62,6 +85,7 @@ class MetronomeConfig {
   Map<String, dynamic> toJson() => {
     'bpm': bpm,
     'beats': [for (final b in beats) b.name],
+    'note': note.name,
     'bpmIncrease': bpmIncrease,
     'increaseEvery': increaseEvery,
   };
@@ -77,6 +101,7 @@ class MetronomeConfig {
                 BeatLevel.values.asNameMap()[b] ?? BeatLevel.low,
             ]
           : defaults.beats,
+      note: NoteValue.values.asNameMap()[json['note']] ?? defaults.note,
       bpmIncrease: json['bpmIncrease'] as int? ?? defaults.bpmIncrease,
       increaseEvery: json['increaseEvery'] as int? ?? defaults.increaseEvery,
     );
@@ -87,11 +112,12 @@ class MetronomeConfig {
       other is MetronomeConfig &&
       other.bpm == bpm &&
       _listEquals(other.beats, beats) &&
+      other.note == note &&
       other.bpmIncrease == bpmIncrease &&
       other.increaseEvery == increaseEvery;
 
   @override
-  int get hashCode => Object.hash(bpm, Object.hashAll(beats), bpmIncrease, increaseEvery);
+  int get hashCode => Object.hash(bpm, Object.hashAll(beats), note, bpmIncrease, increaseEvery);
 }
 
 bool _listEquals<T>(List<T> a, List<T> b) {
