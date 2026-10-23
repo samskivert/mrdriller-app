@@ -626,12 +626,14 @@ class RoundIconButton extends StatelessWidget {
   final VoidCallback onPressed;
   final double size;
 
+  static const defaultSize = 44.0;
+
   const RoundIconButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.onPressed,
-    this.size = 44,
+    this.size = defaultSize,
   });
 
   @override

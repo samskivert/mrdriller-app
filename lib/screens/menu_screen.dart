@@ -24,9 +24,19 @@ final List<Tool> tools = [const Tool(id: 'pattern-trainer', title: 'Pattern Trai
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
 
+  // How wide a column of its own the settings button needs, in landscape.
+  static const _settingsColumnWidth = 68.0;
+
   @override
   Widget build(BuildContext context) {
     final safe = MediaQuery.paddingOf(context);
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width - safe.horizontal > size.height;
+    // In landscape, the settings button gets a column of its own down the right side, so the
+    // buttons can start at the top without running into it: in the safe-area inset there if
+    // there's room (which, with the camera cutout on that side, is still clear of it at the top),
+    // or else taking the room from the menu.
+    final right = wide ? math.max(safe.right, _settingsColumnWidth) : safe.right;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -41,16 +51,16 @@ class MenuScreen extends StatelessWidget {
             // Only the sides: the menus keep clear of the top and bottom insets themselves, so that
             // what scrolls can scroll under them.
             Padding(
-              padding: EdgeInsets.only(left: safe.left, right: safe.right),
+              padding: EdgeInsets.only(left: safe.left, right: right),
               child: LayoutBuilder(
-                builder: (context, constraints) => constraints.maxWidth > constraints.maxHeight
-                    ? _WideMenu(constraints.biggest)
-                    : _TallMenu(constraints.biggest),
+                builder: (context, constraints) =>
+                    wide ? _WideMenu(constraints.biggest) : _TallMenu(constraints.biggest),
               ),
             ),
             Positioned(
-              top: safe.top + 14,
-              right: safe.right + 16,
+              // Lower in a side inset, to clear the screen's rounded corner.
+              top: safe.top + (wide && safe.right > 0 ? 30 : 14),
+              right: wide ? (right - RoundIconButton.defaultSize) / 2 : safe.right + 16,
               child: const HudSettingsButton(),
             ),
           ],
@@ -112,7 +122,8 @@ class _TallMenu extends StatelessWidget {
 }
 
 /// Landscape (or a wide screen): the logo and artwork on the left, and the buttons on the right
-/// (which scroll, under the top and bottom insets, if they don't fit).
+/// (which scroll, under the top and bottom insets, if they don't fit). The settings button has its
+/// own column to the right of this (see [MenuScreen]).
 class _WideMenu extends StatelessWidget {
   final Size size;
 
@@ -149,7 +160,7 @@ class _WideMenu extends StatelessWidget {
         Expanded(
           child: Center(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(16, insets.top + 70, 24, insets.bottom + 16),
+              padding: EdgeInsets.fromLTRB(16, insets.top + 16, 16, insets.bottom + 16),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: const Column(
