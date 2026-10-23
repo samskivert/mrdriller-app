@@ -1,10 +1,10 @@
-// Per-drill and per-tool practice configuration, persisted to local storage.
-
-import 'dart:convert';
+// Per-drill and per-tool practice configuration, persisted to local storage and synced through
+// iCloud (see sync.dart), where each config is a separate document whose latest change wins.
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/model.dart';
+import 'sync.dart';
 
 class DrillConfig {
   final int bpm;
@@ -63,11 +63,10 @@ double drillDuration(Drill drill, DrillConfig config) => computeDrillDuration(
 );
 
 Future<DrillConfig> loadDrillConfig(String drillId) async {
-  final prefs = await SharedPreferences.getInstance();
-  final saved = prefs.getString('config.$drillId');
+  final saved = _loadConfig(await SharedPreferences.getInstance(), 'config.$drillId');
   if (saved != null) {
     try {
-      return DrillConfig.fromJson(jsonDecode(saved) as Map<String, dynamic>);
+      return DrillConfig.fromJson(saved);
     } catch (_) {
       // fall through to default
     }
@@ -76,8 +75,12 @@ Future<DrillConfig> loadDrillConfig(String drillId) async {
 }
 
 Future<void> saveDrillConfig(String drillId, DrillConfig config) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('config.$drillId', jsonEncode(config.toJson()));
+  await saveLatest(await SharedPreferences.getInstance(), 'config.$drillId', config.toJson());
+}
+
+Map<String, dynamic>? _loadConfig(SharedPreferences prefs, String key) {
+  final value = Stamped.read(syncDoc(prefs, key, mergeLatest))?.v;
+  return value is Map<String, dynamic> ? value : null;
 }
 
 enum Difficulty { easy, medium, hard }
@@ -152,11 +155,10 @@ double patternTrainerSeconds(PatternTrainerConfig config) {
 const _patternTrainerKey = 'config.pattern-trainer';
 
 Future<PatternTrainerConfig> loadPatternTrainerConfig() async {
-  final prefs = await SharedPreferences.getInstance();
-  final saved = prefs.getString(_patternTrainerKey);
+  final saved = _loadConfig(await SharedPreferences.getInstance(), _patternTrainerKey);
   if (saved != null) {
     try {
-      return PatternTrainerConfig.fromJson(jsonDecode(saved) as Map<String, dynamic>);
+      return PatternTrainerConfig.fromJson(saved);
     } catch (_) {
       // fall through to default
     }
@@ -165,6 +167,5 @@ Future<PatternTrainerConfig> loadPatternTrainerConfig() async {
 }
 
 Future<void> savePatternTrainerConfig(PatternTrainerConfig config) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_patternTrainerKey, jsonEncode(config.toJson()));
+  await saveLatest(await SharedPreferences.getInstance(), _patternTrainerKey, config.toJson());
 }

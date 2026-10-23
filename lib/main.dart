@@ -13,6 +13,7 @@ import 'screens/playlist_screen.dart';
 import 'screens/playlists_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/unknown_screen.dart';
+import 'services/cloud_store.dart';
 import 'services/reminder_scheduler.dart';
 import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
@@ -26,6 +27,8 @@ import 'util/colors.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
+  // Before the state that syncs through it.
+  await cloudStore.load();
   await settings.load();
   await playlists.load();
   await practiceLog.load();

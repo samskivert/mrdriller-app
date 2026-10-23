@@ -21,6 +21,7 @@ import flutter_local_notifications
         GeneratedPluginRegistrant.register(with: registry)
     }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    registerCloudStore(engineBridge)
 
     // Reports which way the interface is rotated, so that in landscape the app can tell which side
     // of the screen the camera housing (notch/Dynamic Island) is on. iOS reports equal safe-area
@@ -52,6 +53,40 @@ import flutter_local_notifications
         }
       }
     }
+  }
+
+  // Exposes the iCloud key-value store, where a copy of the app's state is kept so that it outlives
+  // the app being deleted and syncs between the user's devices. Answers "getAll" (every string in
+  // the store) and "set" (a key and a string value), and pushes "changed" when another device
+  // changes the store. See lib/services/cloud_store.dart.
+  private func registerCloudStore(_ engineBridge: FlutterImplicitEngineBridge) {
+    let store = NSUbiquitousKeyValueStore.default
+    let channel = FlutterMethodChannel(
+      name: "mrdriller/cloud",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger())
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "getAll":
+        result(store.dictionaryRepresentation.compactMapValues { $0 as? String })
+      case "set":
+        guard let args = call.arguments as? [String: String], let key = args["key"] else {
+          result(FlutterError(code: "bad-args", message: "set needs a key", details: nil))
+          return
+        }
+        store.set(args["value"], forKey: key)
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+    NotificationCenter.default.addObserver(
+      forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: store,
+      queue: .main
+    ) { _ in
+      channel.invokeMethod("changed", arguments: nil)
+    }
+    // Picks up anything changed elsewhere since the app last ran.
+    store.synchronize()
   }
 
   private static func interfaceOrientation() -> String? {

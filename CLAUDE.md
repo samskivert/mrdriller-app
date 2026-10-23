@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Dokodoko Drills (formerly Taiko Trainer) is a Flutter app (iOS, Android, web, macOS) that
+Dokodoko Drills (formerly Taiko Trainer) is a Flutter app (iOS, Android, web) that
 displays drumming drills (mostly taiko) and animates them in time with a metronome. It was
 originally called Mr. Driller, after the Namco games its look is inspired by, and it still is
 internally (package name, bundle IDs, web path). The name shown anywhere in the app must come from
@@ -23,7 +23,6 @@ flutter test test/metronome_test.dart   # one file
 flutter test --plain-name 'ticks once'  # tests whose name contains a string
 
 flutter run -d chrome   # web
-flutter run -d macos    # native macOS
 flutter run -d ios      # iOS simulator
 
 ./deploy-web.sh         # build web with --base-href /mrdriller/ and rsync to samskivert.com
@@ -102,6 +101,17 @@ chip, candy switch and segmented picker, delete confirmation, name prompt, secti
 persisted with `shared_preferences`. Per-drill config is stored under `config.<drillId>`, and the
 pattern trainer's under `config.pattern-trainer`. There's no state-management package; widgets
 listen to these singletons directly.
+
+**Sync** (`state/sync.dart`, `services/cloud_store.dart`): on iOS, everything but reminders is
+also kept in the iCloud key-value store (a method channel in `ios/Runner/AppDelegate.swift`, no
+plugin), so it survives the app being deleted and syncs between devices. Android relies on its
+default Auto Backup of `shared_preferences` instead. Each document is merged with its iCloud copy
+on load, on every local change, and when another device changes it: configs and settings are
+`Stamped` (latest change wins), playlists are stamped per playlist with deletion markers, and the
+practice log is a union of entries, kept in iCloud as compact per-month keys to fit its 1MB limit.
+Merges must cope with either side being empty or stale (a fresh install starts empty, and
+iCloud's copy can arrive after launch). Data saved before syncing existed still loads (stamped as
+oldest), so keep reading the old formats.
 
 **Reminders** (`services/reminder_scheduler.dart`): this clears and reschedules OS local
 notifications at startup. It does nothing on web, and it must not import `dart:io` because that

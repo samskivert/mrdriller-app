@@ -1,6 +1,10 @@
 // A log of every drill the user has completed, persisted to local storage. A drill is recorded as
 // soon as it finishes on its own (see DrillPracticeHost), however it was started: on its own, or as
 // part of a playlist. Bailing out of a drill partway through records nothing.
+//
+// It's also synced through iCloud (see sync.dart). Entries are only ever added, so merging two
+// copies of the log is just keeping every entry in either. To fit years of practice into iCloud's
+// 1MB, the copy there is split up by month (in UTC), with each entry in a compact form.
 
 import 'dart:convert';
 
@@ -8,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../model/model.dart';
+import '../services/cloud_store.dart';
 import 'drill_config.dart';
 
 class PracticeLogEntry {
@@ -25,8 +30,12 @@ class PracticeLogEntry {
     required this.seconds,
   });
 
+  // Which drill was completed when, which tells two copies of an entry apart from two entries.
+  String get _id => '${completedAt.millisecondsSinceEpoch}:$drillId';
+
+  // In UTC, so that the time doesn't move if the time zone changes.
   Map<String, dynamic> toJson() => {
-    'completedAt': completedAt.toIso8601String(),
+    'completedAt': completedAt.toUtc().toIso8601String(),
     'drillId': drillId,
     'config': config.toJson(),
     'seconds': seconds,
@@ -38,13 +47,48 @@ class PracticeLogEntry {
     config: DrillConfig.fromJson(json['config'] as Map<String, dynamic>),
     seconds: json['seconds'] as int,
   );
+
+  // The compact form kept in iCloud.
+  List<Object> _toCloud() => [
+    completedAt.millisecondsSinceEpoch,
+    drillId,
+    config.bpm,
+    config.bpmIncrease,
+    config.drillRepeat,
+    config.swapHands ? 1 : 0,
+    config.replayIntroOnBpmIncrease ? 1 : 0,
+    seconds,
+  ];
+
+  static PracticeLogEntry _fromCloud(List<dynamic> json) => PracticeLogEntry(
+    completedAt: DateTime.fromMillisecondsSinceEpoch(json[0] as int, isUtc: true),
+    drillId: json[1] as String,
+    config: DrillConfig(
+      bpm: json[2] as int,
+      bpmIncrease: json[3] as int,
+      drillRepeat: json[4] as int,
+      swapHands: json[5] == 1,
+      replayIntroOnBpmIncrease: json[6] == 1,
+    ),
+    seconds: json[7] as int,
+  );
+
+  // The iCloud key of the month this entry is kept under.
+  String get _cloudKey {
+    final utc = completedAt.toUtc();
+    return '$_cloudPrefix${utc.year}-${utc.month.toString().padLeft(2, '0')}';
+  }
 }
+
+const _cloudPrefix = 'practiceLog.';
+final _cloudKeyPattern = RegExp(r'^practiceLog\.\d{4}-\d{2}$');
 
 class PracticeLog extends ChangeNotifier {
   static const _key = 'practiceLog.entries';
 
   List<PracticeLogEntry> _entries = [];
   SharedPreferences? _prefs;
+  bool _listening = false;
 
   /// Most recently completed drill first.
   List<PracticeLogEntry> get entries => List.unmodifiable(_entries);
@@ -52,7 +96,14 @@ class PracticeLog extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     _prefs = prefs;
+    if (!_listening) {
+      _listening = true;
+      cloudStore.addListener((changed) {
+        if (changed.any(_cloudKeyPattern.hasMatch)) _sync();
+      });
+    }
     _entries = [];
+    var fromBeforeUtc = false;
     final saved = prefs.getString(_key);
     if (saved != null) {
       try {
@@ -60,16 +111,20 @@ class PracticeLog extends ChangeNotifier {
         _entries = [
           for (final item in list) PracticeLogEntry.fromJson(item as Map<String, dynamic>),
         ];
+        fromBeforeUtc = _entries.any((e) => !e.completedAt.isUtc);
       } catch (_) {
         _entries = [];
       }
     }
-    notifyListeners();
+    // Pin entries saved in local time (before the log synced) to UTC before they're synced.
+    if (fromBeforeUtc) _saveLocal();
+    _sync();
   }
 
   void add(PracticeLogEntry entry) {
     _entries = [entry, ..._entries];
-    _save();
+    _saveLocal();
+    _sync();
   }
 
   /// Records that [drill] was just completed at [config].
@@ -82,9 +137,43 @@ class PracticeLog extends ChangeNotifier {
     ),
   );
 
-  void _save() {
-    _prefs?.setString(_key, jsonEncode([for (final e in _entries) e.toJson()]));
+  // Adds the entries in iCloud that are missing here, then puts any months that are missing
+  // entries back in iCloud.
+  void _sync() {
+    final byId = {for (final e in _entries) e._id: e};
+    final inCloud = <String, int>{};
+    for (final key in cloudStore.keys.where(_cloudKeyPattern.hasMatch)) {
+      try {
+        final list = jsonDecode(cloudStore[key]!) as List<dynamic>;
+        inCloud[key] = list.length;
+        for (final item in list) {
+          final entry = PracticeLogEntry._fromCloud(item as List<dynamic>);
+          byId.putIfAbsent(entry._id, () => entry);
+        }
+      } catch (_) {
+        // Rewrite it from what's here.
+        inCloud[key] = 0;
+      }
+    }
+    if (byId.length > _entries.length) {
+      _entries = byId.values.toList()..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      _saveLocal();
+    }
+    final months = <String, List<PracticeLogEntry>>{};
+    for (final entry in _entries.reversed) {
+      months.putIfAbsent(entry._cloudKey, () => []).add(entry);
+    }
+    // Everything in iCloud is here now too, so a month with more entries here is missing some.
+    months.forEach((key, entries) {
+      if (entries.length > (inCloud[key] ?? 0)) {
+        cloudStore[key] = jsonEncode([for (final e in entries) e._toCloud()]);
+      }
+    });
     notifyListeners();
+  }
+
+  void _saveLocal() {
+    _prefs?.setString(_key, jsonEncode([for (final e in _entries) e.toJson()]));
   }
 }
 

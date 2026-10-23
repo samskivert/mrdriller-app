@@ -27,7 +27,7 @@ To install a release build to an iOS device:
 
 ```sh
 flutter build ios --release
-flutter install --release -d Pokekon
+xcrun devicectl device install app --device Pokekon build/ios/iphoneos/Runner.app
 ```
 
 To build an IPA for upload to the AppStore:

@@ -75,7 +75,7 @@ void main() {
     expect(tester.widget<CountInToggle>(countIn).value, isFalse);
     final prefs = await SharedPreferences.getInstance();
     final saved = jsonDecode(prefs.getString('config.${drill.id}')!) as Map<String, dynamic>;
-    expect(saved['replayIntroOnBpmIncrease'], isFalse);
+    expect(saved['v']['replayIntroOnBpmIncrease'], isFalse);
 
     // The explanation pops up, and tapping outside it dismisses it.
     final explanation = find.textContaining('count in again');
