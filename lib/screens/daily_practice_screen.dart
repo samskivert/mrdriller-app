@@ -88,7 +88,7 @@ class DailyPracticeScreen extends StatelessWidget {
 }
 
 /// This week's practice (Monday to Sunday): which days had any, and the current streak, how many
-/// drills, and how long.
+/// practices, and how long.
 class _ThisWeekCard extends StatelessWidget {
   final DateTime today;
 
@@ -166,7 +166,7 @@ class _ThisWeekCard extends StatelessWidget {
           Row(
             children: [
               stat('STREAK', '$streak'),
-              stat('DRILLS', '${thisWeek.length}'),
+              stat('PRACTICES', '${thisWeek.length}'),
               stat('TIME', formatPracticeTotal(thisWeek.fold(0, (sum, e) => sum + e.seconds))),
             ],
           ),

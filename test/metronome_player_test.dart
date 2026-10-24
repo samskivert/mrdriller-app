@@ -2,7 +2,10 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/metronome_player.dart';
 import 'package:mrdriller/services/metronome_sounds.dart';
+import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/metronome_settings.dart';
+import 'package:mrdriller/state/practice_log.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _hi = BeatLevel.high, _lo = BeatLevel.low, _off = BeatLevel.off;
 
@@ -172,6 +175,71 @@ void main() {
       async.elapse(const Duration(milliseconds: 500));
       expect(player.beat, 0);
       player.dispose();
+    });
+  });
+
+  group('practice log', () {
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      await practiceLog.load();
+    });
+
+    test('a minute or more of playing is logged on leaving it', () {
+      fakeAsync((async) {
+        final player = _player(const MetronomeConfig(bpm: 90));
+        player.play();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 61));
+        player.dispose();
+        final entry = practiceLog.entries.single;
+        expect(entry.drillId, metronomeId);
+        expect(entry.title, isNull);
+        expect(entry.config.bpm, 90);
+        expect(entry.seconds, 61);
+      });
+    });
+
+    test("less than a minute isn't", () {
+      fakeAsync((async) {
+        final player = _player(const MetronomeConfig());
+        player.play();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 59));
+        player.dispose();
+        expect(practiceLog.entries, isEmpty);
+      });
+    });
+
+    test("time paused doesn't count, but playing either side of a pause adds up", () {
+      fakeAsync((async) {
+        final player = _player(const MetronomeConfig())..practiceName = 'Warm up';
+        player.play();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 40));
+        player.pause();
+        async.elapse(const Duration(minutes: 5));
+        player.play();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 30));
+        player.dispose();
+        final entry = practiceLog.entries.single;
+        expect(entry.title, 'Warm up');
+        expect(entry.seconds, 70);
+      });
+    });
+
+    test('a titled entry survives being saved and loaded', () {
+      final entry = PracticeLogEntry.fromJson(
+        PracticeLogEntry(
+          completedAt: DateTime.utc(2026, 10, 23),
+          drillId: metronomeId,
+          config: const DrillConfig(bpm: 120),
+          seconds: 90,
+          title: 'Fast',
+        ).toJson(),
+      );
+      expect(entry.title, 'Fast');
+      expect(entry.config.bpm, 120);
     });
   });
 

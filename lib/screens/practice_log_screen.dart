@@ -27,8 +27,8 @@ const _monthNames = [
 
 const _weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-/// The user's practice record: a summary (current streak, number of drills completed, total time),
-/// a calendar of which days they've practiced over the last few weeks, and the drills completed on
+/// The user's practice record: a summary (current streak, number of practices, total time),
+/// a calendar of which days they've practiced over the last few weeks, and what was practiced on
 /// each day, most recent first.
 class PracticeLogScreen extends StatelessWidget {
   /// For tests: what counts as "now" (and so today), instead of the real time.
@@ -129,7 +129,8 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
-/// The headline numbers: the current streak, how many drills, and how long, all told.
+/// The headline numbers: the current streak, how many practices (drills and times with the
+/// metronome), and how long, all told.
 class _StatsCard extends StatelessWidget {
   final int streak;
   final int drills;
@@ -192,7 +193,7 @@ class _StatsCard extends StatelessWidget {
         children: [
           row('Streak', AppColors.bannerRed, '$streak', streak == 1 ? 'day' : 'days'),
           const SizedBox(height: 10),
-          row('Drills', AppColors.bannerBlue, '$drills', ''),
+          row('Practices', AppColors.bannerBlue, '$drills', ''),
           const SizedBox(height: 10),
           row('Total', AppColors.bannerMagenta, total, ''),
         ],
@@ -446,7 +447,7 @@ class _DayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final drills = entries.length == 1 ? '1 drill' : '${entries.length} drills';
+    final practices = entries.length == 1 ? '1 practice' : '${entries.length} practices';
     final seconds = entries.fold(0, (sum, e) => sum + e.seconds);
     return Container(
       padding: const EdgeInsets.all(10),
@@ -507,7 +508,7 @@ class _DayCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$drills · ${formatDrillDuration(seconds.toDouble())}',
+                  '$practices · ${formatDrillDuration(seconds.toDouble())}',
                   style: const TextStyle(
                     fontFamily: AppFonts.body,
                     fontSize: 16,
@@ -532,7 +533,9 @@ class _DayCard extends StatelessWidget {
                   children: [
                     for (final e in entries)
                       _DrillChip(
-                        title: data.findDrillById(e.drillId)?.title ?? e.drillId,
+                        title: e.drillId == metronomeId
+                            ? e.title ?? 'Metronome'
+                            : data.findDrillById(e.drillId)?.title ?? e.drillId,
                         bpm: e.config.bpm,
                       ),
                   ],
@@ -546,7 +549,7 @@ class _DayCard extends StatelessWidget {
   }
 }
 
-/// A completed drill: its title and the bpm it started at.
+/// A completed drill (or time spent with the metronome): its title and the bpm it started at.
 class _DrillChip extends StatelessWidget {
   final String title;
   final int bpm;

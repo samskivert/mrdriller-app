@@ -48,6 +48,17 @@ void main() {
       expect(practiceLog.entries.first.config.swapHands, isTrue);
     });
 
+    test("a metronome entry's preset name comes back from the cloud", () async {
+      await _launch({});
+      practiceLog.recordMetronome(name: 'Fast', bpm: 180, seconds: 75);
+      practiceLog.recordMetronome(bpm: 90, seconds: 60);
+      await _launch({});
+      expect(practiceLog.entries.map((e) => (e.drillId, e.title, e.config.bpm, e.seconds)), {
+        (metronomeId, null, 90, 60),
+        (metronomeId, 'Fast', 180, 75),
+      });
+    });
+
     test("keeps every device's entries, without duplicates", () async {
       await _launch({});
       practiceLog.add(_entry(DateTime.utc(2026, 10, 1, 1)));

@@ -91,6 +91,8 @@ class _MetronomePresetScreenState extends State<MetronomePresetScreen> {
         // (Just deleted, and on its way out.)
         if (preset == null) return const CreamScreen(title: '', child: SizedBox());
         final config = _edited ?? preset.config;
+        // Logged as the preset's name (as it is when it's logged, if it's renamed).
+        _player.practiceName = preset.name;
         return CreamScreen(
           title: preset.name,
           showSettings: false,

@@ -83,8 +83,8 @@ void main() {
   testWidgets("a day's drills are grouped together", (tester) async {
     await _load([DateTime(2026, 10, 4, 9), DateTime(2026, 10, 4, 9, 15), DateTime(2026, 10, 3)]);
     await _pump(tester, const Size(390, 844));
-    expect(find.text('2 drills · 20m 00s'), findsOneWidget);
-    expect(find.text('1 drill · 10m 00s'), findsOneWidget);
+    expect(find.text('2 practices · 20m 00s'), findsOneWidget);
+    expect(find.text('1 practice · 10m 00s'), findsOneWidget);
   });
 
   for (final size in const [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)]) {
@@ -134,5 +134,25 @@ void main() {
     // It keeps on turning (but stops along with everything else at the end of the test).
     await tester.pump(const Duration(seconds: 1));
     expect(tester.hasRunningAnimations, isTrue);
+  });
+
+  testWidgets('time with the metronome shows up as its preset, or just Metronome', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'practiceLog.entries': jsonEncode([
+        for (final title in [null, 'Fast'])
+          PracticeLogEntry(
+            completedAt: DateTime(2026, 10, 4, 9),
+            drillId: metronomeId,
+            config: const DrillConfig(bpm: 90),
+            seconds: 120,
+            title: title,
+          ).toJson(),
+      ]),
+    });
+    await practiceLog.load();
+    await _pump(tester, const Size(390, 844));
+    expect(find.text('2 practices · 4m 00s'), findsOneWidget);
+    expect(find.textContaining('Metronome'), findsOneWidget);
+    expect(find.textContaining('Fast'), findsOneWidget);
   });
 }

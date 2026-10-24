@@ -75,7 +75,9 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   tool, which plays randomly generated listen/repeat patterns.
 - `services/metronome_player.dart`: plays the metronome tool (its screens are
   `screens/metronome_screen.dart` and `screens/metronome_preset_screen.dart`): each beat of the
-  measure as beep (high), boop (low) or nothing, speeding up every so many measures.
+  measure as beep (high), boop (low) or nothing, speeding up every so many measures. It's the
+  other thing that writes to `practiceLog`: a minute or more of playing, logged (under
+  `metronomeId`) on leaving the screen or the app going to the background.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.
 

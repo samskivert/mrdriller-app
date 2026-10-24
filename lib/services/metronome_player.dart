@@ -2,10 +2,12 @@
 // quarter notes (or eighths, etc.) at the configured bpm, going faster every so many measures if
 // it's set to.
 
-import 'package:flutter/foundation.dart';
+import 'package:clock/clock.dart';
+import 'package:flutter/widgets.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../state/metronome_settings.dart';
+import '../state/practice_log.dart';
 import 'metronome.dart';
 import 'metronome_sounds.dart';
 
@@ -25,6 +27,16 @@ class MetronomePlayer extends ChangeNotifier {
   // Measures played since it last sped up (or started).
   int _measures = 0;
 
+  /// What to log time spent playing as (see [_logPractice]): a preset's name, or null for the
+  /// metronome's main settings.
+  String? practiceName;
+
+  // Time spent playing that hasn't been logged yet, besides the current stretch of it, if it's
+  // playing, since [_playingSince].
+  Duration _unlogged = Duration.zero;
+  DateTime? _playingSince;
+  late final AppLifecycleListener _lifecycle;
+
   /// Plays [config] through the sounds [makeSounds] makes, when it first plays (by default, the
   /// metronome's beep and boop).
   MetronomePlayer(MetronomeConfig config, {MetronomeSounds Function()? makeSounds})
@@ -32,6 +44,8 @@ class MetronomePlayer extends ChangeNotifier {
       _bpm = config.bpm,
       _makeSounds = makeSounds ?? MetronomeSounds.new {
     _metronome.onDue = _handleBeatsDue;
+    // The app could be closed from the background, so log what's been played before it gets there.
+    _lifecycle = AppLifecycleListener(onHide: _logPractice);
   }
 
   bool get playing => _playing;
@@ -67,6 +81,7 @@ class MetronomePlayer extends ChangeNotifier {
     final sounds = _sounds ??= _makeSounds();
     await sounds.ready;
     if (_disposed || !_playing) return;
+    _playingSince = clock.now();
     _playNext();
     _keepTime();
   }
@@ -80,6 +95,8 @@ class MetronomePlayer extends ChangeNotifier {
   void pause() {
     if (!_playing) return;
     _playing = false;
+    if (_playingSince case final since?) _unlogged += clock.now().difference(since);
+    _playingSince = null;
     _metronome.stop();
     _sounds?.pause();
     WakelockPlus.disable();
@@ -119,8 +136,22 @@ class MetronomePlayer extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Logs the time spent playing since it was last logged to the practice log, if it adds up to a
+  // minute or more (or else keeps counting it, towards the next time).
+  void _logPractice() {
+    final now = clock.now();
+    final played =
+        _unlogged + (_playingSince == null ? Duration.zero : now.difference(_playingSince!));
+    if (played < const Duration(minutes: 1)) return;
+    practiceLog.recordMetronome(name: practiceName, bpm: _config.bpm, seconds: played.inSeconds);
+    _unlogged = Duration.zero;
+    if (_playingSince != null) _playingSince = now;
+  }
+
   @override
   void dispose() {
+    _logPractice();
+    _lifecycle.dispose();
     _disposed = true;
     if (_playing) WakelockPlus.disable();
     _metronome.dispose();

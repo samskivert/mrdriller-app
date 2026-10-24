@@ -1,6 +1,7 @@
 // A log of every drill the user has completed, persisted to local storage. A drill is recorded as
 // soon as it finishes on its own (see DrillPracticeHost), however it was started: on its own, or as
-// part of a playlist. Bailing out of a drill partway through records nothing.
+// part of a playlist. Bailing out of a drill partway through records nothing. A minute or more of
+// playing the metronome is recorded too (see MetronomePlayer), as an entry for [metronomeId].
 //
 // It's also synced through iCloud (see sync.dart). Entries are only ever added, so merging two
 // copies of the log is just keeping every entry in either. To fit years of practice into iCloud's
@@ -15,10 +16,16 @@ import '../model/model.dart';
 import '../services/cloud_store.dart';
 import 'drill_config.dart';
 
+/// The [PracticeLogEntry.drillId] of time spent playing the metronome (whose bpm is its config's).
+const metronomeId = 'metronome';
+
 class PracticeLogEntry {
   final DateTime completedAt;
   final String drillId;
   final DrillConfig config;
+  // What it's called, for practice that isn't a drill: a metronome preset's name, or null for the
+  // metronome's main settings.
+  final String? title;
   // The drill's computed duration when it was completed (not wall-clock time, so pausing doesn't
   // count), kept rather than recomputed so that changes to the drill don't rewrite history.
   final int seconds;
@@ -28,6 +35,7 @@ class PracticeLogEntry {
     required this.drillId,
     required this.config,
     required this.seconds,
+    this.title,
   });
 
   // Which drill was completed when, which tells two copies of an entry apart from two entries.
@@ -39,6 +47,7 @@ class PracticeLogEntry {
     'drillId': drillId,
     'config': config.toJson(),
     'seconds': seconds,
+    'title': ?title,
   };
 
   factory PracticeLogEntry.fromJson(Map<String, dynamic> json) => PracticeLogEntry(
@@ -46,9 +55,10 @@ class PracticeLogEntry {
     drillId: json['drillId'] as String,
     config: DrillConfig.fromJson(json['config'] as Map<String, dynamic>),
     seconds: json['seconds'] as int,
+    title: json['title'] as String?,
   );
 
-  // The compact form kept in iCloud.
+  // The compact form kept in iCloud, with the title (if any) on the end.
   List<Object> _toCloud() => [
     completedAt.millisecondsSinceEpoch,
     drillId,
@@ -58,6 +68,7 @@ class PracticeLogEntry {
     config.swapHands ? 1 : 0,
     config.replayIntroOnBpmIncrease ? 1 : 0,
     seconds,
+    ?title,
   ];
 
   static PracticeLogEntry _fromCloud(List<dynamic> json) => PracticeLogEntry(
@@ -71,6 +82,7 @@ class PracticeLogEntry {
       replayIntroOnBpmIncrease: json[6] == 1,
     ),
     seconds: json[7] as int,
+    title: json.length > 8 ? json[8] as String? : null,
   );
 
   // The iCloud key of the month this entry is kept under.
@@ -126,6 +138,18 @@ class PracticeLog extends ChangeNotifier {
     _saveLocal();
     _sync();
   }
+
+  /// Records that the metronome was just played for [seconds], starting at [bpm], with the preset
+  /// called [name] (or its main settings, if null).
+  void recordMetronome({String? name, required int bpm, required int seconds}) => add(
+    PracticeLogEntry(
+      completedAt: DateTime.now(),
+      drillId: metronomeId,
+      config: DrillConfig(bpm: bpm),
+      seconds: seconds,
+      title: name,
+    ),
+  );
 
   /// Records that [drill] was just completed at [config].
   void recordDrill(Drill drill, DrillConfig config) => add(
