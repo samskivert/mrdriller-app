@@ -82,7 +82,7 @@ void main() {
       practiceLog.add(
         PracticeLogEntry(
           completedAt: at,
-          drillId: data.drills.first.id,
+          drillId: data.allDrills.first.id,
           config: const DrillConfig(),
           seconds: 300,
         ),

@@ -11,7 +11,7 @@ Future<void> _pumpDrillScreen(WidgetTester tester, Size size, int drillIndex) as
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(home: DrillScreen(drill: data.drills[drillIndex])));
+  await tester.pumpWidget(MaterialApp(home: DrillScreen(drill: data.allDrills[drillIndex])));
   await tester.pumpAndSettle();
 }
 
@@ -20,9 +20,9 @@ void main() {
 
   for (final size in const [Size(320, 568), Size(390, 844), Size(844, 390), Size(1024, 768)]) {
     testWidgets('every drill overview lays out without errors on a $size screen', (tester) async {
-      for (var i = 0; i < data.drills.length; i++) {
+      for (var i = 0; i < data.allDrills.length; i++) {
         await _pumpDrillScreen(tester, size, i);
-        expect(tester.takeException(), isNull, reason: data.drills[i].id);
+        expect(tester.takeException(), isNull, reason: data.allDrills[i].id);
       }
     });
   }
@@ -66,7 +66,7 @@ void main() {
 
   testWidgets('the count switch is saved with the drill, and ? explains it', (tester) async {
     await _pumpDrillScreen(tester, const Size(390, 844), 0);
-    final drill = data.drills[0];
+    final drill = data.allDrills[0];
 
     final countIn = find.byType(CountInToggle);
     expect(tester.widget<CountInToggle>(countIn).value, isTrue);

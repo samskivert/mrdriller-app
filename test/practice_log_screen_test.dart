@@ -21,7 +21,7 @@ Future<void> _load(List<DateTime> drills) async {
       for (final at in drills)
         PracticeLogEntry(
           completedAt: at,
-          drillId: data.drills.first.id,
+          drillId: data.allDrills.first.id,
           config: const DrillConfig(bpm: 90),
           seconds: 600,
         ).toJson(),

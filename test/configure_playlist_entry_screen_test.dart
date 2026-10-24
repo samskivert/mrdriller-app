@@ -6,7 +6,7 @@ import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/playlists.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-final _drill = data.drills.first;
+final _drill = data.allDrills.first;
 
 late Playlist _playlist;
 

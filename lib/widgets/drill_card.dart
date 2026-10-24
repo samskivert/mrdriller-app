@@ -43,39 +43,7 @@ class DrillCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  HudBanner(
-                    label: number.toString().padLeft(2, '0'),
-                    color: AppColors.banner(number - 1),
-                    fontSize: 14,
-                    padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        drill.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.display,
-                          fontSize: 17,
-                          height: 1.1,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 6, 10, 0),
-                    child:
-                        trailing ??
-                        const Icon(Icons.chevron_right_rounded, color: AppColors.inkMuted),
-                  ),
-                ],
-              ),
+              _CardHeader(number: number, title: drill.title, trailing: trailing),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -90,6 +58,152 @@ class DrillCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A group of drills as a "stage" card for picking one: a main drill (first in [drills]) with its
+/// [number] on a banner, its title and a strip previewing its notes, then the same (minus the
+/// banner) for each of its variations below it. Tapping a drill's title or preview passes that drill
+/// to [onTap].
+class DrillGroupCard extends StatelessWidget {
+  final int number;
+  final List<Drill> drills;
+  final void Function(Drill drill) onTap;
+
+  const DrillGroupCard({
+    super.key,
+    required this.number,
+    required this.drills,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.creamShadow, width: 3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < drills.length; i++) ...[
+              if (i > 0)
+                const Divider(
+                  height: 2,
+                  thickness: 2,
+                  indent: 10,
+                  endIndent: 10,
+                  color: AppColors.creamShadow,
+                ),
+              InkWell(
+                onTap: () => onTap(drills[i]),
+                child: Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : 8, bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      i == 0
+                          ? _CardHeader(number: number, title: drills[i].title)
+                          : _VariationHeader(title: drills[i].title),
+                      SizedBox(height: i == 0 ? 8 : 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: _NotesPreview(drill: drills[i]),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A card's top row: its [number] on a banner, then [title], then [trailing] (or a chevron).
+class _CardHeader extends StatelessWidget {
+  final int number;
+  final String title;
+  final Widget? trailing;
+
+  const _CardHeader({required this.number, required this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        HudBanner(
+          label: number.toString().padLeft(2, '0'),
+          color: AppColors.banner(number - 1),
+          fontSize: 14,
+          padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: AppFonts.display,
+                fontSize: 17,
+                height: 1.1,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 10, 0),
+          child: trailing ?? const Icon(Icons.chevron_right_rounded, color: AppColors.inkMuted),
+        ),
+      ],
+    );
+  }
+}
+
+/// A variation's title row in a [DrillGroupCard], set in from under the main drill's banner.
+class _VariationHeader extends StatelessWidget {
+  final String title;
+
+  const _VariationHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 14, right: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.subdirectory_arrow_right_rounded, size: 18, color: AppColors.inkMuted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: AppFonts.display,
+                fontSize: 15,
+                height: 1.1,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.inkMuted),
+        ],
       ),
     );
   }

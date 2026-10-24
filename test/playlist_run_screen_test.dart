@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _sizes = [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)];
 
 List<PlaylistEntry> _entries() => [
-  for (final drill in data.drills.take(5))
+  for (final drill in data.allDrills.take(5))
     PlaylistEntry(
       drillId: drill.id,
       config: const DrillConfig(bpm: 90, bpmIncrease: 5, drillRepeat: 3),
@@ -53,7 +53,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: PlaylistResults(entries: _entries())));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      for (final drill in data.drills.take(5)) {
+      for (final drill in data.allDrills.take(5)) {
         expect(find.text(drill.title), findsOneWidget);
       }
     });

@@ -56,11 +56,11 @@ void main() {
     }
 
     testWidgets('to a drill, opens it (with the drills list behind it)', (tester) async {
-      await launch(tester, '/drills/${data.drills.first.id}');
+      await launch(tester, '/drills/${data.allDrills.first.id}');
       expect(find.byType(DrillScreen), findsOneWidget);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
-      expect(find.text(data.drills.first.title), findsOneWidget);
+      expect(find.text(data.allDrills.first.title), findsOneWidget);
     });
 
     testWidgets("to a drill that doesn't exist, shows the unknown page", (tester) async {

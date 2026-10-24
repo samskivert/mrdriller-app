@@ -23,7 +23,7 @@ Future<void> _pumpOverview(WidgetTester tester, Drill drill) async {
 
 void main() {
   testWidgets('every drill overview lays out without errors', (tester) async {
-    for (final drill in drills) {
+    for (final drill in allDrills) {
       await _pumpOverview(tester, drill);
       expect(tester.takeException(), isNull, reason: drill.id);
     }

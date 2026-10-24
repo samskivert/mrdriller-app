@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Drills'), findsWidgets); // header title now, plus the nav link behind it
-    expect(find.text(data.drills.first.title), findsOneWidget);
+    expect(find.text(data.allDrills.first.title), findsOneWidget);
   });
 
   for (final size in const [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)]) {

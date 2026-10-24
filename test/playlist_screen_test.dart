@@ -24,7 +24,7 @@ void _setSize(WidgetTester tester, Size size) {
 
 Playlist _fullPlaylist() {
   final playlist = playlists.create('Warm Up');
-  for (final drill in data.drills.take(4)) {
+  for (final drill in data.allDrills.take(4)) {
     playlists.addEntry(
       playlist.id,
       PlaylistEntry(
@@ -166,7 +166,7 @@ void main() {
 
   testWidgets('a drill played to the end is recorded in the practice log', (tester) async {
     _setSize(tester, const Size(390, 844));
-    final drill = data.drills.first;
+    final drill = data.allDrills.first;
     const config = DrillConfig(bpm: 200);
     var done = false;
     await tester.pumpWidget(

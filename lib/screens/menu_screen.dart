@@ -481,7 +481,7 @@ class _MenuButtons extends StatelessWidget {
           children: [
             CandyMenuButton(
               title: 'Drills',
-              subtitle: '${data.drills.length} drills to master',
+              subtitle: '${data.allDrills.length} drills to master',
               icon: Icons.sports_martial_arts_rounded,
               colors: AppColors.candyBlue,
               onPressed: () => go('/drills'),

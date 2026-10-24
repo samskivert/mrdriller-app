@@ -478,9 +478,9 @@ final Drill dondoko = Drill(
   ],
 );
 
-final Drill threeAgainstTwo = Drill(
-  id: "three-against-two",
-  title: "Three against Two",
+final Drill twoAgainstThree = Drill(
+  id: "two-against-three",
+  title: "Two against Three",
   bpm: 6,
   beeps: [1, 3, 5],
   rows: [
@@ -941,34 +941,32 @@ final Drill shurui = Drill(
   ],
 );
 
-final List<Drill> drills = [
-  addingAccents,
-  allAgainstThree,
-  bachiHakobi,
-  dexter,
-  diddleAndA,
-  dondoko,
-  doubleStrokeRoll,
-  fourAgainstThree,
-  iceSkater,
-  kihon,
-  kodoParadiddle,
-  oneEAndA,
-  oneFourSeven,
-  paradiddleAccents,
-  paradiddleInversions,
-  paradiddles,
-  shurui,
-  singleStrokeRoll,
-  sixteens,
-  threeAgainstTwo,
-  triplets,
+/// Every drill, grouped: each group is a main drill followed by zero or more variations of it.
+final List<List<Drill>> drills = [
+  [paradiddles, paradiddleAccents, paradiddleInversions, kodoParadiddle],
+  [dexter],
+  [oneFourSeven],
+  [dondoko],
+  [oneEAndA, diddleAndA],
+  [triplets],
+  [singleStrokeRoll],
+  [doubleStrokeRoll],
+  [iceSkater],
+  [sixteens],
+  [allAgainstThree, twoAgainstThree, fourAgainstThree],
+  [bachiHakobi],
+  [kihon],
+  [shurui],
+  [addingAccents],
 ];
 
 // dart format on
 
+/// Every drill, main drills and variations alike, in [drills]' order.
+final List<Drill> allDrills = [for (final group in drills) ...group];
+
 Drill? findDrillById(String id) {
-  for (final drill in drills) {
+  for (final drill in allDrills) {
     if (drill.id == id) return drill;
   }
   return null;
