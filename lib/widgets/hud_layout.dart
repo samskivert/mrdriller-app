@@ -8,7 +8,7 @@ import '../util/colors.dart';
 import 'arcade.dart';
 
 /// The arcade screen layout shared by the drill screens: a navy playfield holding [playfield], and
-/// a cream HUD panel -- [hud] across the top of the screen in portrait, or [sidebar] down the right
+/// a cream HUD panel -- [hud] across the top of the screen in portrait, or [sidebar] down the left
 /// of the playfield in landscape -- joined by a frosting drip edge.
 ///
 /// Handles the safe area: in landscape it keeps clear of the camera cutout on whichever side it's
@@ -106,27 +106,27 @@ class _HudLayoutState extends State<HudLayout> {
   Widget _landscape(EdgeInsets safe, double height) => Row(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Expanded(
-        child: Container(
-          color: AppColors.navyTop,
-          // The playfield can run beneath the home indicator.
-          padding: EdgeInsets.only(left: safe.left, top: safe.top),
-          child: _playfield(),
-        ),
-      ),
-      const DripEdge(axis: Axis.vertical),
       Container(
         // Narrower on a short phone held sideways, where every pixel of playfield counts.
-        width: (height < 500 ? 240 : 290) + safe.right,
+        width: (height < 500 ? 240 : 290) + safe.left,
         color: AppColors.cream,
         child: Stack(
           children: [
             const Positioned.fill(child: Bubbles()),
             SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(14, safe.top + 14, safe.right + 14, safe.bottom + 14),
+              padding: EdgeInsets.fromLTRB(safe.left + 14, safe.top + 14, 14, safe.bottom + 14),
               child: widget.sidebar,
             ),
           ],
+        ),
+      ),
+      const DripEdge(axis: Axis.vertical),
+      Expanded(
+        child: Container(
+          color: AppColors.navyTop,
+          // The playfield can run beneath the home indicator.
+          padding: EdgeInsets.only(right: safe.right, top: safe.top),
+          child: _playfield(),
         ),
       ),
     ],

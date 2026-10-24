@@ -415,7 +415,7 @@ class _CandyButtonState extends State<CandyButton> {
 
 /// A strip of round frosting drips in [color] hanging off one edge onto [background] -- the
 /// border between a cream HUD panel and the navy playfield. [axis] horizontal hangs the drips
-/// down from the top edge; vertical hangs them leftwards from the right edge.
+/// down from the top edge; vertical hangs them rightwards from the left edge.
 class DripEdge extends StatelessWidget {
   final Color color;
   final Color background;
@@ -458,7 +458,7 @@ class _DripPainter extends CustomPainter {
       for (final (offset, radius) in const [(18.0, 11.0), (31.0, 7.0)]) {
         final along = p + offset;
         canvas.drawCircle(
-          axis == Axis.horizontal ? Offset(along, 0) : Offset(size.width, along),
+          axis == Axis.horizontal ? Offset(along, 0) : Offset(0, along),
           radius,
           paint,
         );
