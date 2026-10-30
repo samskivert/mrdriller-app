@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/cloud_store.dart';
 import 'package:mrdriller/state/drill_config.dart';
@@ -50,8 +51,13 @@ void main() {
 
     test("a metronome entry's preset name comes back from the cloud", () async {
       await _launch({});
-      practiceLog.recordMetronome(name: 'Fast', bpm: 180, seconds: 75);
-      practiceLog.recordMetronome(bpm: 90, seconds: 60);
+      // At different times, as entries made in the same millisecond would be taken as one.
+      withClock(Clock.fixed(DateTime(2026, 10, 1, 9)), () {
+        practiceLog.recordMetronome(name: 'Fast', bpm: 180, seconds: 75);
+      });
+      withClock(Clock.fixed(DateTime(2026, 10, 1, 10)), () {
+        practiceLog.recordMetronome(bpm: 90, seconds: 60);
+      });
       await _launch({});
       expect(practiceLog.entries.map((e) => (e.drillId, e.title, e.config.bpm, e.seconds)), {
         (metronomeId, null, 90, 60),
