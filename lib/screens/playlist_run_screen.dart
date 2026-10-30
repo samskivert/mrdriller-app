@@ -11,6 +11,7 @@ import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/drill_overview_view.dart';
 import '../widgets/drill_practice_host.dart';
+import '../widgets/drill_status_view.dart';
 import '../widgets/hud_layout.dart';
 
 const _introDuration = Duration(seconds: 5);
@@ -92,6 +93,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
 
     final entry = _entries[_index];
     final drill = _activeDrillFor(entry)!;
+    final drillCount = _DrillCountCard(index: _index, count: _entries.length);
     if (_phase == _Phase.running) {
       return DrillPracticeHost(
         key: ValueKey(_index),
@@ -101,11 +103,11 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
         config: entry.config,
         // There are usually more drills to come, so not "ALL CLEAR!".
         clearText: 'DRILL CLEAR!',
+        sidebarFooter: drillCount,
         onDone: _handleDrillDone,
       );
     }
 
-    final stage = _StageCard(index: _index, count: _entries.length);
     final startNow = CandyButton(
       label: 'START NOW',
       icon: Icons.skip_next_rounded,
@@ -117,8 +119,8 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
         key: ValueKey(_index),
         drill: drill,
         config: entry.config,
-        stage: _index + 1,
-        stages: _entries.length,
+        number: _index + 1,
+        count: _entries.length,
       ),
       hud: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
@@ -132,7 +134,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            stage,
+            drillCount,
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: startNow),
           ],
@@ -149,7 +151,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          stage,
+          drillCount,
           const SizedBox(height: 14),
           startNow,
         ],
@@ -164,112 +166,32 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
   }
 }
 
-/// The HUD's progress through the playlist: STAGE n/N, and a pip for every drill in it (cleared ones
-/// checked off, the current one in gold).
-class _StageCard extends StatelessWidget {
+/// The HUD's progress through the playlist: which drill this is, DRILL n/N.
+class _DrillCountCard extends StatelessWidget {
   final int index;
   final int count;
 
-  const _StageCard({required this.index, required this.count});
+  const _DrillCountCard({required this.index, required this.count});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(0, 0, 10, 10),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const HudBanner(label: 'Stage', color: AppColors.bannerBlue),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: DigitTiles(value: '${index + 1}/$count', height: 28),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.only(left: 10),
-            child: Semantics(
-              label: '$index of $count drills cleared',
-              excludeSemantics: true,
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (var i = 0; i < count; i++)
-                    _StagePip(number: i + 1, cleared: i < index, current: i == index),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StagePip extends StatelessWidget {
-  final int number;
-  final bool cleared;
-  final bool current;
-
-  const _StagePip({required this.number, required this.cleared, required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    final green = AppColors.candyGreen;
-    return Container(
-      width: 26,
-      height: 26,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: cleared ? green.base : (current ? AppColors.gold : null),
-        border: cleared || current ? null : Border.all(color: AppColors.creamShadow, width: 2),
-        boxShadow: [
-          if (cleared) BoxShadow(color: green.outline, offset: const Offset(0, 2)),
-          if (current) const BoxShadow(color: AppColors.goldOutline, offset: Offset(0, 2)),
-        ],
-      ),
-      child: cleared
-          ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
-          : Text(
-              '$number',
-              style: TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w900,
-                color: current ? AppColors.goldOutline : AppColors.inkMuted,
-              ),
-            ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      BigReadoutCard(label: 'Drill', color: AppColors.bannerBlue, value: '${index + 1}/$count');
 }
 
 /// The playfield while the next drill is introduced: a preview of the drill, under a translucent
-/// scrim showing which stage it is, its name and settings, and a bar counting down to its start.
+/// scrim showing which drill of the playlist it is, its name and settings, and a bar counting down to its start.
 class _IntroView extends StatelessWidget {
   final Drill drill;
   final DrillConfig config;
-  final int stage;
-  final int stages;
+  final int number;
+  final int count;
 
   const _IntroView({
     super.key,
     required this.drill,
     required this.config,
-    required this.stage,
-    required this.stages,
+    required this.number,
+    required this.count,
   });
 
   @override
@@ -312,7 +234,7 @@ class _IntroView extends StatelessWidget {
                           ],
                         ),
                         child: Text(
-                          'STAGE $stage OF $stages',
+                          'DRILL $number OF $count',
                           style: const TextStyle(
                             fontFamily: AppFonts.body,
                             fontSize: 17,

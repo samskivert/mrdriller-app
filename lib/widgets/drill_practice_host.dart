@@ -12,7 +12,7 @@ import 'hud_layout.dart';
 /// The screen-level shell for running one drill, laid out like the arcade game (see [HudLayout]):
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
 /// and a cream HUD (back button, [title] and [subtitle], the [DrillStatusView] readouts and a
-/// [PauseButton]).
+/// [PauseButton]), plus an optional [sidebarFooter] below the readouts in the landscape sidebar.
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
 /// finishes on its own, it's recorded in the [practiceLog] before [onDone] is called.
 ///
@@ -26,6 +26,8 @@ class DrillPracticeHost extends StatefulWidget {
   final DrillConfig config;
   // E.g. ALL CLEAR!, celebrated once the drill is done.
   final String clearText;
+  // E.g. a playlist run's progress, shown in the sidebar (only) below the readouts.
+  final Widget? sidebarFooter;
   final VoidCallback onDone;
 
   const DrillPracticeHost({
@@ -35,6 +37,7 @@ class DrillPracticeHost extends StatefulWidget {
     required this.drill,
     required this.config,
     this.clearText = 'ALL CLEAR!',
+    this.sidebarFooter,
     required this.onDone,
   });
 
@@ -126,9 +129,10 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             ],
           ),
           const SizedBox(height: 14),
-          _statusView(vertical: true),
-          const SizedBox(height: 14),
           PauseButton(metronome: _metronome, showLabel: true),
+          const SizedBox(height: 14),
+          _statusView(vertical: true),
+          if (widget.sidebarFooter case final footer?) ...[const SizedBox(height: 14), footer],
         ],
       ),
     );

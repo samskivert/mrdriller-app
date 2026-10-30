@@ -9,6 +9,7 @@
 
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -143,7 +144,7 @@ class PracticeLog extends ChangeNotifier {
   /// called [name] (or its main settings, if null).
   void recordMetronome({String? name, required int bpm, required int seconds}) => add(
     PracticeLogEntry(
-      completedAt: DateTime.now(),
+      completedAt: clock.now(),
       drillId: metronomeId,
       config: DrillConfig(bpm: bpm),
       seconds: seconds,
@@ -154,7 +155,7 @@ class PracticeLog extends ChangeNotifier {
   /// Records that [drill] was just completed at [config].
   void recordDrill(Drill drill, DrillConfig config) => add(
     PracticeLogEntry(
-      completedAt: DateTime.now(),
+      completedAt: clock.now(),
       drillId: drill.id,
       config: config,
       seconds: drillDuration(drill, config).round(),

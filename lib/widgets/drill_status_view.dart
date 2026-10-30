@@ -55,9 +55,9 @@ class DrillStatusView extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _bigCard('BPM', AppColors.bannerOrange, bpm, increase),
+          BigReadoutCard(label: 'BPM', color: AppColors.bannerOrange, value: bpm, sub: increase),
           const SizedBox(height: 10),
-          _bigCard(loopLabel, AppColors.bannerRed, loop, null),
+          BigReadoutCard(label: loopLabel, color: AppColors.bannerRed, value: loop),
         ],
       );
     }
@@ -79,17 +79,11 @@ class DrillStatusView extends StatelessWidget {
     );
   }
 
-  static final _cardDecoration = BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(14),
-    boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-  );
-
   // A HUD readout: a white card with its banner tab in the top-left corner and [sub] (if any)
   // under it, and [value] in digit tiles on the right, centered top to bottom.
   Widget _wideCard(String label, Color color, String value, String? sub) => Container(
     clipBehavior: Clip.antiAlias,
-    decoration: _cardDecoration,
+    decoration: _readoutCardDecoration,
     child: IntrinsicHeight(
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -111,11 +105,46 @@ class DrillStatusView extends StatelessWidget {
       ),
     ),
   );
+}
 
-  // A sidebar readout: a white card with its banner tab in the top-left corner and [value] in big right-aligned digit tiles below, readable from across the room.
-  Widget _bigCard(String label, Color color, String value, String? sub) => Container(
+final _readoutCardDecoration = BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(14),
+  boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+);
+
+Widget _sub(String text, {double fontSize = 11}) => Text(
+  text,
+  style: TextStyle(
+    fontFamily: AppFonts.body,
+    fontSize: fontSize,
+    height: 1,
+    fontWeight: FontWeight.w800,
+    color: AppColors.inkMuted,
+  ),
+);
+
+/// A sidebar readout: a white card with its [label] banner tab in the top-left corner and [value]
+/// in big right-aligned digit tiles below (and [sub], if any, under them), readable from across the
+/// room.
+class BigReadoutCard extends StatelessWidget {
+  final String label;
+  final Color color;
+  final String value;
+  final String? sub;
+
+  const BigReadoutCard({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.value,
+    this.sub,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
     clipBehavior: Clip.antiAlias,
-    decoration: _cardDecoration,
+    decoration: _readoutCardDecoration,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -133,7 +162,7 @@ class DrillStatusView extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: DigitTiles(value: value, height: 72),
               ),
-              if (sub != null) ...[
+              if (sub case final sub?) ...[
                 const SizedBox(height: 6),
                 Align(alignment: Alignment.centerRight, child: _sub(sub, fontSize: 20)),
               ],
@@ -141,17 +170,6 @@ class DrillStatusView extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
-
-  Widget _sub(String text, {double fontSize = 11}) => Text(
-    text,
-    style: TextStyle(
-      fontFamily: AppFonts.body,
-      fontSize: fontSize,
-      height: 1,
-      fontWeight: FontWeight.w800,
-      color: AppColors.inkMuted,
     ),
   );
 }
