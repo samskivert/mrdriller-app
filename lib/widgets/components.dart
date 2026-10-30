@@ -95,7 +95,8 @@ const List<(String, String)> introText = [('ICHI', 'いち'), ('NI', 'に'), ('S
 /// The count-in display: the current call ([index] into [introText]) in big puffy text, over a
 /// row of pips for all four calls. A negative [index] means the count-in hasn't started yet: all
 /// the pips are unlit and the big text is hidden (though it still takes up its space, so nothing
-/// jumps when the first call appears). [size] is the puffy text's font size.
+/// jumps when the first call appears). [size] is the puffy text's font size, and the pips scale with
+/// it.
 class CountIn extends StatelessWidget {
   final int index;
   final double size;
@@ -105,6 +106,7 @@ class CountIn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = index < 0 ? -1 : math.min(index, introText.length - 1);
+    final scale = size / 72;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -118,8 +120,13 @@ class CountIn extends StatelessWidget {
           children: [
             for (var i = 0; i < introText.length; i++)
               Padding(
-                padding: EdgeInsets.only(left: i == 0 ? 0 : 10),
-                child: _CountPip(label: introText[i].$2, past: i < current, current: i == current),
+                padding: EdgeInsets.only(left: i == 0 ? 0 : 10 * scale),
+                child: _CountPip(
+                  label: introText[i].$2,
+                  past: i < current,
+                  current: i == current,
+                  scale: scale,
+                ),
               ),
           ],
         ),
@@ -132,13 +139,19 @@ class _CountPip extends StatelessWidget {
   final String label;
   final bool past;
   final bool current;
+  final double scale;
 
-  const _CountPip({required this.label, required this.past, required this.current});
+  const _CountPip({
+    required this.label,
+    required this.past,
+    required this.current,
+    required this.scale,
+  });
 
   @override
   Widget build(BuildContext context) {
     final candy = current ? AppColors.candyPink : AppColors.candyOrange;
-    final size = current ? 64.0 : 54.0;
+    final size = (current ? 64.0 : 54.0) * scale;
     final filled = past || current;
     return Opacity(
       opacity: past ? 0.75 : 1,
@@ -158,15 +171,23 @@ class _CountPip extends StatelessWidget {
               : null,
           border: filled
               ? null
-              : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5),
+              : Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2.5 * scale),
           // Painted in order: the current pip's glow, then a white ring around both the pip and its
           // solid 3D lip below it (hence shifted down by half the lip), then the lip itself.
           boxShadow: [
             if (current) ...[
-              BoxShadow(color: candy.base.withValues(alpha: 0.55), blurRadius: 26, spreadRadius: 8),
-              const BoxShadow(color: Colors.white, spreadRadius: 4, offset: Offset(0, 1.5)),
+              BoxShadow(
+                color: candy.base.withValues(alpha: 0.55),
+                blurRadius: 26 * scale,
+                spreadRadius: 8 * scale,
+              ),
+              BoxShadow(
+                color: Colors.white,
+                spreadRadius: 4 * scale,
+                offset: Offset(0, 1.5 * scale),
+              ),
             ],
-            if (filled) BoxShadow(color: candy.outline, offset: const Offset(0, 3)),
+            if (filled) BoxShadow(color: candy.outline, offset: Offset(0, 3 * scale)),
           ],
         ),
         child: filled
@@ -174,19 +195,19 @@ class _CountPip extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily: AppFonts.body,
-                  fontSize: current ? 20 : 16,
+                  fontSize: (current ? 20 : 16) * scale,
                   height: 1,
                   fontWeight: FontWeight.w900,
                 ),
                 color: Colors.white,
                 outline: candy.outline,
-                outlineWidth: 2,
+                outlineWidth: 2 * scale,
               )
             : Text(
                 label,
                 style: TextStyle(
                   fontFamily: AppFonts.body,
-                  fontSize: 16,
+                  fontSize: 16 * scale,
                   height: 1,
                   fontWeight: FontWeight.w900,
                   color: Colors.white.withValues(alpha: 0.75),
@@ -196,6 +217,12 @@ class _CountPip extends StatelessWidget {
     );
   }
 }
+
+/// How much to scale up an overlay on the playfield (like [CountInOverlay]), laid out at a size
+/// that fits a phone, to fill a playfield of [constraints] on a big screen (a tablet or desktop).
+/// It's never scaled down here: the overlay is shrunk to fit if it's still too big.
+double playfieldOverlayScale(BoxConstraints constraints) =>
+    math.min(constraints.maxWidth / 600, constraints.maxHeight / 400).clamp(1.0, 3.0);
 
 /// The count-in, overlaid on the playfield: what's behind it stays visible through a translucent
 /// navy scrim, so you can see what's coming while it counts you in. Shows [heading] (e.g. GET
@@ -216,55 +243,57 @@ class CountInOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: const Color(0xC7090E20),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 27, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: const [
-                      BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4)),
-                    ],
-                  ),
-                  child: Text(
-                    heading,
-                    style: const TextStyle(
-                      fontFamily: AppFonts.body,
-                      fontSize: 20,
-                      height: 1,
-                      fontWeight: FontWeight.w900,
-                      fontStyle: FontStyle.italic,
-                      letterSpacing: 3.4,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                CountIn(index: index, size: 104),
-                const SizedBox(height: 22),
-                Text(
-                  details,
-                  style: const TextStyle(
-                    fontFamily: AppFonts.body,
-                    fontSize: 22,
-                    height: 1,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                    color: AppColors.cream,
-                  ),
-                ),
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = playfieldOverlayScale(constraints);
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.all(20 * scale),
+              child: FittedBox(fit: BoxFit.scaleDown, child: _info(scale)),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
+
+  Widget _info(double scale) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        padding: EdgeInsets.symmetric(horizontal: 27 * scale, vertical: 14 * scale),
+        decoration: BoxDecoration(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(24 * scale),
+          boxShadow: [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4 * scale))],
+        ),
+        child: Text(
+          heading,
+          style: TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 20 * scale,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 3.4 * scale,
+            color: AppColors.ink,
+          ),
+        ),
+      ),
+      SizedBox(height: 22 * scale),
+      CountIn(index: index, size: 104 * scale),
+      SizedBox(height: 22 * scale),
+      Text(
+        details,
+        style: TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 22 * scale,
+          height: 1,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1 * scale,
+          color: AppColors.cream,
+        ),
+      ),
+    ],
+  );
 }

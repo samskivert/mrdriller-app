@@ -9,6 +9,7 @@ import '../state/drill_config.dart';
 import '../state/playlists.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
+import '../widgets/components.dart';
 import '../widgets/drill_overview_view.dart';
 import '../widgets/drill_practice_host.dart';
 import '../widgets/drill_status_view.dart';
@@ -151,9 +152,9 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          drillCount,
-          const SizedBox(height: 14),
           startNow,
+          const SizedBox(height: 14),
+          drillCount,
         ],
       ),
     );
@@ -179,7 +180,8 @@ class _DrillCountCard extends StatelessWidget {
 }
 
 /// The playfield while the next drill is introduced: a preview of the drill, under a translucent
-/// scrim showing which drill of the playlist it is, its name and settings, and a bar counting down to its start.
+/// scrim showing which drill of the playlist it is, its name and settings, and a bar counting down
+/// to its start.
 class _IntroView extends StatelessWidget {
   final Drill drill;
   final DrillConfig config;
@@ -216,86 +218,88 @@ class _IntroView extends StatelessWidget {
         Positioned.fill(
           child: ColoredBox(
             color: const Color(0xC7090E20),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
-                        decoration: BoxDecoration(
-                          color: AppColors.cream,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: const [
-                            BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4)),
-                          ],
-                        ),
-                        child: Text(
-                          'DRILL $number OF $count',
-                          style: const TextStyle(
-                            fontFamily: AppFonts.body,
-                            fontSize: 17,
-                            height: 1,
-                            fontWeight: FontWeight.w900,
-                            fontStyle: FontStyle.italic,
-                            letterSpacing: 3,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 560),
-                        child: PuffyText(drill.title, size: 44, textAlign: TextAlign.center),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        details,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.body,
-                          fontSize: 18,
-                          height: 1,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.cream,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      // Drains over the intro, counting down to the drill's start.
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 1, end: 0),
-                        duration: _introDuration,
-                        builder: (context, remaining, _) => Container(
-                          width: 240,
-                          height: 10,
-                          alignment: Alignment.centerLeft,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: FractionallySizedBox(
-                            widthFactor: remaining,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: AppColors.gold,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final scale = playfieldOverlayScale(constraints);
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20 * scale),
+                    child: FittedBox(fit: BoxFit.scaleDown, child: _info(details, scale)),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ),
       ],
     );
   }
+
+  Widget _info(String details, double scale) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        padding: EdgeInsets.symmetric(horizontal: 22 * scale, vertical: 11 * scale),
+        decoration: BoxDecoration(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(20 * scale),
+          boxShadow: [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 4 * scale))],
+        ),
+        child: Text(
+          'DRILL $number OF $count',
+          style: TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 17 * scale,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 3 * scale,
+            color: AppColors.ink,
+          ),
+        ),
+      ),
+      SizedBox(height: 22 * scale),
+      ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 560 * scale),
+        child: PuffyText(drill.title, size: 44 * scale, textAlign: TextAlign.center),
+      ),
+      SizedBox(height: 18 * scale),
+      Text(
+        details,
+        style: TextStyle(
+          fontFamily: AppFonts.body,
+          fontSize: 18 * scale,
+          height: 1,
+          fontWeight: FontWeight.w900,
+          color: AppColors.cream,
+        ),
+      ),
+      SizedBox(height: 24 * scale),
+      // Drains over the intro, counting down to the drill's start.
+      TweenAnimationBuilder<double>(
+        tween: Tween(begin: 1, end: 0),
+        duration: _introDuration,
+        builder: (context, remaining, _) => Container(
+          width: 240 * scale,
+          height: 10 * scale,
+          alignment: Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(5 * scale),
+          ),
+          child: FractionallySizedBox(
+            widthFactor: remaining,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.gold,
+                borderRadius: BorderRadius.circular(5 * scale),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 /// The end of the run: STAGE CLEAR!, a results card (how many drills, the total time, the top bpm

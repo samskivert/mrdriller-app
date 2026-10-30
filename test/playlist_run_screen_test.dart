@@ -7,7 +7,7 @@ import 'package:mrdriller/state/playlists.dart';
 import 'package:mrdriller/widgets/drill_practice_host.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _sizes = [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)];
+const _sizes = [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800), Size(1920, 1200)];
 
 List<PlaylistEntry> _entries() => [
   for (final drill in data.allDrills.take(5))
@@ -38,7 +38,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
-      expect(find.text('STAGE 1 OF 5'), findsOneWidget);
+      expect(find.text('DRILL 1 OF 5'), findsOneWidget);
       expect(find.text('Warm Up'), findsWidgets);
 
       // START NOW skips the rest of the intro.
