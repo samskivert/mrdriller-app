@@ -26,21 +26,26 @@ class DrillRunStatus {
   double get progress => totalSeconds > 0 ? (elapsedSeconds / totalSeconds).clamp(0, 1) : 0;
 }
 
-/// Shows a running drill's BPM and which repeat of the drill this is, as the game's HUD readouts
-/// in digit tiles. (The playfield's depth ruler shows overall progress.) [vertical] stacks them in
-/// big cards (for a sidebar, readable from a drum across the room) instead of side by side (for a
-/// HUD across the top of the screen).
+/// Another readout to show alongside a running drill's BPM and loop, e.g. a playlist's DRILL n/N.
+typedef ExtraReadout = ({String label, Color color, String value});
+
+/// Shows a running drill's BPM and which repeat of the drill this is (and [extra], if any), as the
+/// game's HUD readouts in digit tiles. (The playfield's depth ruler shows overall progress.)
+/// [vertical] stacks them in big cards (for a sidebar, readable from a drum across the room)
+/// instead of side by side (for a HUD across the top of the screen).
 class DrillStatusView extends StatelessWidget {
   final DrillRunStatus status;
   final bool vertical;
   // What the drill's repeats are called, e.g. a pattern trainer's patterns.
   final String loopLabel;
+  final ExtraReadout? extra;
 
   const DrillStatusView({
     super.key,
     required this.status,
     this.vertical = false,
     this.loopLabel = 'Loop',
+    this.extra,
   });
 
   @override
@@ -50,126 +55,162 @@ class DrillStatusView extends StatelessWidget {
     final increase = status.bpmIncrease > 0 && status.drillRepeat > 1
         ? '+${status.bpmIncrease} each loop'
         : null;
-
-    if (vertical) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          BigReadoutCard(label: 'BPM', color: AppColors.bannerOrange, value: bpm, sub: increase),
-          const SizedBox(height: 10),
-          BigReadoutCard(label: loopLabel, color: AppColors.bannerRed, value: loop),
-        ],
-      );
-    }
-
-    // Each card at its natural width, the pair centered, and all shrunk to fit if too wide (e.g. a
-    // long loop count on a small phone).
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _wideCard('BPM', AppColors.bannerOrange, bpm, increase),
-            const SizedBox(width: 10),
-            _wideCard(loopLabel, AppColors.bannerRed, loop, null),
-          ],
-        ),
+    // Two fit side by side in their wide style, but a third needs them all stacked.
+    final style = vertical
+        ? ReadoutStyle.big
+        : (extra == null ? ReadoutStyle.wide : ReadoutStyle.stacked);
+    final cards = [
+      ReadoutCard(
+        label: 'BPM',
+        color: AppColors.bannerOrange,
+        value: bpm,
+        sub: increase,
+        style: style,
       ),
-    );
-  }
+      ReadoutCard(label: loopLabel, color: AppColors.bannerRed, value: loop, style: style),
+      if (extra case final extra?)
+        ReadoutCard(label: extra.label, color: extra.color, value: extra.value, style: style),
+    ];
 
-  // A HUD readout: a white card with its banner tab in the top-left corner and [sub] (if any)
-  // under it, and [value] in digit tiles on the right, centered top to bottom.
-  Widget _wideCard(String label, Color color, String value, String? sub) => Container(
-    clipBehavior: Clip.antiAlias,
-    decoration: _readoutCardDecoration,
-    child: IntrinsicHeight(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    switch (style) {
+      case ReadoutStyle.big:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, card) in cards.indexed) ...[if (i > 0) const SizedBox(height: 10), card],
+          ],
+        );
+      case ReadoutStyle.wide:
+        // Each card at its natural width, the pair centered, and all shrunk to fit if too wide
+        // (e.g. a long loop count on a small phone).
+        return Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [cards[0], const SizedBox(width: 10), cards[1]],
+            ),
+          ),
+        );
+      case ReadoutStyle.stacked:
+        // Sharing the width equally, all as tall as the tallest.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              HudBanner(label: label, color: color),
-              if (sub != null)
-                Padding(padding: const EdgeInsets.fromLTRB(10, 8, 0, 10), child: _sub(sub)),
+              for (final (i, card) in cards.indexed) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: card),
+              ],
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-            child: Center(child: DigitTiles(value: value)),
-          ),
-        ],
-      ),
-    ),
-  );
+        );
+    }
+  }
 }
 
-final _readoutCardDecoration = BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(14),
-  boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
-);
+/// How a [ReadoutCard] is laid out: [wide] (its value right of its banner), [stacked] (its value
+/// centered below its banner), both for the portrait HUD, or [big] (for a sidebar).
+enum ReadoutStyle { wide, stacked, big }
 
-Widget _sub(String text, {double fontSize = 11}) => Text(
-  text,
-  style: TextStyle(
-    fontFamily: AppFonts.body,
-    fontSize: fontSize,
-    height: 1,
-    fontWeight: FontWeight.w800,
-    color: AppColors.inkMuted,
-  ),
-);
-
-/// A sidebar readout: a white card with its [label] banner tab in the top-left corner and [value]
-/// in big right-aligned digit tiles below (and [sub], if any, under them), readable from across the
-/// room.
-class BigReadoutCard extends StatelessWidget {
+/// A HUD readout: a white card with its [label] banner tab in the top-left corner, and [value] in
+/// digit tiles (and [sub], if any, as a note), laid out according to [style]:
+/// - [ReadoutStyle.wide]: [sub] under the banner, and [value] on the right, centered top to
+///   bottom.
+/// - [ReadoutStyle.stacked]: [value] centered below the banner, and [sub] under it.
+/// - [ReadoutStyle.big]: [value] in big right-aligned tiles below the banner, and [sub] under it,
+///   readable from across the room.
+class ReadoutCard extends StatelessWidget {
   final String label;
   final Color color;
   final String value;
   final String? sub;
+  final ReadoutStyle style;
 
-  const BigReadoutCard({
+  const ReadoutCard({
     super.key,
     required this.label,
     required this.color,
     required this.value,
     this.sub,
+    this.style = ReadoutStyle.wide,
   });
+
+  static final _decoration = BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(14),
+    boxShadow: const [BoxShadow(color: AppColors.creamShadow, offset: Offset(0, 3))],
+  );
 
   @override
   Widget build(BuildContext context) => Container(
     clipBehavior: Clip.antiAlias,
-    decoration: _readoutCardDecoration,
-    child: Column(
+    decoration: _decoration,
+    child: switch (style) {
+      ReadoutStyle.wide => _wide(),
+      ReadoutStyle.stacked => _below(height: 32, align: Alignment.center, subSize: 11),
+      ReadoutStyle.big => _below(height: 72, align: Alignment.centerRight, subSize: 20),
+    },
+  );
+
+  Widget _wide() => IntrinsicHeight(
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: HudBanner(label: label, color: color),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            HudBanner(label: label, color: color),
+            if (sub case final sub?)
+              Padding(padding: const EdgeInsets.fromLTRB(10, 8, 0, 10), child: _sub(sub, 11)),
+          ],
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: DigitTiles(value: value, height: 72),
-              ),
-              if (sub case final sub?) ...[
-                const SizedBox(height: 6),
-                Align(alignment: Alignment.centerRight, child: _sub(sub, fontSize: 20)),
-              ],
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+          child: Center(child: DigitTiles(value: value)),
         ),
       ],
+    ),
+  );
+
+  // The value (and sub) below the banner, aligned by [align].
+  Widget _below({required double height, required Alignment align, required double subSize}) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: HudBanner(label: label, color: color),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: align,
+                  child: DigitTiles(value: value, height: height),
+                ),
+                if (sub case final sub?) ...[
+                  SizedBox(height: subSize * 0.3),
+                  Align(alignment: align, child: _sub(sub, subSize)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _sub(String text, double fontSize) => Text(
+    text,
+    style: TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: fontSize,
+      height: 1,
+      fontWeight: FontWeight.w800,
+      color: AppColors.inkMuted,
     ),
   );
 }

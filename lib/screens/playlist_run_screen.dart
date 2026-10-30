@@ -94,17 +94,20 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
 
     final entry = _entries[_index];
     final drill = _activeDrillFor(entry)!;
-    final drillCount = _DrillCountCard(index: _index, count: _entries.length);
+    final drillCount = (
+      label: 'Drill',
+      color: AppColors.bannerBlue,
+      value: '${_index + 1}/${_entries.length}',
+    );
     if (_phase == _Phase.running) {
       return DrillPracticeHost(
         key: ValueKey(_index),
         title: drill.title,
-        subtitle: '${_index + 1} of ${_entries.length}',
         drill: drill,
         config: entry.config,
         // There are usually more drills to come, so not "ALL CLEAR!".
         clearText: 'DRILL CLEAR!',
-        sidebarFooter: drillCount,
+        extraReadout: drillCount,
         onDone: _handleDrillDone,
       );
     }
@@ -135,7 +138,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            drillCount,
+            ReadoutCard(label: drillCount.label, color: drillCount.color, value: drillCount.value),
             const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: startNow),
           ],
@@ -154,7 +157,12 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
           const SizedBox(height: 14),
           startNow,
           const SizedBox(height: 14),
-          drillCount,
+          ReadoutCard(
+            label: drillCount.label,
+            color: drillCount.color,
+            value: drillCount.value,
+            style: ReadoutStyle.big,
+          ),
         ],
       ),
     );
@@ -165,18 +173,6 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
     if (drill == null) return null;
     return entry.config.swapHands ? swapHands(drill) : drill;
   }
-}
-
-/// The HUD's progress through the playlist: which drill this is, DRILL n/N.
-class _DrillCountCard extends StatelessWidget {
-  final int index;
-  final int count;
-
-  const _DrillCountCard({required this.index, required this.count});
-
-  @override
-  Widget build(BuildContext context) =>
-      BigReadoutCard(label: 'Drill', color: AppColors.bannerBlue, value: '${index + 1}/$count');
 }
 
 /// The playfield while the next drill is introduced: a preview of the drill, under a translucent

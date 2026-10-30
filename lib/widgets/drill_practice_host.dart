@@ -11,8 +11,8 @@ import 'hud_layout.dart';
 
 /// The screen-level shell for running one drill, laid out like the arcade game (see [HudLayout]):
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
-/// and a cream HUD (back button, [title] and [subtitle], the [DrillStatusView] readouts and a
-/// [PauseButton]), plus an optional [sidebarFooter] below the readouts in the landscape sidebar.
+/// and a cream HUD (back button, [title], the [DrillStatusView] readouts (plus [extraReadout], if
+/// any) and a [PauseButton]).
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
 /// finishes on its own, it's recorded in the [practiceLog] before [onDone] is called.
 ///
@@ -21,23 +21,21 @@ import 'hud_layout.dart';
 /// instead of one being update-reused for another.
 class DrillPracticeHost extends StatefulWidget {
   final String title;
-  final String? subtitle;
   final Drill drill;
   final DrillConfig config;
   // E.g. ALL CLEAR!, celebrated once the drill is done.
   final String clearText;
-  // E.g. a playlist run's progress, shown in the sidebar (only) below the readouts.
-  final Widget? sidebarFooter;
+  // E.g. a playlist run's progress.
+  final ExtraReadout? extraReadout;
   final VoidCallback onDone;
 
   const DrillPracticeHost({
     super.key,
     required this.title,
-    this.subtitle,
     required this.drill,
     required this.config,
     this.clearText = 'ALL CLEAR!',
-    this.sidebarFooter,
+    this.extraReadout,
     required this.onDone,
   });
 
@@ -72,7 +70,8 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
 
   Widget _statusView({required bool vertical}) => ValueListenableBuilder(
     valueListenable: _status,
-    builder: (context, status, _) => DrillStatusView(status: status, vertical: vertical),
+    builder: (context, status, _) =>
+        DrillStatusView(status: status, vertical: vertical, extra: widget.extraReadout),
   );
 
   @override
@@ -106,7 +105,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             children: [
               const HudBackButton(),
               const SizedBox(width: 12),
-              Expanded(child: HudTitle(widget.title, subtitle: widget.subtitle)),
+              Expanded(child: HudTitle(widget.title)),
               const SizedBox(width: 12),
               PauseButton(metronome: _metronome),
             ],
@@ -125,14 +124,13 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             children: [
               const HudBackButton(),
               const SizedBox(width: 10),
-              Expanded(child: HudTitle(widget.title, subtitle: widget.subtitle, sidebar: true)),
+              Expanded(child: HudTitle(widget.title, sidebar: true)),
             ],
           ),
           const SizedBox(height: 14),
           PauseButton(metronome: _metronome, showLabel: true),
           const SizedBox(height: 14),
           _statusView(vertical: true),
-          if (widget.sidebarFooter case final footer?) ...[const SizedBox(height: 14), footer],
         ],
       ),
     );
