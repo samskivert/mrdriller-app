@@ -357,7 +357,7 @@ class _NotesPainter extends CustomPainter {
   bool shouldRepaint(covariant _NotesPainter oldDelegate) => oldDelegate.note != note;
 }
 
-/// PLAY, or PAUSE while [player] plays.
+/// PLAY, or STOP while [player] plays.
 class MetronomePlayButton extends StatelessWidget {
   final MetronomePlayer player;
 
@@ -369,8 +369,8 @@ class MetronomePlayButton extends StatelessWidget {
       listenable: player,
       builder: (context, _) => player.playing
           ? CandyButton(
-              label: 'PAUSE',
-              icon: Icons.pause_rounded,
+              label: 'STOP',
+              icon: Icons.stop_rounded,
               colors: AppColors.candyOrange,
               height: 76,
               fontSize: 76 * 0.3,
