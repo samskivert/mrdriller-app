@@ -24,9 +24,7 @@ class MetronomeSounds {
 
   /// Resolves once both tones are loaded and playable. Loading is asynchronous even for these
   /// tiny local assets -- it can never complete within the same synchronous call stack that
-  /// constructs this class. A caller that fires its first tick immediately after construction (as
-  /// the drill practice screen does, so the first beat lines up with the moment the screen
-  /// appears) needs to await this first, or that first tick's sound has nothing loaded to play.
+  /// constructs this class. Callers should await [start] rather than this, though.
   late final Future<void> ready;
 
   MetronomeSounds() {
@@ -38,9 +36,24 @@ class MetronomeSounds {
   Future<void> _load() async {
     try {
       await Future.wait([loadSound(_beep), loadSound(_boop)]);
-      _keepDeviceRunning(true);
     } catch (e) {
       logSound('metronome tones failed to load: $e');
+    }
+  }
+
+  /// Gets ready to play: resolves once the tones are loaded *and* the audio output device is
+  /// running. Await this before the first beat (and before resuming after [pause]). SoLoud stops
+  /// its device when nothing has played for a while, and if the first beat is what starts it
+  /// again, that beat (and often the next couple) comes out late while the device spins up, which
+  /// was audible as a stuttering start to every drill. Starting it ahead of time avoids that.
+  Future<void> start() async {
+    await ready;
+    if (_disposed || !SoLoud.instance.isInitialized) return;
+    _keepDeviceRunning(true);
+    try {
+      await SoLoud.instance.startAudioDevice();
+    } catch (e) {
+      logSound('audio device failed to start: $e');
     }
   }
 

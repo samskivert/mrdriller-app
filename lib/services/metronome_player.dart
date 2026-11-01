@@ -79,7 +79,7 @@ class MetronomePlayer extends ChangeNotifier {
     notifyListeners();
     WakelockPlus.enable();
     final sounds = _sounds ??= _makeSounds();
-    await sounds.ready;
+    await sounds.start();
     if (_disposed || !_playing) return;
     _playingSince = clock.now();
     _playNext();

@@ -7,6 +7,7 @@ import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../util/colors.dart';
+import '../util/route_settled.dart';
 import '../widgets/arcade.dart';
 import '../widgets/components.dart';
 import '../widgets/drill_practice_view.dart';
@@ -248,10 +249,9 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
     ];
     _metronome.addListener(_handleMetronomeActiveChanged);
     _sounds = MetronomeSounds();
-    // Wait for the tones to finish loading before processing the very first beat -- otherwise
-    // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
-    // silently gets dropped.
-    _sounds!.ready.then((_) {
+    // Wait for the tones to load and the audio device to start, and for this screen to finish
+    // sliding in, before processing the very first beat (see DrillPracticeView.initState).
+    Future.wait([_sounds!.start(), routeSettled(context)]).then((_) {
       if (!mounted) return;
       _applyState(_PTState(playing: true, intro: true, mode: _Mode.listen, bpm: widget.config.bpm));
     });

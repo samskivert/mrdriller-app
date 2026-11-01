@@ -10,6 +10,7 @@ import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
+import '../util/route_settled.dart';
 import 'arcade.dart';
 import 'components.dart';
 import 'drill_status_view.dart';
@@ -363,14 +364,14 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
       bpm: widget.config.bpm,
       bpmIncrease: widget.config.bpmIncrease,
     );
-    // Wait for the tones to finish loading before processing the very first beat -- otherwise
-    // that first beep/boop races the (asynchronous, even for these tiny local assets) load and
-    // silently gets dropped, which is why the drill would seem to start on its *second* audible
-    // tick instead of its first.
+    // Wait for the tones to load and the audio device to start (see MetronomeSounds.start), and
+    // for this screen to finish sliding in (see routeSettled), before processing the very first
+    // beat. Otherwise the first few beats stutter: their sounds are dropped or come out late, and
+    // the transition's busy frames delay the metronome's polls.
     //
     // Then wait one more beat (as long as one call of the count-in) before starting, rather than
     // launching straight into the count-in the instant the screen appears.
-    sounds.ready.then((_) {
+    Future.wait([sounds.start(), routeSettled(context)]).then((_) {
       if (!mounted) return;
       final beatUs = widget.drill.bpm * 60e6 / widget.config.bpm / 4 * widget.drill.scale;
       _startTimer = Timer(Duration(microseconds: beatUs.round()), _start);

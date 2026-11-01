@@ -21,6 +21,9 @@ class _FakeSounds implements MetronomeSounds {
   Future<void> ready = Future.value();
 
   @override
+  Future<void> start() => ready;
+
+  @override
   void playBeep() => played.add('beep');
 
   @override
