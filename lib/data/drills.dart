@@ -787,20 +787,6 @@ final Drill singleStrokeRoll = Drill(
   beeps: [1, 3],
   rows: [
     [
-      section("R, L", 4, [
-        line([measure([r, null, r, null, r, null, r, null])]),
-        line([measure([l, null, l, null, l, null, l, null])]),
-      ]),
-    ],
-    [
-      section("Rx2, Lx2", 2, [
-        line([measure([r, null, r, null, r, null, r, null])]),
-        line([measure([r, null, r, null, r, null, r, null])]),
-        line([measure([l, null, l, null, l, null, l, null])]),
-        line([measure([l, null, l, null, l, null, l, null])]),
-      ]),
-    ],
-    [
       section("Rx4", 1, [
         line([measure([r, null, r, null, r, null, r, null])]),
         line([measure([r, null, r, null, r, null, r, null])]),
@@ -813,6 +799,20 @@ final Drill singleStrokeRoll = Drill(
         line([measure([l, null, l, null, l, null, l, null])]),
         line([measure([l, null, l, null, l, null, l, null])]),
         line([measure([l, null, l, null, l, null, l, null])]),
+        line([measure([l, null, l, null, l, null, l, null])]),
+      ]),
+    ],
+    [
+      section("Rx2, Lx2", 2, [
+        line([measure([r, null, r, null, r, null, r, null])]),
+        line([measure([r, null, r, null, r, null, r, null])]),
+        line([measure([l, null, l, null, l, null, l, null])]),
+        line([measure([l, null, l, null, l, null, l, null])]),
+      ]),
+    ],
+    [
+      section("R, L", 4, [
+        line([measure([r, null, r, null, r, null, r, null])]),
         line([measure([l, null, l, null, l, null, l, null])]),
       ]),
     ],
