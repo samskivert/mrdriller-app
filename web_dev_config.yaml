@@ -1,0 +1,9 @@
+# Settings for `flutter run -d chrome`'s dev server. These headers match the ones web/.htaccess sets
+# in production: they make the page cross-origin isolated, so flutter_soloud loads its
+# multi-threaded (AudioWorklet) build, not the main-thread one that pops and stalls.
+server:
+  headers:
+    - name: Cross-Origin-Opener-Policy
+      value: same-origin
+    - name: Cross-Origin-Embedder-Policy
+      value: credentialless

@@ -31,7 +31,9 @@ flutter run -d ios      # iOS simulator
 
 The web build is served from `/mrdriller/` by Apache. `web/.htaccess` falls back to `index.html`
 so the path-based URLs below work, and it sets the `.wasm` MIME type that CanvasKit and SoLoud
-need.
+need. It also sets COOP/COEP headers (as does `web_dev_config.yaml` for `flutter run`) so the page
+is cross-origin isolated: only then does flutter_soloud use its AudioWorklet build. Without them it
+mixes audio on the main thread, which pops and stalls.
 
 ## Architecture
 

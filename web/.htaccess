@@ -7,6 +7,17 @@ FallbackResource /mrdriller/index.html
 # to stream-compile the CanvasKit and soloud WebAssembly modules.
 AddType application/wasm .wasm
 
+# Make the page cross-origin isolated, which is what lets flutter_soloud load its multi-threaded
+# WASM build: that one mixes audio in an AudioWorklet on the browser's audio thread. Without
+# isolation it falls back to a ScriptProcessorNode that mixes on the main thread, which pops,
+# crackles and stalls whenever a frame or GC pause holds that thread up. "credentialless" (rather
+# than "require-corp") still lets cross-origin resources like CanvasKit on Google's CDN load
+# without opting in. Safari doesn't support it yet, so Safari stays on the single-threaded build.
+<IfModule mod_headers.c>
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Embedder-Policy "credentialless"
+</IfModule>
+
 # Compress text and wasm (main.dart.js and the .wasm files shrink by ~60-70%).
 <IfModule mod_deflate.c>
   <IfModule mod_filter.c>
