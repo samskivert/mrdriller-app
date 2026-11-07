@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../util/colors.dart';
 import '../util/size_config.dart';
@@ -25,6 +26,9 @@ class SectionView extends StatelessWidget {
   final int? repeatDotsFilled;
   final Pos? highlight;
 
+  /// The grades of strokes to mark, by their line, measure, beat, and index in the beat.
+  final Map<(int, int, int, int), Grade> grades;
+
   const SectionView({
     super.key,
     required this.section,
@@ -33,6 +37,7 @@ class SectionView extends StatelessWidget {
     this.bannerColor = AppColors.bannerOrange,
     this.repeatDotsFilled,
     this.highlight,
+    this.grades = const {},
   });
 
   @override
@@ -65,6 +70,11 @@ class SectionView extends StatelessWidget {
                         MeasureView(
                           measure: section.lines[ll].measures[mm],
                           strokeSize: config.strokeSize,
+                          grades: {
+                            for (final MapEntry(key: (line, measure, beat, index), :value)
+                                in grades.entries)
+                              if (line == ll && measure == mm) (beat, index): value,
+                          },
                           labelColor: AppColors.cream,
                           highlightBeat:
                               (isHighlighted &&

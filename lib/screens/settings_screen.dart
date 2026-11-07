@@ -6,6 +6,7 @@ import '../model/model.dart';
 import '../state/app_info.dart';
 import '../services/midi_connection.dart';
 import '../state/app_name.dart';
+import '../state/audio_outputs.dart';
 import '../state/midi_devices.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
@@ -44,6 +45,8 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: settings.setShowBouncingDot,
                     preview: _HighlightPreview(on: settings.showBouncingDot),
                   ),
+                  const SizedBox(height: 16),
+                  const _AudioOutputsCard(),
                   const SizedBox(height: 16),
                   const _MidiDevicesCard(),
                   const SizedBox(height: 28),
@@ -150,6 +153,104 @@ class _SettingCard extends StatelessWidget {
   }
 }
 
+/// The audio outputs (speakers, headphones) that hit timing is calibrated for, and which is in
+/// use: tapped to use, and added, renamed and deleted here.
+class _AudioOutputsCard extends StatelessWidget {
+  const _AudioOutputsCard();
+
+  Future<void> _add(BuildContext context) async {
+    final name = await promptForName(context, title: 'Add audio output', confirmLabel: 'ADD');
+    if (name != null) audioOutputs.add(name);
+  }
+
+  Future<void> _rename(BuildContext context, AudioOutput output) async {
+    final name = await promptForName(
+      context,
+      title: 'Rename audio output',
+      initial: output.name,
+      confirmLabel: 'RENAME',
+    );
+    if (name != null) audioOutputs.rename(output.id, name);
+  }
+
+  Future<void> _delete(BuildContext context, AudioOutput output) async {
+    final confirmed = await confirmDelete(
+      context,
+      title: 'Delete audio output',
+      message: 'Delete ${output.name}, and every calibration for it?',
+    );
+    if (!confirmed) return;
+    audioOutputs.delete(output.id);
+    midiDevices.forgetOutput(output.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: audioOutputs,
+      builder: (context, _) {
+        final current = audioOutputs.current;
+        final canDelete = audioOutputs.all.length > 1;
+        return BannerCard(
+          label: 'Audio output',
+          color: AppColors.bannerOrange,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sound takes longer to reach you through some speakers and headphones than '
+                "others, so drum pads are calibrated for each one. Pick the one you're using.",
+                style: midiTextStyle(),
+              ),
+              const SizedBox(height: 4),
+              for (final output in audioOutputs.all)
+                InkWell(
+                  onTap: () => audioOutputs.select(output.id),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        output.id == current.id
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_off_rounded,
+                        color: output.id == current.id
+                            ? AppColors.bannerOrange
+                            : AppColors.inkMuted,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(output.name, style: midiTextStyle(strong: true))),
+                      IconButton(
+                        icon: const Icon(Icons.edit_rounded, size: 20),
+                        color: AppColors.inkMuted,
+                        tooltip: 'Rename',
+                        onPressed: () => _rename(context, output),
+                      ),
+                      if (canDelete)
+                        IconButton(
+                          icon: const Icon(Icons.delete_rounded, size: 20),
+                          color: AppColors.inkMuted,
+                          tooltip: 'Delete',
+                          onPressed: () => _delete(context, output),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              CandyButton(
+                label: 'ADD OUTPUT',
+                icon: Icons.add_rounded,
+                colors: AppColors.candyOrange,
+                onPressed: () => _add(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// The MIDI devices (drum pads) that are connected or have been set up, each opening its
 /// [MidiDeviceScreen], and a way to the MIDI diagnostics.
 class _MidiDevicesCard extends StatefulWidget {
@@ -169,7 +270,7 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([midi, midiDevices]),
+      listenable: Listenable.merge([midi, midiDevices, audioOutputs]),
       builder: (context, _) {
         final connected = {
           for (final port in midi.ports)
@@ -223,6 +324,9 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
       subtitle: [
         if (name != key) key,
         mapped == null || mapped == 0 ? 'No pads set up' : '$mapped pad${mapped == 1 ? '' : 's'}',
+        midiDevices.calibrationOf(key, audioOutputs.current.id) == null
+            ? 'not calibrated for ${audioOutputs.current.name}'
+            : 'calibrated for ${audioOutputs.current.name}',
       ].join(' - '),
       onTap: () => Navigator.of(
         context,

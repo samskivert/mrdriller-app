@@ -94,11 +94,25 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   browser's arrival timestamp and the time Dart got it, both on `performance.now()`'s clock.
   Screens share one connection, `midi` (`services/midi_connection.dart`): opening a second
   `MidiInput` closes the first. Settings lists MIDI devices, each opening
-  `screens/midi_device_screen.dart` to rename it and map its pads (notes) to a hand, saved in
-  `midiDevices` (`state/midi_devices.dart`, keyed by port name, local only, not synced).
+  `screens/midi_device_screen.dart` to rename it, map its pads (notes) to a hand, and calibrate
+  it, saved in `midiDevices` (`state/midi_devices.dart`, keyed by port name). A `Calibration` (the
+  timing test's average hit offset, which hits are adjusted by) is kept per device per audio
+  output, as output delay varies a lot by device (Bluetooth, TVs). Outputs are named by the user
+  on web and one is in use (`audioOutputs`, `state/audio_outputs.dart`); on mobile they could come
+  from the audio route. Both are local only, not synced: calibrations hold for one host device.
+  Playing along (the timing test) takes the player's own habit of hitting early or late into a
+  calibration, so it can also be measured with the microphone (`model/mic_calibration.dart`,
+  `services/mic_recorder.dart`, web-only for now): it hears both the click and the stick, and
+  (click sound - stick sound) + (MIDI hit - click scheduled) is the delay, with the mic's own
+  delay cancelling out.
   `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log, and holds
   the timing test (`widgets/midi_timing_test.dart`), which schedules clicks on that same clock and
   compares hits with the ideal beat times (`model/timing.dart`).
+- Grading (`model/grading.dart`): when a drum pad is set up, `drill_practice_view.dart` matches
+  its hits (by pad role, less the calibration, on the metronome's clock) to the strokes expected,
+  which it finds by playing the state machine forward like `ClicksFor` does. Grades are marked on
+  the strokes (`StrokeView.grade`, drawn over the block so layout is unchanged), and the clear
+  card shows a summary and waits for DONE instead of moving on.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.
 
@@ -123,8 +137,8 @@ chip, candy switch and segmented picker, delete confirmation, name prompt, secti
 `lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
-`playlists`, `metronomePresets`, `practiceLog`, `reminders`, `midiDevices`), each `load()`ed in
-`main()` before `runApp` and persisted with `shared_preferences`. Per-drill config is stored under
+`playlists`, `metronomePresets`, `practiceLog`, `reminders`, `midiDevices`, `audioOutputs`), each
+`load()`ed in `main()` before `runApp` and persisted with `shared_preferences`. Per-drill config is stored under
 `config.<drillId>`, the pattern trainer's under `config.pattern-trainer`, and the metronome's
 main screen's under `config.metronome`. There's no state-management package; widgets listen to these
 singletons directly.

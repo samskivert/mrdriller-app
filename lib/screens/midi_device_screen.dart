@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../services/midi_connection.dart';
 import '../services/midi_input.dart';
+import '../state/audio_outputs.dart';
 import '../state/midi_devices.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/mic_calibration_card.dart';
 import '../widgets/midi_timing_test.dart';
 
 /// Sets up a MIDI device (a drum pad): what it's called, which hand each of its pads is for, and
@@ -24,7 +26,8 @@ class MidiDeviceScreen extends StatefulWidget {
 
 class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   StreamSubscription<MidiMessage>? _subscription;
-  // The device's mapped pads' hits, for the timing test.
+  // The device's pads' hits, and just its mapped pads', for the timing test.
+  late final Stream<MidiMessage> _notes;
   late final Stream<MidiMessage> _hits;
   // What's been hit since the screen opened, by note.
   final _seen = <int, _Seen>{};
@@ -39,7 +42,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   @override
   void initState() {
     super.initState();
-    final notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
+    final notes = _notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
     _subscription = notes.listen((message) {
       setState(() {
         final seen = _seen.putIfAbsent(message.note, _Seen.new);
@@ -85,7 +88,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   Widget build(BuildContext context) {
     final safe = MediaQuery.paddingOf(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([midi, midiDevices]),
+      listenable: Listenable.merge([midi, midiDevices, audioOutputs]),
       builder: (context, _) => CreamScreen(
         title: midiDevices.nameOf(_key),
         actions: [RoundIconButton(icon: Icons.edit_rounded, tooltip: 'Rename', onPressed: _rename)],
@@ -101,7 +104,11 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                   const SizedBox(height: 16),
                   _padsCard(),
                   const SizedBox(height: 16),
-                  MidiTimingTest(hits: _hits, now: midi.now),
+                  _calibrationCard(),
+                  const SizedBox(height: 16),
+                  _micCalibration(),
+                  const SizedBox(height: 16),
+                  _timingTest(),
                   if (midiDevices.byKey(_key) != null) ...[
                     const SizedBox(height: 24),
                     CandyButton(
@@ -141,6 +148,115 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
               child: Text(_key, style: midiTextStyle(), textAlign: TextAlign.end),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _micCalibration() {
+    return MicCalibrationCard(
+      // Any of the device's pads will do, mapped or not.
+      hits: _notes,
+      now: midi.now,
+      onSave: (measurement) {
+        final stats = measurement.stats;
+        midiDevices.setCalibration(
+          _key,
+          audioOutputs.current.id,
+          Calibration(
+            offsetMs: stats.mean,
+            spreadMs: stats.spread,
+            hits: stats.count,
+            bpm: 60,
+            measured: DateTime.now(),
+            source: CalibrationSource.microphone,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _timingTest() {
+    final output = audioOutputs.current;
+    return MidiTimingTest(
+      hits: _hits,
+      now: midi.now,
+      calibrationMs: midiDevices.calibrationOf(_key, output.id)?.offsetMs,
+      calibrationLabel: output.name,
+      onSave: (hits, bpm) => midiDevices.setCalibration(
+        _key,
+        output.id,
+        Calibration(
+          offsetMs: hits.mean,
+          spreadMs: hits.spread,
+          hits: hits.count,
+          bpm: bpm,
+          measured: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
+  Widget _calibrationCard() {
+    final current = audioOutputs.current;
+    return BannerCard(
+      label: 'Calibration',
+      color: AppColors.bannerOrange,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Sound takes longer to reach you through some speakers and headphones than others, '
+            'so hits are adjusted by the calibration for the audio output in use. To calibrate '
+            'for it, play the timing test below and save the result. Tap an output to use it.',
+            style: midiTextStyle(),
+          ),
+          const SizedBox(height: 4),
+          for (final output in audioOutputs.all)
+            _calibrationRow(output, inUse: output.id == current.id),
+        ],
+      ),
+    );
+  }
+
+  Widget _calibrationRow(AudioOutput output, {required bool inUse}) {
+    final calibration = midiDevices.calibrationOf(_key, output.id);
+    return InkWell(
+      onTap: () => audioOutputs.select(output.id),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              inUse ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: inUse ? AppColors.bannerOrange : AppColors.inkMuted,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    inUse ? '${output.name} (in use)' : output.name,
+                    style: midiTextStyle(strong: true),
+                  ),
+                  Text(
+                    calibration == null ? 'Not calibrated' : describeCalibration(calibration),
+                    style: midiTextStyle(),
+                  ),
+                ],
+              ),
+            ),
+            if (calibration != null)
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                color: AppColors.inkMuted,
+                tooltip: 'Clear calibration',
+                onPressed: () => midiDevices.setCalibration(_key, output.id, null),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -320,6 +436,35 @@ class ConnectionDot extends StatelessWidget {
       ),
     );
   }
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// A calibration in a line, e.g. "12.3ms late (spread 9.8ms, 40 hits at 120 bpm, 6 Nov)".
+String describeCalibration(Calibration c) {
+  final offset = c.offsetMs < 0
+      ? '${(-c.offsetMs).toStringAsFixed(1)}ms early'
+      : '${c.offsetMs.toStringAsFixed(1)}ms late';
+  final date = '${c.measured.day} ${_months[c.measured.month - 1]}';
+  final how = switch (c.source) {
+    CalibrationSource.playing => 'by playing',
+    CalibrationSource.microphone => 'by microphone',
+  };
+  return '$offset $how (spread ${c.spreadMs.toStringAsFixed(1)}ms, ${c.hits} hits at ${c.bpm} '
+      'bpm, $date)';
 }
 
 const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

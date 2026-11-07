@@ -4,11 +4,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../services/click_scheduler.dart';
 import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
+import '../services/midi_connection.dart';
+import '../services/midi_input.dart';
+import '../state/audio_outputs.dart';
 import '../state/drill_config.dart';
+import '../state/midi_devices.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../util/route_settled.dart';
@@ -48,6 +53,13 @@ class _PState {
 }
 
 const _notPlaying = _PState();
+
+/// Where a stroke is in the drill: its pass through the drill, row, section, repeat of the
+/// section, line, measure, beat, and index in the beat.
+typedef _Spot = (int, int, int, int, int, int, int, int);
+
+// How far ahead to know the strokes coming up, so that early hits can be matched to them.
+const _expectAheadMs = 400.0;
 
 const _scrollDuration = Duration(milliseconds: 400);
 const _scrollCurve = Curves.easeInOut;
@@ -272,6 +284,10 @@ class DrillPracticeView extends StatefulWidget {
   final ValueNotifier<DrillRunStatus> status;
   final VoidCallback onDone;
 
+  /// If the player's hits on a drum pad were graded, the summary shown at the end moves on by
+  /// itself after this long (e.g. in a playlist), or if null, waits for them to tap OK.
+  final Duration? summaryTimeout;
+
   const DrillPracticeView({
     super.key,
     required this.drill,
@@ -280,13 +296,14 @@ class DrillPracticeView extends StatefulWidget {
     required this.metronome,
     required this.status,
     required this.onDone,
+    this.summaryTimeout,
   });
 
   @override
   State<DrillPracticeView> createState() => _DrillPracticeViewState();
 }
 
-class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTickerProviderStateMixin {
+class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProviderStateMixin {
   late _PState _state;
 
   MetronomeSounds? _sounds;
@@ -321,6 +338,11 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
     vsync: this,
     duration: const Duration(milliseconds: 2600),
   );
+  // Then (if the player's hits were graded), fading from it to the summary.
+  late final AnimationController _summaryFade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
   final _stackKey = GlobalKey();
   bool _celebrating = false;
   Offset? _celebrationStart;
@@ -335,7 +357,19 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
       _celebrationStart = stack.globalToLocal(card.localToGlobal(center));
     }
     setState(() => _celebrating = true);
-    _celebration.forward().whenComplete(_notifyDone);
+    _celebration.forward().whenComplete(_celebrated);
+  }
+
+  // Once the celebration's over (or skipped): if the player hit anything on a drum pad, it fades
+  // out, and how that went fades in over the drill; otherwise, the drill's done.
+  void _celebrated() {
+    if (!mounted || _showSummary) return;
+    if (_graded) {
+      setState(() => _showSummary = true);
+      _summaryFade.forward();
+    } else {
+      _notifyDone();
+    }
   }
 
   void _notifyDone() {
@@ -353,11 +387,29 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   // it lines up with computeDrillDuration's total), for the depth ruler.
   double _elapsedSeconds = 0;
 
+  // Grading the player's hits on a drum pad (see grading.dart), if one is set up: the grades so
+  // far, by where their strokes are, and the last tick (as the metronome counts them) whose
+  // strokes are expected. Once it's done, and if anything was hit, the summary is shown.
+  final _grader = Grader();
+  final _grades = <_Spot, Grade>{};
+  StreamSubscription<MidiMessage>? _midiHits;
+  int _expectedThrough = -1;
+  bool _showSummary = false;
+  // Whether any hit came from a pad without a calibration for the audio output in use.
+  bool _uncalibrated = false;
+  // Whether the drill has ended, but its last strokes can still be hit (late).
+  bool _lastHitsOpen = false;
+
   @override
   void initState() {
     super.initState();
     widget.metronome.onDue = _handleBeatsDue;
     widget.metronome.addListener(_handleMetronomeActiveChanged);
+    final padSetUp = midiDevices.all.any((d) => d.pads.values.any((r) => r != PadRole.ignore));
+    if (padSetUp) {
+      midi.connect();
+      _midiHits = midi.messages.listen(_handleMidi);
+    }
     final sounds = MetronomeSounds();
     _sounds = sounds;
     _scheduler = ClickScheduler(metronome: widget.metronome, sounds: sounds, clicksFor: _clicksFor);
@@ -393,8 +445,10 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   @override
   void dispose() {
     _celebration.dispose();
+    _summaryFade.dispose();
     _startTimer?.cancel();
     widget.metronome.removeListener(_handleMetronomeActiveChanged);
+    _midiHits?.cancel();
     _scheduler.dispose();
     _sounds?.dispose();
     _scrollController.dispose();
@@ -414,6 +468,11 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
     } else {
       _scheduler.reset();
       _sounds?.pause();
+      // Once it resumes, the strokes still to come will come at other times.
+      if (widget.metronome.isPaused) {
+        _grader.forgetPending();
+        _expectedThrough = widget.metronome.ticks;
+      }
       WakelockPlus.disable();
     }
   }
@@ -425,12 +484,109 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
     if (next.playing) {
       widget.metronome.ensureRunning(bpm: next.bpm, scale: widget.drill.scale);
     } else {
+      // (Before it stops, which forgets when its ticks were.)
+      final end = widget.metronome.now();
       widget.metronome.stop();
       if (mounted && !_finished) {
         _finished = true;
+        // The last strokes can still be hit until their windows pass.
+        _lastHitsOpen = true;
+        Timer(Duration(milliseconds: _grader.windowMs.round() + 10), () {
+          _lastHitsOpen = false;
+          if (mounted) setState(() => _addGrades(_grader.expire(end + _grader.windowMs + 1)));
+        });
         _celebrate();
       }
     }
+  }
+
+  // The grades to mark on the section at [index] in [pass]: of the repeat playing, or (once it's
+  // done) of its last repeat, by their line, measure, beat and index in the beat.
+  Map<(int, int, int, int), Grade> _gradesOf(
+    int pass,
+    int index, {
+    required bool isHighlighted,
+    required bool isDone,
+  }) {
+    if (_grades.isEmpty || !(isHighlighted || isDone)) return const {};
+    final flat = _allSections[index];
+    final repeat = isHighlighted ? _state.repeat : flat.section.repeat - 1;
+    return {
+      for (final MapEntry(key: (p, row, section, r, line, measure, beat, i), :value)
+          in _grades.entries)
+        if (p == pass && row == flat.rowIndex && section == flat.sectionIndex && r == repeat)
+          (line, measure, beat, i): value,
+    };
+  }
+
+  // Whether the player hit anything on a drum pad, so it's worth showing how it went.
+  bool get _graded => _grades.values.any((g) => g.judgement != Judgement.miss);
+
+  void _addGrades(Iterable<Grade> grades) {
+    for (final grade in grades) {
+      _grades[grade.stroke.spot as _Spot] = grade;
+    }
+  }
+
+  // Tells the grader about the strokes coming up, as far as it can know when they'll be: up to
+  // [_expectAheadMs] ahead, and not past a tempo change (after which the ticks will come at the new
+  // tempo, which the metronome hasn't been told about yet).
+  void _expectStrokes() {
+    final metronome = widget.metronome;
+    if (!metronome.isActive) return;
+    final horizon = metronome.now() + _expectAheadMs;
+    var s = _state;
+    for (var tick = metronome.ticks; ; tick++) {
+      if (tick > metronome.ticks) {
+        if (!s.playing || s.bpm != _state.bpm) return;
+        s = _tick(
+          s,
+          widget.drill,
+          widget.config.drillRepeat,
+          widget.config.replayIntroOnBpmIncrease,
+        );
+      }
+      final time = metronome.timeOfTick(tick);
+      if (time == null || time > horizon) return;
+      if (tick <= _expectedThrough) continue;
+      _expectedThrough = tick;
+      if (!s.playing || s.intro) continue;
+      final beat = widget.drill.rows[s.row][s.section].lines[s.line].measures[s.measure][s.offset];
+      final strokes = beat?.strokes ?? const <Stroke?>[];
+      for (var i = 0; i < strokes.length; i++) {
+        final stroke = strokes[i];
+        if (stroke == null) continue;
+        _grader.expect(
+          ExpectedStroke(
+            timeMs: time,
+            hand: stroke.hand,
+            spot: (s.drillRepeat, s.row, s.section, s.repeat, s.line, s.measure, s.offset, i),
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleMidi(MidiMessage message) {
+    if (!message.isNoteOn) return;
+    if (!_lastHitsOpen && !(widget.metronome.isActive && _state.playing)) return;
+    final port = midi.portById(message.portId);
+    if (port == null) return;
+    final key = midiDeviceKey(port);
+    final hand = switch (midiDevices.roleOf(key, message.note)) {
+      PadRole.right => Hand.R,
+      PadRole.left => Hand.L,
+      _ => null,
+    };
+    if (hand == null) return;
+    // On the metronome's clock, and less the delays in the click coming out and the hit coming in.
+    final calibration = midiDevices.calibrationOf(key, audioOutputs.current.id)?.offsetMs;
+    if (calibration == null) _uncalibrated = true;
+    final time = message.timestamp - (midi.now() - widget.metronome.now()) - (calibration ?? 0);
+    _expectStrokes();
+    // (Tapping along with the count-in, or carrying on after the end, isn't extra.)
+    final grade = _grader.hit(time, hand, countExtra: !_state.intro && !_lastHitsOpen);
+    if (grade != null) setState(() => _addGrades([grade]));
   }
 
   void _playBeatSound() {
@@ -494,7 +650,9 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
       );
       if (!next.playing) break;
     }
+    _addGrades(_grader.expire(widget.metronome.now()));
     _applyState(next);
+    _expectStrokes();
   }
 
   int _flatIndexOf(_PState s) {
@@ -585,6 +743,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
                 repeat: _state.repeat,
               )
             : null,
+        grades: _gradesOf(pass, index, isHighlighted: isHighlighted, isDone: isDone),
       );
     }
 
@@ -714,12 +873,42 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
             Positioned.fill(
               child: GestureDetector(
                 // A tap skips the rest of the celebration.
-                onTap: _notifyDone,
-                child: ClearCelebration(
-                  text: widget.clearText,
-                  animation: _celebration,
-                  start: _celebrationStart,
-                  textSize: 36,
+                onTap: _celebrated,
+                child: FadeTransition(
+                  opacity: ReverseAnimation(_summaryFade),
+                  child: ClearCelebration(
+                    text: widget.clearText,
+                    animation: _celebration,
+                    start: _celebrationStart,
+                    textSize: 36,
+                  ),
+                ),
+              ),
+            ),
+          if (_showSummary)
+            Positioned.fill(
+              child: FadeTransition(
+                opacity: _summaryFade,
+                child: ColoredBox(
+                  color: AppColors.navy.withValues(alpha: 0.75),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: PlayfieldPanel(
+                          active: true,
+                          padding: const EdgeInsets.all(20),
+                          child: _GradeSummaryView(
+                            summary: _grader.summary,
+                            uncalibratedFor: _uncalibrated ? audioOutputs.current.name : null,
+                            timeout: widget.summaryTimeout,
+                            onDone: _notifyDone,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1010,4 +1199,146 @@ class _BlingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BlingPainter old) =>
       old.rays != rays || old.burst != burst || old.spin != spin || old.center != center;
+}
+
+/// How the player's hits on a drum pad went, over the whole drill: how many of each judgement, and
+/// on average how early or late, and how steadily. [onDone] moves on: when they tap OK, or if
+/// there's a [timeout], once it runs out (or they tap CONTINUE).
+class _GradeSummaryView extends StatefulWidget {
+  final GradeSummary summary;
+
+  /// The audio output the pad wasn't calibrated for, if it wasn't.
+  final String? uncalibratedFor;
+  final Duration? timeout;
+  final VoidCallback onDone;
+
+  const _GradeSummaryView({
+    required this.summary,
+    this.uncalibratedFor,
+    this.timeout,
+    required this.onDone,
+  });
+
+  @override
+  State<_GradeSummaryView> createState() => _GradeSummaryViewState();
+}
+
+class _GradeSummaryViewState extends State<_GradeSummaryView> {
+  Timer? _countdown;
+  // Seconds left until it moves on, if it does.
+  int? _left;
+
+  @override
+  void initState() {
+    super.initState();
+    final timeout = widget.timeout;
+    if (timeout != null) {
+      _left = timeout.inSeconds;
+      _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_left! <= 1) {
+          _countdown?.cancel();
+          widget.onDone();
+        } else {
+          setState(() => _left = _left! - 1);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdown?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const text = TextStyle(
+      fontFamily: AppFonts.body,
+      fontSize: 15,
+      height: 1.4,
+      fontWeight: FontWeight.w800,
+      color: AppColors.cream,
+    );
+    final summary = widget.summary;
+    final offsets = summary.offsets;
+    final mean = offsets.mean;
+    final colors = {
+      Judgement.perfect: AppColors.gold,
+      Judgement.good: AppColors.candyGreen.base,
+      Judgement.early: AppColors.candyPink.base,
+      Judgement.late: AppColors.candyPink.base,
+      Judgement.miss: AppColors.candyRed.base,
+    };
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const PuffyText('RESULTS', size: 30, color: AppColors.gold, shadow: AppColors.goldOutline),
+        const SizedBox(height: 12),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 16,
+          runSpacing: 6,
+          children: [
+            for (final judgement in Judgement.values)
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${summary.count(judgement)} ',
+                      style: text.copyWith(color: colors[judgement], fontSize: 20),
+                    ),
+                    TextSpan(text: judgement.label),
+                  ],
+                ),
+                style: text,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (offsets.count > 0)
+          Text(
+            'On average ${mean.abs().toStringAsFixed(0)}ms ${mean < 0 ? 'early' : 'late'}, '
+            'give or take ${offsets.spread.toStringAsFixed(0)}ms.',
+            style: text,
+            textAlign: TextAlign.center,
+          ),
+        if (summary.wrongHands > 0 || summary.extras > 0)
+          Text(
+            [
+              if (summary.wrongHands > 0) '${summary.wrongHands} with the wrong hand',
+              if (summary.extras > 0)
+                '${summary.extras} extra hit${summary.extras == 1 ? '' : 's'}',
+            ].join(', '),
+            style: text,
+            textAlign: TextAlign.center,
+          ),
+        if (widget.uncalibratedFor case final output?) ...[
+          const SizedBox(height: 8),
+          Text(
+            "The pad isn't calibrated for $output, so these timings include the sound's delay.",
+            style: text.copyWith(fontSize: 13, color: AppColors.cream.withValues(alpha: 0.7)),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: 16),
+        CandyButton(
+          label: _left == null ? 'OK' : 'CONTINUE',
+          icon: _left == null ? Icons.check_rounded : Icons.skip_next_rounded,
+          colors: AppColors.candyGreen,
+          onPressed: () {
+            _countdown?.cancel();
+            widget.onDone();
+          },
+        ),
+        if (_left case final left?) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Continuing in $left...',
+            style: text.copyWith(fontSize: 13, color: AppColors.cream.withValues(alpha: 0.7)),
+          ),
+        ],
+      ],
+    );
+  }
 }

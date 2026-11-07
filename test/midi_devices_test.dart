@@ -69,4 +69,34 @@ void main() {
     await devices.load();
     expect(devices.all, isEmpty);
   });
+
+  test('keeps a calibration for each audio output, and forgets those for a deleted one', () async {
+    final devices = MidiDevices();
+    await devices.load();
+    final calibration = Calibration(
+      offsetMs: -12.5,
+      spreadMs: 9.75,
+      hits: 40,
+      bpm: 120,
+      measured: DateTime(2026, 11, 6, 10, 30),
+    );
+    devices.setRole(key, 48, PadRole.right);
+    devices.setCalibration(key, 'default', calibration);
+    devices.setCalibration(key, 'output-1', calibration);
+    final loaded = await reloaded();
+    final saved = loaded.calibrationOf(key, 'default');
+    expect(saved?.offsetMs, -12.5);
+    expect(saved?.spreadMs, 9.75);
+    expect(saved?.hits, 40);
+    expect(saved?.bpm, 120);
+    expect(saved?.measured, DateTime(2026, 11, 6, 10, 30));
+    // The pads are kept alongside.
+    expect(loaded.roleOf(key, 48), PadRole.right);
+
+    devices.forgetOutput('output-1');
+    expect(devices.calibrationOf(key, 'output-1'), isNull);
+    expect(devices.calibrationOf(key, 'default'), isNotNull);
+    devices.setCalibration(key, 'default', null);
+    expect((await reloaded()).byKey(key)?.calibrations, isEmpty);
+  });
 }

@@ -1,6 +1,7 @@
-// What the app knows about MIDI devices (drum pads): the name to show for each, and which hand
-// each of its pads is for. Persisted to local storage, but not synced: the timing calibrations
-// that will join it here only hold for the device they were measured on.
+// What the app knows about MIDI devices (drum pads): the name to show for each, which hand each of
+// its pads is for, and its timing calibration for each audio output (see audio_outputs.dart).
+// Persisted to local storage, but not synced: calibrations only hold for the device they were
+// measured on.
 
 import 'dart:convert';
 
@@ -25,6 +26,67 @@ enum PadRole {
 String midiDeviceKey(MidiPort port) =>
     port.manufacturer.isEmpty ? port.name : '${port.manufacturer} / ${port.name}';
 
+/// How a [Calibration] was measured.
+enum CalibrationSource {
+  /// By playing along with clicks (the timing test), which takes the player's own habit of hitting
+  /// early or late into it.
+  playing,
+
+  /// With the microphone, which measures only the sound's and the hit's delays.
+  microphone,
+}
+
+/// How much later than the beat a player's hits on a pad land, on average, playing along with
+/// clicks from an audio output: the sound's delay in coming out, and the hit's in coming in, less
+/// the player's habit of hitting early. Hits are adjusted by it before they're judged.
+class Calibration {
+  /// The average offset of the hits measured, in milliseconds (negative if early).
+  final double offsetMs;
+
+  /// How widely the hits measured spread around [offsetMs], and how many there were, at what
+  /// tempo, and when.
+  final double spreadMs;
+  final int hits;
+  final int bpm;
+  final DateTime measured;
+  final CalibrationSource source;
+
+  const Calibration({
+    required this.offsetMs,
+    required this.spreadMs,
+    required this.hits,
+    required this.bpm,
+    required this.measured,
+    this.source = CalibrationSource.playing,
+  });
+
+  Map<String, Object?> toJson() => {
+    'offset': offsetMs,
+    'spread': spreadMs,
+    'hits': hits,
+    'bpm': bpm,
+    'measured': measured.toIso8601String(),
+    'source': source.name,
+  };
+
+  static Calibration? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final (offset, spread, hits, bpm) = (json['offset'], json['spread'], json['hits'], json['bpm']);
+    final measured = DateTime.tryParse('${json['measured']}');
+    if (offset is! num || spread is! num || hits is! int || bpm is! int || measured == null) {
+      return null;
+    }
+    return Calibration(
+      offsetMs: offset.toDouble(),
+      spreadMs: spread.toDouble(),
+      hits: hits,
+      bpm: bpm,
+      measured: measured,
+      source: CalibrationSource.values.asNameMap()[json['source']] ?? CalibrationSource.playing,
+    );
+  }
+}
+
 class MidiDeviceConfig {
   final String key;
 
@@ -34,17 +96,40 @@ class MidiDeviceConfig {
   /// Each mapped pad's note, and what it's for.
   final Map<int, PadRole> pads;
 
-  const MidiDeviceConfig({required this.key, this.name, this.pads = const {}});
+  /// Its calibration for each audio output that it's been calibrated for, by the output's id.
+  final Map<String, Calibration> calibrations;
 
-  MidiDeviceConfig withName(String? name) => MidiDeviceConfig(key: key, name: name, pads: pads);
+  const MidiDeviceConfig({
+    required this.key,
+    this.name,
+    this.pads = const {},
+    this.calibrations = const {},
+  });
 
-  MidiDeviceConfig withPads(Map<int, PadRole> pads) =>
-      MidiDeviceConfig(key: key, name: name, pads: Map.unmodifiable(pads));
+  MidiDeviceConfig withName(String? name) =>
+      MidiDeviceConfig(key: key, name: name, pads: pads, calibrations: calibrations);
+
+  MidiDeviceConfig withPads(Map<int, PadRole> pads) => MidiDeviceConfig(
+    key: key,
+    name: name,
+    pads: Map.unmodifiable(pads),
+    calibrations: calibrations,
+  );
+
+  MidiDeviceConfig withCalibrations(Map<String, Calibration> calibrations) => MidiDeviceConfig(
+    key: key,
+    name: name,
+    pads: pads,
+    calibrations: Map.unmodifiable(calibrations),
+  );
 
   Map<String, Object?> toJson() => {
     'key': key,
     if (name != null) 'name': name,
     'pads': {for (final MapEntry(:key, :value) in pads.entries) '$key': value.name},
+    'calibrations': {
+      for (final MapEntry(:key, :value) in calibrations.entries) key: value.toJson(),
+    },
   };
 
   static MidiDeviceConfig? fromJson(Object? json) {
@@ -59,10 +144,19 @@ class MidiDeviceConfig {
         if (note != null && role != null) pads[note] = role;
       }
     }
+    final calibrations = <String, Calibration>{};
+    final calibrationsJson = json['calibrations'];
+    if (calibrationsJson is Map) {
+      for (final MapEntry(:key, :value) in calibrationsJson.entries) {
+        final calibration = Calibration.fromJson(value);
+        if (key is String && calibration != null) calibrations[key] = calibration;
+      }
+    }
     return MidiDeviceConfig(
       key: json['key'] as String,
       name: name is String ? name : null,
       pads: Map.unmodifiable(pads),
+      calibrations: Map.unmodifiable(calibrations),
     );
   }
 }
@@ -117,6 +211,34 @@ class MidiDevices extends ChangeNotifier {
       }
       return device.withPads(pads);
     });
+  }
+
+  /// The calibration of the device with [key] for the output with [outputId], if it has one.
+  Calibration? calibrationOf(String key, String outputId) => _devices[key]?.calibrations[outputId];
+
+  /// Sets the calibration of the device with [key] for the output with [outputId] (or with null,
+  /// removes it).
+  void setCalibration(String key, String outputId, Calibration? calibration) {
+    _update(key, (device) {
+      final calibrations = {...device.calibrations};
+      if (calibration == null) {
+        calibrations.remove(outputId);
+      } else {
+        calibrations[outputId] = calibration;
+      }
+      return device.withCalibrations(calibrations);
+    });
+  }
+
+  /// Removes every device's calibration for the output with [outputId], which is gone.
+  void forgetOutput(String outputId) {
+    var changed = false;
+    for (final device in [..._devices.values]) {
+      if (!device.calibrations.containsKey(outputId)) continue;
+      _devices[device.key] = device.withCalibrations({...device.calibrations}..remove(outputId));
+      changed = true;
+    }
+    if (changed) _save();
   }
 
   /// Forgets everything saved about the device with [key].

@@ -33,7 +33,23 @@ class MidiTimingTest extends StatefulWidget {
   /// The current time on the clock that [hits] are timestamped with, in milliseconds.
   final double Function() now;
 
-  const MidiTimingTest({super.key, required this.hits, required this.now});
+  /// The calibration that hits are adjusted by (see Calibration), if any, in milliseconds, and
+  /// what it's for, to say so.
+  final double? calibrationMs;
+  final String? calibrationLabel;
+
+  /// Saves a calibration from a test's (unadjusted) hits, at a tempo. Without it, there's no way
+  /// to save one.
+  final void Function(OffsetStats hits, int bpm)? onSave;
+
+  const MidiTimingTest({
+    super.key,
+    required this.hits,
+    required this.now,
+    this.calibrationMs,
+    this.calibrationLabel,
+    this.onSave,
+  });
 
   @override
   State<MidiTimingTest> createState() => _MidiTimingTestState();
@@ -55,6 +71,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   static const _tooLateMs = 20.0;
   // Hits closer together than this are one hit, retriggering (or setting off another pad).
   static const _doubleTriggerMs = 30.0;
+  // Fewer hits than this aren't enough to calibrate by.
+  static const _minCalibrationHits = 16;
 
   int _bpm = 90;
   bool _scheduled = true;
@@ -84,6 +102,19 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   final _clickTiming = <double>[];
 
   bool get _running => _starting || _grid != null;
+
+  // The hits' offsets, adjusted by the calibration.
+  List<double> get _adjusted {
+    final calibration = widget.calibrationMs;
+    return calibration == null ? _offsets : [for (final o in _offsets) o - calibration];
+  }
+
+  void _save() {
+    widget.onSave?.call(OffsetStats.of(_offsets), _testedBpm);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Saved the calibration'), duration: Duration(seconds: 2)),
+    );
+  }
 
   @override
   void initState() {
@@ -259,8 +290,11 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
       'Hits: ${stats.count}, average ${_ms(stats.mean)}, spread ${_ms(stats.spread)}, '
           'worst ${_ms(stats.worst)} (negative is early); $_doubleTriggers double triggers '
           'ignored',
+      if (widget.calibrationMs case final calibration?)
+        'Adjusted by a calibration of ${_ms(calibration)}: average '
+            '${_ms(OffsetStats.of(_adjusted).mean)}',
       _clickSummary(),
-      'Hit offsets by beat (beat: ms):',
+      'Hit offsets by beat, unadjusted (beat: ms):',
       [
         for (var i = 0; i < _offsets.length; i++)
           '${_hitBeats[i]}: ${_offsets[i].toStringAsFixed(1)}',
@@ -274,7 +308,9 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = OffsetStats.of(_offsets);
+    final adjusted = _adjusted;
+    final stats = OffsetStats.of(adjusted);
+    final calibration = widget.calibrationMs;
     final countingIn = _grid != null && _shownBeat < _countInBeats;
     return BannerCard(
       label: 'Timing test',
@@ -317,14 +353,14 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
                     )
                   : _offsets.isEmpty
                   ? const SizedBox.shrink()
-                  : _Readout(_describe(_offsets.last), AppColors.candyOrange),
+                  : _Readout(_describe(adjusted.last), AppColors.candyOrange),
             ),
           ),
           const SizedBox(height: 8),
           RepaintBoundary(
             child: _OffsetStrip(
               // A copy (sublist always is), so that the painter sees that it changed.
-              offsets: _offsets.sublist(math.max(0, _offsets.length - _shownHits)),
+              offsets: adjusted.sublist(math.max(0, adjusted.length - _shownHits)),
               mean: stats.count == 0 ? null : stats.mean,
             ),
           ),
@@ -338,6 +374,13 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             ),
             const SizedBox(height: 4),
           ],
+          if (calibration != null) ...[
+            _Text(
+              'Hits are adjusted by the ${_ms(calibration)} calibration'
+              '${widget.calibrationLabel == null ? '' : ' for ${widget.calibrationLabel}'}.',
+            ),
+            const SizedBox(height: 4),
+          ],
           if (_doubleTriggers > 0) ...[
             _Text(
               'Ignored $_doubleTriggers double trigger${_doubleTriggers == 1 ? '' : 's'} (hits '
@@ -346,6 +389,18 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             const SizedBox(height: 4),
           ],
           if (_clickTiming.isNotEmpty) ...[_Text(_clickSummary()), const SizedBox(height: 4)],
+          if (widget.onSave != null && stats.count > 0 && !_running) ...[
+            const SizedBox(height: 8),
+            if (stats.count >= _minCalibrationHits)
+              CandyButton(
+                label: 'SAVE CALIBRATION',
+                icon: Icons.tune_rounded,
+                colors: AppColors.candyGreen,
+                onPressed: _save,
+              )
+            else
+              _Text('Play at least $_minCalibrationHits hits to save a calibration.'),
+          ],
           if (stats.count > 0 && !_running) ...[
             const SizedBox(height: 8),
             CandyButton(

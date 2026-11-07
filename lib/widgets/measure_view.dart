@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../util/colors.dart';
 import 'components.dart';
@@ -18,6 +19,8 @@ class _BeatView extends StatelessWidget {
   final bool highlight;
   final double strokeSize;
   final Color labelColor;
+  // Each stroke's grade, by its index, if it has one.
+  final Map<int, Grade> grades;
 
   const _BeatView({
     required this.beat,
@@ -25,6 +28,7 @@ class _BeatView extends StatelessWidget {
     required this.highlight,
     required this.strokeSize,
     required this.labelColor,
+    required this.grades,
   });
 
   @override
@@ -52,8 +56,13 @@ class _BeatView extends StatelessWidget {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final stroke in beat.strokes)
-              StrokeView(stroke: stroke, highlight: highlight, size: strokeSize),
+            for (var i = 0; i < beat.strokes.length; i++)
+              StrokeView(
+                stroke: beat.strokes[i],
+                highlight: highlight,
+                size: strokeSize,
+                grade: grades[i],
+              ),
           ],
         ),
       ],
@@ -65,13 +74,15 @@ class _BeatView extends StatelessWidget {
 /// stacked strokes (for multi-hand beats), a label above it, or be an empty placeholder. Beat
 /// labels are drawn in [labelColor] (pass a light color on the dark playfield). Unless not
 /// [scrollable] (e.g. where it's laid out at unbounded width anyway), a measure too wide for the
-/// space available scrolls horizontally.
+/// space available scrolls horizontally. Strokes with [grades] (by their beat and their index in
+/// it) have them marked.
 class MeasureView extends StatelessWidget {
   final Measure measure;
   final int? highlightBeat;
   final double strokeSize;
   final Color labelColor;
   final bool scrollable;
+  final Map<(int, int), Grade> grades;
 
   const MeasureView({
     super.key,
@@ -80,6 +91,7 @@ class MeasureView extends StatelessWidget {
     this.strokeSize = 28,
     this.labelColor = AppColors.ink,
     this.scrollable = true,
+    this.grades = const {},
   });
 
   @override
@@ -102,6 +114,10 @@ class MeasureView extends StatelessWidget {
                   highlight: i == highlightBeat,
                   strokeSize: strokeSize,
                   labelColor: labelColor,
+                  grades: {
+                    for (final MapEntry(key: (beat, index), :value) in grades.entries)
+                      if (beat == i) index: value,
+                  },
                 ),
       ],
     );

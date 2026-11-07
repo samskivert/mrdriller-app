@@ -28,6 +28,8 @@ class DrillPracticeHost extends StatefulWidget {
   // E.g. a playlist run's progress.
   final ExtraReadout? extraReadout;
   final VoidCallback onDone;
+  // How long the summary of graded hits waits before moving on (see DrillPracticeView).
+  final Duration? summaryTimeout;
 
   const DrillPracticeHost({
     super.key,
@@ -37,6 +39,7 @@ class DrillPracticeHost extends StatefulWidget {
     this.clearText = 'ALL CLEAR!',
     this.extraReadout,
     required this.onDone,
+    this.summaryTimeout,
   });
 
   @override
@@ -95,6 +98,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               metronome: _metronome,
               status: _status,
               onDone: _handleDone,
+              summaryTimeout: widget.summaryTimeout,
             ),
           ),
         ],

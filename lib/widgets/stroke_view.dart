@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../util/colors.dart';
 
@@ -16,13 +17,23 @@ const double _popScale = 1.15;
 /// bit. Accented and unaccented strokes differ in silhouette, not just size, so that the
 /// difference stays clear while the currently-[highlight]ed block pops up in size, ringed in white
 /// with a glow behind it. Renders nothing (just reserves space) when [stroke] is null, matching a
-/// "no stroke for this hand on this beat" slot.
+/// "no stroke for this hand on this beat" slot. A [grade] (of the player's hit, from a drum pad) is
+/// marked over the block: a gold ring if perfect, green if good, pink with an arrow off the side it
+/// was off to if early or late, a red cross over the block faded if missed, and a red dot if hit
+/// with the wrong hand.
 class StrokeView extends StatelessWidget {
   final Stroke? stroke;
   final bool highlight;
   final double size;
+  final Grade? grade;
 
-  const StrokeView({super.key, required this.stroke, this.highlight = false, this.size = 28});
+  const StrokeView({
+    super.key,
+    required this.stroke,
+    this.highlight = false,
+    this.size = 28,
+    this.grade,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +58,72 @@ class StrokeView extends StatelessWidget {
                 child: CustomPaint(
                   size: Size(size, size),
                   painter: _BlockPainter(stroke: s, highlight: highlight),
+                  foregroundPainter: grade == null ? null : _GradePainter(grade!),
                 ),
               ),
             ),
     );
   }
+}
+
+class _GradePainter extends CustomPainter {
+  final Grade grade;
+
+  _GradePainter(this.grade);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width;
+    final center = size.center(Offset.zero);
+    final judgement = grade.judgement;
+    if (judgement == Judgement.miss) {
+      // Fade the block, and cross it out.
+      canvas.drawCircle(center, s * 0.52, Paint()..color = AppColors.navy.withValues(alpha: 0.6));
+      final cross = Paint()
+        ..color = AppColors.candyRed.base
+        ..strokeWidth = s * 0.12
+        ..strokeCap = StrokeCap.round;
+      final d = s * 0.26;
+      canvas.drawLine(center.translate(-d, -d), center.translate(d, d), cross);
+      canvas.drawLine(center.translate(d, -d), center.translate(-d, d), cross);
+    } else {
+      final color = switch (judgement) {
+        Judgement.perfect => AppColors.gold,
+        Judgement.good => AppColors.candyGreen.base,
+        _ => AppColors.candyPink.base,
+      };
+      canvas.drawCircle(
+        center,
+        s * 0.6,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.09
+          ..color = color,
+      );
+      if (judgement == Judgement.early || judgement == Judgement.late) {
+        // An arrowhead off the side it was off to.
+        final side = judgement == Judgement.early ? -1.0 : 1.0;
+        final tip = center.translate(side * s * 0.82, 0);
+        final back = side * s * 0.16;
+        canvas.drawPath(
+          Path()
+            ..moveTo(tip.dx, tip.dy)
+            ..lineTo(tip.dx - back, tip.dy - s * 0.14)
+            ..lineTo(tip.dx - back, tip.dy + s * 0.14)
+            ..close(),
+          Paint()..color = color,
+        );
+      }
+    }
+    if (grade.wrongHand) {
+      final dot = center.translate(s * 0.42, -s * 0.42);
+      canvas.drawCircle(dot, s * 0.14, Paint()..color = AppColors.candyRed.outline);
+      canvas.drawCircle(dot, s * 0.1, Paint()..color = AppColors.candyRed.base);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GradePainter old) => old.grade != grade;
 }
 
 class _BlockPainter extends CustomPainter {

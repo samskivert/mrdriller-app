@@ -21,6 +21,7 @@ import 'services/reminder_scheduler.dart';
 import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
 import 'state/app_name.dart';
+import 'state/audio_outputs.dart';
 import 'state/metronome_settings.dart';
 import 'state/midi_devices.dart';
 import 'state/practice_log.dart';
@@ -40,6 +41,7 @@ Future<void> main() async {
   await practiceLog.load();
   await reminders.load();
   await midiDevices.load();
+  await audioOutputs.load();
   await loadAppInfo();
   await loadAppName();
   initScreenCutout();

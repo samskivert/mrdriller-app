@@ -60,6 +60,10 @@ class ClickScheduler {
     _next = metronome.ticks + 1;
   }
 
+  /// How far ahead of the metronome's clock the audio engine's is, in milliseconds, as best it
+  /// knows, or null if it doesn't yet.
+  double? get engineOffsetMs => _sync.offset;
+
   void dispose() {
     _sampler.cancel();
     reset();
