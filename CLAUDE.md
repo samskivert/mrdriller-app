@@ -22,8 +22,9 @@ flutter test                            # all tests
 flutter test test/metronome_test.dart   # one file
 flutter test --plain-name 'ticks once'  # tests whose name contains a string
 
-flutter run -d chrome   # web
-flutter run -d ios      # iOS simulator
+flutter run -d web-server   # web: open http://localhost:8123 in your own Chrome (keeps settings)
+flutter run -d chrome       # web, in a fresh Chrome profile (settings and permissions reset)
+flutter run -d ios          # iOS simulator
 
 ./deploy-web.sh         # build web with --base-href /mrdriller/ and rsync to samskivert.com
 ./appstore-publish.sh   # build the iOS app and upload it to TestFlight (as Xcode's Apple account)
@@ -32,7 +33,9 @@ flutter run -d ios      # iOS simulator
 The web build is served from `/mrdriller/` by Apache. `web/.htaccess` falls back to `index.html`
 so the path-based URLs below work, and it sets the `.wasm` MIME type that CanvasKit and SoLoud
 need. It also sets COOP/COEP headers (as does `web_dev_config.yaml` for `flutter run`) so the page
-is cross-origin isolated: only then does flutter_soloud use its AudioWorklet build. Without them it
+is cross-origin isolated: only then does flutter_soloud use its AudioWorklet build. It also fixes
+the dev server's port (8123), so the origin, and with it the settings in local storage, stays the
+same between runs. Without them it
 mixes audio on the main thread, which pops and stalls.
 
 ## Architecture

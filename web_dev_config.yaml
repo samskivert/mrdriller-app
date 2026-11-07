@@ -1,7 +1,12 @@
-# Settings for `flutter run -d chrome`'s dev server. These headers match the ones web/.htaccess sets
+# Settings for `flutter run`'s web dev server. These headers match the ones web/.htaccess sets
 # in production: they make the page cross-origin isolated, so flutter_soloud loads its
 # multi-threaded (AudioWorklet) build, not the main-thread one that pops and stalls.
 server:
+  # A fixed port, so that the page's origin (and so its local storage, where settings are kept, and
+  # its MIDI and microphone permissions) stays the same from one run to the next. With
+  # `flutter run -d web-server`, open http://localhost:8123 in your own Chrome, whose profile keeps
+  # them (`-d chrome` starts Chrome with a new, empty profile every time).
+  port: 8123
   headers:
     - name: Cross-Origin-Opener-Policy
       value: same-origin
