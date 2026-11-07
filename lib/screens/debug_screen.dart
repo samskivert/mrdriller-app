@@ -6,20 +6,74 @@ import '../data/drills.dart' as data;
 import '../model/grading.dart';
 import '../model/model.dart';
 import '../model/timing.dart';
+import '../state/drill_config.dart';
+import '../state/playlists.dart';
 import '../util/colors.dart';
+import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
 import '../widgets/results_popup.dart';
 import '../widgets/section_view.dart';
 
-/// For working on how things look (in debug builds only): the results popup shown at the end of a
-/// graded drill, over a drill's sections with grades marked on their strokes, all from made-up
-/// grades, in a few kinds of run.
-class DebugScreen extends StatefulWidget {
-  const DebugScreen({super.key});
+/// For working on how things look (in debug builds only): a menu of screens to look at, filled in
+/// with made-up data.
+class DebugMenuScreen extends StatelessWidget {
+  const DebugMenuScreen({super.key});
 
   @override
-  State<DebugScreen> createState() => _DebugScreenState();
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    void go(String route) => Navigator.of(context).pushNamed(route);
+    return CreamScreen(
+      title: 'Debug',
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CandyMenuButton(
+                  title: 'Drill results',
+                  subtitle: 'The results popup, over graded strokes',
+                  icon: Icons.grading_rounded,
+                  colors: AppColors.candyPink,
+                  onPressed: () => go('/debug/drill-results'),
+                ),
+                const SizedBox(height: 16),
+                CandyMenuButton(
+                  title: 'Playlist results',
+                  subtitle: 'The STAGE CLEAR screen after a playlist',
+                  icon: Icons.emoji_events_rounded,
+                  colors: AppColors.candyOrange,
+                  onPressed: () => go('/debug/playlist-results'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A made-up playlist, as just played: its first five drills, at various settings.
+List<PlaylistEntry> debugPlaylistEntries() => [
+  for (final (i, drill) in data.allDrills.take(5).indexed)
+    PlaylistEntry(
+      drillId: drill.id,
+      config: DrillConfig(bpm: 80 + i * 10, bpmIncrease: i.isEven ? 5 : 0, drillRepeat: 1 + i % 3),
+    ),
+];
+
+/// The results popup shown at the end of a graded drill, over a drill's sections with grades
+/// marked on their strokes, all from made-up grades, in a few kinds of run.
+class DrillResultsDebugScreen extends StatefulWidget {
+  const DrillResultsDebugScreen({super.key});
+
+  @override
+  State<DrillResultsDebugScreen> createState() => _DrillResultsDebugScreenState();
 }
 
 /// A made-up run: how many strokes it had of each judgement, how many with the wrong hand, how
@@ -140,7 +194,7 @@ class _Run {
   }
 }
 
-class _DebugScreenState extends State<DebugScreen> {
+class _DrillResultsDebugScreenState extends State<DrillResultsDebugScreen> {
   var _run = _Run.all.first;
   var _showPopup = true;
   // Bumped to restart the popup (and its countdown), as if it were shown afresh.

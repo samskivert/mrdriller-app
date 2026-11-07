@@ -58,7 +58,8 @@ drill has to be added to the `drills` list to appear in the app and to be reacha
 `/`, `/settings`, `/drills`, `/drills/<id>`, `/playlists`, `/playlists/<id>`, `/daily-practice`,
 `/metronome`, `/metronome/<presetId>`, `/tool/pattern-trainer`, `/tool/midi-diagnostics` (not on
 the menu), and in debug builds only, `/debug` (`screens/debug_screen.dart`, behind a bug icon on
-the menu: made-up data for working on how things look, e.g. the results popup). Unknown routes return null on purpose so deep links skip prefixes that aren't routes
+the menu): a menu of screens filled in with made-up data, for working on how they look
+(`/debug/drill-results`, `/debug/playlist-results`). Unknown routes return null on purpose so deep links skip prefixes that aren't routes
 when the back stack is built. A reminder linked to a playlist carries its route as
 the notification's payload: a tap that launches the app becomes `MaterialApp`'s initial route (see
 `notificationLaunchRoute()`), and one while it's running rebuilds the back stack via
