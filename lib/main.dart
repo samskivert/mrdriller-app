@@ -22,6 +22,7 @@ import 'services/screen_cutout.dart';
 import 'state/app_info.dart';
 import 'state/app_name.dart';
 import 'state/metronome_settings.dart';
+import 'state/midi_devices.dart';
 import 'state/practice_log.dart';
 import 'state/playlists.dart';
 import 'state/reminders.dart';
@@ -38,6 +39,7 @@ Future<void> main() async {
   await metronomePresets.load();
   await practiceLog.load();
   await reminders.load();
+  await midiDevices.load();
   await loadAppInfo();
   await loadAppName();
   initScreenCutout();

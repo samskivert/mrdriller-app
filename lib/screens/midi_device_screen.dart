@@ -1,0 +1,337 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../services/midi_connection.dart';
+import '../services/midi_input.dart';
+import '../state/midi_devices.dart';
+import '../util/colors.dart';
+import '../widgets/arcade.dart';
+import '../widgets/hud_controls.dart';
+import '../widgets/hud_layout.dart';
+import '../widgets/midi_timing_test.dart';
+
+/// Sets up a MIDI device (a drum pad): what it's called, which hand each of its pads is for, and
+/// a test of hitting in time with them.
+class MidiDeviceScreen extends StatefulWidget {
+  final String deviceKey;
+
+  const MidiDeviceScreen({super.key, required this.deviceKey});
+
+  @override
+  State<MidiDeviceScreen> createState() => _MidiDeviceScreenState();
+}
+
+class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
+  StreamSubscription<MidiMessage>? _subscription;
+  // The device's mapped pads' hits, for the timing test.
+  late final Stream<MidiMessage> _hits;
+  // What's been hit since the screen opened, by note.
+  final _seen = <int, _Seen>{};
+
+  String get _key => widget.deviceKey;
+
+  bool _isFromDevice(MidiMessage message) {
+    final port = midi.portById(message.portId);
+    return port != null && midiDeviceKey(port) == _key;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
+    _subscription = notes.listen((message) {
+      setState(() {
+        final seen = _seen.putIfAbsent(message.note, _Seen.new);
+        seen.hits++;
+        seen.velocity = message.velocity;
+      });
+    });
+    _hits = notes.where((m) {
+      final role = midiDevices.roleOf(_key, m.note);
+      return role == PadRole.right || role == PadRole.left;
+    });
+    midi.connect();
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _rename() async {
+    final name = await promptForName(
+      context,
+      title: 'Rename device',
+      initial: midiDevices.nameOf(_key),
+      confirmLabel: 'RENAME',
+    );
+    if (name != null) midiDevices.rename(_key, name);
+  }
+
+  Future<void> _forget() async {
+    final confirmed = await confirmDelete(
+      context,
+      title: 'Forget device',
+      message: "Forget ${midiDevices.nameOf(_key)}'s name and pads?",
+    );
+    if (!confirmed || !mounted) return;
+    midiDevices.forget(_key);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([midi, midiDevices]),
+      builder: (context, _) => CreamScreen(
+        title: midiDevices.nameOf(_key),
+        actions: [RoundIconButton(icon: Icons.edit_rounded, tooltip: 'Rename', onPressed: _rename)],
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _statusCard(),
+                  const SizedBox(height: 16),
+                  _padsCard(),
+                  const SizedBox(height: 16),
+                  MidiTimingTest(hits: _hits, now: midi.now),
+                  if (midiDevices.byKey(_key) != null) ...[
+                    const SizedBox(height: 24),
+                    CandyButton(
+                      label: 'FORGET DEVICE',
+                      icon: Icons.delete_rounded,
+                      colors: AppColors.candyRed,
+                      onPressed: _forget,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusCard() {
+    final connected = midi.ports.any((p) => p.connected && midiDeviceKey(p) == _key);
+    final String status;
+    if (midi.status == MidiStatus.connected) {
+      status = connected ? 'Connected' : 'Not connected';
+    } else {
+      status = midi.error ?? 'Connecting to MIDI...';
+    }
+    return BannerCard(
+      label: 'Device',
+      color: AppColors.bannerBlue,
+      child: Row(
+        children: [
+          ConnectionDot(connected: connected),
+          const SizedBox(width: 10),
+          Expanded(child: Text(status, style: midiTextStyle(strong: true))),
+          if (midiDevices.nameOf(_key) != _key)
+            Flexible(
+              child: Text(_key, style: midiTextStyle(), textAlign: TextAlign.end),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _padsCard() {
+    final mapped = midiDevices.byKey(_key)?.pads ?? const {};
+    final notes = {..._seen.keys, ...mapped.keys}.toList()..sort();
+    return BannerCard(
+      label: 'Pads',
+      color: AppColors.bannerMagenta,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Hit each pad, then choose which hand it counts as. Ignored pads (and any not set) '
+            "don't count as hits.",
+            style: midiTextStyle(),
+          ),
+          for (final note in notes) ...[
+            const Divider(height: 24, thickness: 2, color: AppColors.creamShadow),
+            _PadRow(
+              note: note,
+              role: mapped[note],
+              seen: _seen[note],
+              onChanged: (role) => midiDevices.setRole(_key, note, role),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Seen {
+  int hits = 0;
+  int velocity = 0;
+}
+
+class _PadRow extends StatelessWidget {
+  final int note;
+  final PadRole? role;
+  final _Seen? seen;
+  final ValueChanged<PadRole?> onChanged;
+
+  const _PadRow({
+    required this.note,
+    required this.role,
+    required this.seen,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final seen = this.seen;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            _NoteBadge(note: note, role: role, hits: seen?.hits ?? 0),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Note $note (${midiNoteName(note)})', style: midiTextStyle(strong: true)),
+            ),
+            Text(
+              seen == null ? 'not hit yet' : 'velocity ${seen.velocity}',
+              style: midiTextStyle(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        CandySegmented<PadRole?>(
+          options: [for (final role in PadRole.values) (role, role.label)],
+          value: role,
+          // Tapping the role it already has unsets it.
+          onChanged: (picked) => onChanged(picked == role ? null : picked),
+          colors: switch (role) {
+            PadRole.right => AppColors.candyBlue,
+            PadRole.left => AppColors.candyOrange,
+            _ => AppColors.candyGray,
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// A candy block for a pad, colored for the hand it's for (as strokes are), that flashes each
+/// time it's hit ([hits] changes).
+class _NoteBadge extends StatefulWidget {
+  final int note;
+  final PadRole? role;
+  final int hits;
+
+  const _NoteBadge({required this.note, required this.role, required this.hits});
+
+  @override
+  State<_NoteBadge> createState() => _NoteBadgeState();
+}
+
+class _NoteBadgeState extends State<_NoteBadge> with SingleTickerProviderStateMixin {
+  late final _flash = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+    value: 1,
+  );
+
+  @override
+  void didUpdateWidget(_NoteBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.hits != oldWidget.hits) _flash.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final candy = switch (widget.role) {
+      PadRole.right => AppColors.candyBlue,
+      PadRole.left => AppColors.candyOrange,
+      _ => AppColors.candyGray,
+    };
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _flash,
+        builder: (context, child) {
+          final glow = 1 - Curves.easeOut.transform(_flash.value);
+          return Transform.scale(
+            scale: 1 + 0.12 * glow,
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Color.lerp(candy.base, candy.icing, glow),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: candy.outline, width: 2),
+                boxShadow: [BoxShadow(color: candy.lo, offset: const Offset(0, 3))],
+              ),
+              child: child,
+            ),
+          );
+        },
+        child: OutlinedText(
+          switch (widget.role) {
+            PadRole.right => 'R',
+            PadRole.left => 'L',
+            _ => '?',
+          },
+          style: const TextStyle(fontFamily: AppFonts.display, fontSize: 20, height: 1),
+          color: Colors.white,
+          outline: candy.outline,
+        ),
+      ),
+    );
+  }
+}
+
+/// A green dot if [connected], else gray.
+class ConnectionDot extends StatelessWidget {
+  final bool connected;
+
+  const ConnectionDot({super.key, required this.connected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: connected ? AppColors.candyGreen.base : AppColors.candyGray.base,
+      ),
+    );
+  }
+}
+
+const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/// A MIDI note's name, with middle C (60) as C4.
+String midiNoteName(int note) => '${_noteNames[note % 12]}${note ~/ 12 - 1}';
+
+/// The body text style of the MIDI screens.
+TextStyle midiTextStyle({bool strong = false}) => TextStyle(
+  fontFamily: AppFonts.body,
+  fontSize: 14,
+  height: 1.4,
+  fontWeight: strong ? FontWeight.w800 : FontWeight.w500,
+  color: strong ? AppColors.ink : AppColors.inkMuted,
+);

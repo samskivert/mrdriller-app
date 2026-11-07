@@ -3,12 +3,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/midi_connection.dart';
 import '../services/midi_input.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
 import '../widgets/midi_timing_test.dart';
+import 'midi_device_screen.dart';
 
 /// A diagnostic tool for MIDI input: lists the MIDI inputs, lights up a block for each note as
 /// it's hit, and logs every message with its timestamps, to check that a drum pad is hooked up and
@@ -25,12 +27,8 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
   // How many recent messages the lag stats cover.
   static const _lagWindow = 100;
 
-  MidiInput? _midi;
-  bool _connecting = false;
-  String? _error;
-  final _subscriptions = <StreamSubscription<Object?>>[];
+  StreamSubscription<MidiMessage>? _subscription;
 
-  List<MidiPort> _ports = const [];
   final _portMessages = <String, int>{};
   final _pads = <int, _Pad>{};
   // Newest first.
@@ -38,47 +36,25 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
   final _lags = <double>[];
   double? _lastNoteOnAt;
 
+  bool get _connected => midi.status == MidiStatus.connected;
+
   @override
   void initState() {
     super.initState();
-    // Off the web there's nothing to connect to; on the web, ask right away (Chrome prompts the
-    // first time, then remembers).
-    if (MidiInput.isSupported) _connect();
+    _subscription = midi.messages.listen(_onMessage);
+    midi.addListener(_onMidiChanged);
+    // Chrome asks for permission the first time, then remembers.
+    midi.connect();
   }
 
   @override
   void dispose() {
-    for (final subscription in _subscriptions) {
-      subscription.cancel();
-    }
-    _midi?.close();
+    _subscription?.cancel();
+    midi.removeListener(_onMidiChanged);
     super.dispose();
   }
 
-  Future<void> _connect() async {
-    setState(() {
-      _connecting = true;
-      _error = null;
-    });
-    try {
-      final midi = await MidiInput.open();
-      if (!mounted) {
-        midi.close();
-        return;
-      }
-      _subscriptions
-        ..add(midi.onPortsChanged.listen((ports) => setState(() => _ports = ports)))
-        ..add(midi.messages.listen(_onMessage));
-      setState(() {
-        _midi = midi;
-        _ports = midi.ports;
-      });
-    } on MidiUnavailable catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _connecting = false);
-    }
-  }
+  void _onMidiChanged() => setState(() {});
 
   void _onMessage(MidiMessage message) {
     setState(() {
@@ -117,7 +93,7 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
     return CreamScreen(
       title: 'MIDI Diagnostics',
       actions: [
-        if (_midi != null)
+        if (_connected)
           RoundIconButton(icon: Icons.delete_sweep_rounded, tooltip: 'Clear', onPressed: _clear),
       ],
       // So that the results and the log can be selected and copied.
@@ -129,7 +105,7 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
               constraints: const BoxConstraints(maxWidth: 640),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _midi == null ? _disconnected() : _connected(),
+                children: _connected ? _connectedCards() : _disconnectedCards(),
               ),
             ),
           ),
@@ -138,8 +114,8 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
     );
   }
 
-  List<Widget> _disconnected() {
-    if (!MidiInput.isSupported) {
+  List<Widget> _disconnectedCards() {
+    if (midi.status == MidiStatus.unsupported) {
       return const [
         EmptyCard(
           'MIDI input only works in the web version for now, in a browser that supports it '
@@ -155,17 +131,17 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _Body(
-              _error ??
-                  (_connecting
+              midi.error ??
+                  (midi.status == MidiStatus.connecting
                       ? 'Asking the browser for MIDI access...'
                       : 'Connect to see your MIDI devices.'),
             ),
             const SizedBox(height: 12),
             CandyButton(
-              label: _error == null ? 'CONNECT' : 'TRY AGAIN',
+              label: midi.error == null ? 'CONNECT' : 'TRY AGAIN',
               icon: Icons.cable_rounded,
               colors: AppColors.candyGreen,
-              onPressed: _connecting ? null : _connect,
+              onPressed: midi.status == MidiStatus.connecting ? null : midi.connect,
             ),
           ],
         ),
@@ -173,17 +149,17 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
     ];
   }
 
-  List<Widget> _connected() {
+  List<Widget> _connectedCards() {
     final pads = _pads.values.toList()..sort((a, b) => a.note.compareTo(b.note));
     return [
       BannerCard(
         label: 'Inputs',
         color: AppColors.bannerBlue,
-        child: _ports.isEmpty
+        child: midi.ports.isEmpty
             ? const _Body('No MIDI inputs. Plug in your pad or MIDI cable; it should show up here.')
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [for (final port in _ports) _portRow(port)],
+                children: [for (final port in midi.ports) _portRow(port)],
               ),
       ),
       const SizedBox(height: 16),
@@ -205,7 +181,7 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
               ),
       ),
       const SizedBox(height: 16),
-      MidiTimingTest(midi: _midi!),
+      MidiTimingTest(hits: midi.messages, now: midi.now),
       const SizedBox(height: 16),
       BannerCard(
         label: 'Messages',
@@ -277,11 +253,6 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
 }
 
 String _ms(double ms) => '${ms.toStringAsFixed(1)}ms';
-
-const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-/// A note's name, with middle C (60) as C4.
-String _noteName(int note) => '${_noteNames[note % 12]}${note ~/ 12 - 1}';
 
 const _bodyStyle = TextStyle(
   fontFamily: AppFonts.body,
@@ -377,7 +348,7 @@ class _PadTileState extends State<_PadTile> with SingleTickerProviderStateMixin 
       child: Column(
         children: [
           OutlinedText(
-            _noteName(pad.note),
+            midiNoteName(pad.note),
             style: const TextStyle(fontFamily: AppFonts.display, fontSize: 22, height: 1.1),
             color: Colors.white,
             outline: candy.outline,
@@ -462,7 +433,7 @@ class _LogRow extends StatelessWidget {
         time,
         m.isNoteOn ? 'Note on' : 'Note off',
         '${m.channel}',
-        '${m.note} ${_noteName(m.note)}',
+        '${m.note} ${midiNoteName(m.note)}',
         '${m.velocity}',
         gap,
         lag,

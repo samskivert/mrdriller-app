@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../model/model.dart';
 import '../state/app_info.dart';
+import '../services/midi_connection.dart';
 import '../state/app_name.dart';
+import '../state/midi_devices.dart';
 import '../state/settings.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
+import 'midi_device_screen.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
 import '../widgets/stroke_view.dart';
@@ -41,6 +44,8 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: settings.setShowBouncingDot,
                     preview: _HighlightPreview(on: settings.showBouncingDot),
                   ),
+                  const SizedBox(height: 16),
+                  const _MidiDevicesCard(),
                   const SizedBox(height: 28),
                   Text(
                     '${appName()} v$appVersion',
@@ -139,6 +144,122 @@ class _SettingCard extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The MIDI devices (drum pads) that are connected or have been set up, each opening its
+/// [MidiDeviceScreen], and a way to the MIDI diagnostics.
+class _MidiDevicesCard extends StatefulWidget {
+  const _MidiDevicesCard();
+
+  @override
+  State<_MidiDevicesCard> createState() => _MidiDevicesCardState();
+}
+
+class _MidiDevicesCardState extends State<_MidiDevicesCard> {
+  @override
+  void initState() {
+    super.initState();
+    midi.connect();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([midi, midiDevices]),
+      builder: (context, _) {
+        final connected = {
+          for (final port in midi.ports)
+            if (port.connected) midiDeviceKey(port),
+        };
+        final keys = {...connected, ...midiDevices.all.map((d) => d.key)};
+        return BannerCard(
+          label: 'MIDI devices',
+          color: AppColors.bannerGreen,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (midi.status == MidiStatus.unsupported)
+                Text("MIDI input isn't supported here yet.", style: midiTextStyle())
+              else if (midi.status == MidiStatus.failed) ...[
+                Text(midi.error ?? "Couldn't connect to MIDI.", style: midiTextStyle()),
+                const SizedBox(height: 10),
+                CandyButton(
+                  label: 'TRY AGAIN',
+                  icon: Icons.cable_rounded,
+                  colors: AppColors.candyGreen,
+                  onPressed: midi.connect,
+                ),
+              ] else if (keys.isEmpty)
+                Text(
+                  midi.status == MidiStatus.connected
+                      ? 'No MIDI devices. Plug in a drum pad to set it up.'
+                      : 'Connecting to MIDI...',
+                  style: midiTextStyle(),
+                ),
+              for (final key in keys) _deviceRow(key, connected: connected.contains(key)),
+              const SizedBox(height: 4),
+              _row(
+                icon: Icons.monitor_heart_rounded,
+                title: 'MIDI diagnostics',
+                onTap: () => Navigator.of(context).pushNamed('/tool/midi-diagnostics'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _deviceRow(String key, {required bool connected}) {
+    final mapped = midiDevices.byKey(key)?.pads.values.where((r) => r != PadRole.ignore).length;
+    final name = midiDevices.nameOf(key);
+    return _row(
+      leading: ConnectionDot(connected: connected),
+      title: name,
+      subtitle: [
+        if (name != key) key,
+        mapped == null || mapped == 0 ? 'No pads set up' : '$mapped pad${mapped == 1 ? '' : 's'}',
+      ].join(' - '),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute<void>(builder: (_) => MidiDeviceScreen(deviceKey: key))),
+    );
+  }
+
+  Widget _row({
+    Widget? leading,
+    IconData? icon,
+    required String title,
+    String? subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Center(child: leading ?? Icon(icon, size: 20, color: AppColors.inkMuted)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: midiTextStyle(strong: true)),
+                  if (subtitle != null) Text(subtitle, style: midiTextStyle()),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.inkMuted),
+          ],
         ),
       ),
     );

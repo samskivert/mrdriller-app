@@ -27,9 +27,13 @@ import 'hud_controls.dart';
 /// time however busy the app is, or (to compare) played when a poll finds them due, which is what
 /// the metronome does, and is late whenever the main thread is busy.
 class MidiTimingTest extends StatefulWidget {
-  final MidiInput midi;
+  /// The messages to count hits from (its note ons).
+  final Stream<MidiMessage> hits;
 
-  const MidiTimingTest({super.key, required this.midi});
+  /// The current time on the clock that [hits] are timestamped with, in milliseconds.
+  final double Function() now;
+
+  const MidiTimingTest({super.key, required this.hits, required this.now});
 
   @override
   State<MidiTimingTest> createState() => _MidiTimingTestState();
@@ -84,7 +88,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   @override
   void initState() {
     super.initState();
-    _messages = widget.midi.messages.listen(_onMessage);
+    _messages = widget.hits.listen(_onMessage);
   }
 
   @override
@@ -122,7 +126,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   // Starts counting in afresh, with the current settings.
   void _restartGrid() {
     _cancelPending();
-    _grid = BeatGrid.bpm(start: widget.midi.now() + _leadInMs, bpm: _bpm);
+    _grid = BeatGrid.bpm(start: widget.now() + _leadInMs, bpm: _bpm);
     _nextBeat = 0;
     _shownBeat = -1;
     _lastHitAt = null;
@@ -159,7 +163,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     final grid = _grid;
     final sounds = _sounds;
     if (grid == null || sounds == null) return;
-    final now = widget.midi.now();
+    final now = widget.now();
     final engineTime = sounds.engineTime();
     if (engineTime != null) _clockSync.sample(now, engineTime.inMicroseconds / 1000);
     if (_testedScheduled) {

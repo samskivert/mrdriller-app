@@ -92,6 +92,10 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
 - `services/midi_input.dart`: MIDI input (for a drum pad), web-only for now via Web MIDI
   (`midi_input_web.dart`, picked by conditional import; a stub elsewhere). Each message carries the
   browser's arrival timestamp and the time Dart got it, both on `performance.now()`'s clock.
+  Screens share one connection, `midi` (`services/midi_connection.dart`): opening a second
+  `MidiInput` closes the first. Settings lists MIDI devices, each opening
+  `screens/midi_device_screen.dart` to rename it and map its pads (notes) to a hand, saved in
+  `midiDevices` (`state/midi_devices.dart`, keyed by port name, local only, not synced).
   `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log, and holds
   the timing test (`widgets/midi_timing_test.dart`), which schedules clicks on that same clock and
   compares hits with the ideal beat times (`model/timing.dart`).
@@ -119,8 +123,8 @@ chip, candy switch and segmented picker, delete confirmation, name prompt, secti
 `lib/widgets/hud_controls.dart`.
 
 **State and persistence** (`lib/state/`): app-wide `ChangeNotifier` singletons (`settings`,
-`playlists`, `metronomePresets`, `practiceLog`, `reminders`), each `load()`ed in `main()` before
-`runApp` and persisted with `shared_preferences`. Per-drill config is stored under
+`playlists`, `metronomePresets`, `practiceLog`, `reminders`, `midiDevices`), each `load()`ed in
+`main()` before `runApp` and persisted with `shared_preferences`. Per-drill config is stored under
 `config.<drillId>`, the pattern trainer's under `config.pattern-trainer`, and the metronome's
 main screen's under `config.metronome`. There's no state-management package; widgets listen to these
 singletons directly.
