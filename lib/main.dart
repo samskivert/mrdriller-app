@@ -8,6 +8,7 @@ import 'screens/drill_menu_screen.dart';
 import 'screens/drill_screen.dart';
 import 'screens/menu_screen.dart';
 import 'screens/metronome_preset_screen.dart';
+import 'screens/midi_diagnostics_screen.dart';
 import 'screens/metronome_screen.dart';
 import 'screens/daily_practice_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
@@ -176,6 +177,12 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
       return MaterialPageRoute(
         settings: routeSettings,
         builder: (_) => const PatternTrainerScreen(),
+      );
+    }
+    if (id == 'midi-diagnostics') {
+      return MaterialPageRoute(
+        settings: routeSettings,
+        builder: (_) => const MidiDiagnosticsScreen(),
       );
     }
   }

@@ -53,8 +53,9 @@ drill has to be added to the `drills` list to appear in the app and to be reacha
 
 **Routing** (`lib/main.dart`): path URLs (`usePathUrlStrategy`) parsed in `_onGenerateRoute`:
 `/`, `/settings`, `/drills`, `/drills/<id>`, `/playlists`, `/playlists/<id>`, `/daily-practice`,
-`/metronome`, `/metronome/<presetId>`, `/tool/pattern-trainer`. Unknown routes return null on purpose so deep links skip prefixes that
-aren't routes when the back stack is built. A reminder linked to a playlist carries its route as
+`/metronome`, `/metronome/<presetId>`, `/tool/pattern-trainer`, `/tool/midi-diagnostics` (not on
+the menu). Unknown routes return null on purpose so deep links skip prefixes that aren't routes
+when the back stack is built. A reminder linked to a playlist carries its route as
 the notification's payload: a tap that launches the app becomes `MaterialApp`'s initial route (see
 `notificationLaunchRoute()`), and one while it's running rebuilds the back stack via
 `_openDeepLink`.
@@ -80,6 +81,10 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   measure as beep (high), boop (low) or nothing, speeding up every so many measures. It's the
   other thing that writes to `practiceLog`: a minute or more of playing, logged (under
   `metronomeId`) on leaving the screen or the app going to the background.
+- `services/midi_input.dart`: MIDI input (for a drum pad), web-only for now via Web MIDI
+  (`midi_input_web.dart`, picked by conditional import; a stub elsewhere). Each message carries the
+  browser's arrival timestamp and the time Dart got it, both on `performance.now()`'s clock.
+  `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.
 
