@@ -577,6 +577,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
           ExpectedStroke(
             timeMs: time,
             hand: stroke.hand,
+            accent: stroke.accent,
             spot: (s.drillRepeat, s.row, s.section, s.repeat, s.line, s.measure, s.offset, i),
           ),
         );
@@ -601,8 +602,16 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
     if (calibration == null) _uncalibrated = true;
     final time = message.timestamp - (midi.now() - widget.metronome.now()) - (calibration ?? 0);
     _expectStrokes();
+    // Whether it was accented, if the pad's been set up to tell.
+    final accentVelocity = midiDevices.accentVelocityOf(key);
+    final accented = accentVelocity == null ? null : message.velocity >= accentVelocity;
     // (Tapping along with the count-in, or carrying on after the end, isn't extra.)
-    final grade = _grader.hit(time, hand, countExtra: !_state.intro && !_lastHitsOpen);
+    final grade = _grader.hit(
+      time,
+      hand,
+      accented: accented,
+      countExtra: !_state.intro && !_lastHitsOpen,
+    );
     if (grade != null) setState(() => _addGrades([grade]));
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/midi_connection.dart';
 import '../services/midi_input.dart';
+import '../model/grading.dart';
 import '../state/audio_outputs.dart';
 import '../state/midi_devices.dart';
 import '../util/colors.dart';
@@ -29,8 +30,10 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   // The device's pads' hits, and just its mapped pads', for the timing test.
   late final Stream<MidiMessage> _notes;
   late final Stream<MidiMessage> _hits;
-  // What's been hit since the screen opened, by note.
+  // What's been hit since the screen opened, by note, and the latest hits' velocities.
   final _seen = <int, _Seen>{};
+  static const _velocitiesKept = 40;
+  final _velocities = <int>[];
 
   String get _key => widget.deviceKey;
 
@@ -48,6 +51,8 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
         final seen = _seen.putIfAbsent(message.note, _Seen.new);
         seen.hits++;
         seen.velocity = message.velocity;
+        _velocities.add(message.velocity);
+        if (_velocities.length > _velocitiesKept) _velocities.removeAt(0);
       });
     });
     _hits = notes.where((m) {
@@ -103,6 +108,8 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                   _statusCard(),
                   const SizedBox(height: 16),
                   _padsCard(),
+                  const SizedBox(height: 16),
+                  _accentsCard(),
                   const SizedBox(height: 16),
                   _calibrationCard(),
                   const SizedBox(height: 16),
@@ -261,6 +268,76 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
     );
   }
 
+  Widget _accentsCard() {
+    final threshold = midiDevices.accentVelocityOf(_key);
+    final suggested = accentVelocityFor(_velocities);
+    return BannerCard(
+      label: 'Accents',
+      color: AppColors.bannerRed,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            threshold == null
+                ? "Accents aren't graded yet. Play a mix of soft and loud hits, then set the "
+                      'accent velocity from them, or drag it.'
+                : 'Hits at or above the accent velocity count as accents. Play a mix of soft and '
+                      'loud hits to check, or set it again from them.',
+            style: midiTextStyle(),
+          ),
+          const SizedBox(height: 12),
+          _VelocityStrip(velocities: _velocities, threshold: threshold),
+          Row(
+            children: [
+              Expanded(
+                child: Slider(
+                  value: (threshold ?? 64).toDouble(),
+                  min: 1,
+                  max: 127,
+                  divisions: 126,
+                  activeColor: threshold == null ? AppColors.candyGray.base : AppColors.bannerRed,
+                  onChanged: (v) => midiDevices.setAccentVelocity(_key, v.round()),
+                ),
+              ),
+              SizedBox(
+                width: 64,
+                child: Text(
+                  threshold == null ? 'off' : '$threshold',
+                  textAlign: TextAlign.end,
+                  style: midiTextStyle(strong: true),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: CandyButton(
+                  label: 'SET FROM MY HITS',
+                  icon: Icons.auto_fix_high_rounded,
+                  colors: AppColors.candyGreen,
+                  onPressed: suggested == null
+                      ? null
+                      : () => midiDevices.setAccentVelocity(_key, suggested),
+                ),
+              ),
+              if (threshold != null) ...[
+                const SizedBox(width: 10),
+                CandyButton(
+                  label: 'OFF',
+                  icon: Icons.block_rounded,
+                  colors: AppColors.candyGray,
+                  onPressed: () => midiDevices.setAccentVelocity(_key, null),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _padsCard() {
     final mapped = midiDevices.byKey(_key)?.pads ?? const {};
     final notes = {..._seen.keys, ...mapped.keys}.toList()..sort();
@@ -288,6 +365,76 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
       ),
     );
   }
+}
+
+/// The latest hits' [velocities] as dots along the range of velocities (1 to 127), the newest
+/// biggest, and gold if accented (at or above the [threshold], if there is one), with the
+/// threshold marked.
+class _VelocityStrip extends StatelessWidget {
+  final List<int> velocities;
+  final int? threshold;
+
+  const _VelocityStrip({required this.velocities, required this.threshold});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.navyTop, AppColors.navyBottom],
+        ),
+        border: Border.all(color: AppColors.panelBorder, width: 2),
+      ),
+      child: CustomPaint(painter: _VelocityStripPainter([...velocities], threshold)),
+    );
+  }
+}
+
+class _VelocityStripPainter extends CustomPainter {
+  final List<int> velocities;
+  final int? threshold;
+
+  _VelocityStripPainter(this.velocities, this.threshold);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const margin = 12.0;
+    double x(num velocity) => margin + (size.width - margin * 2) * (velocity - 1) / 126;
+    final mid = size.height / 2;
+    final line = Paint()
+      ..color = AppColors.panelBorder
+      ..strokeWidth = 2;
+    canvas.drawLine(Offset(margin, mid), Offset(size.width - margin, mid), line);
+    final threshold = this.threshold;
+    if (threshold != null) {
+      canvas.drawLine(
+        Offset(x(threshold), 5),
+        Offset(x(threshold), size.height - 5),
+        Paint()
+          ..color = AppColors.candyRed.base
+          ..strokeWidth = 2,
+      );
+    }
+    for (final (i, velocity) in velocities.indexed) {
+      final newest = i == velocities.length - 1;
+      final age = (velocities.length - 1 - i) / (velocities.length > 1 ? velocities.length - 1 : 1);
+      final accented = threshold != null && velocity >= threshold;
+      final color = accented ? AppColors.gold : AppColors.cream;
+      canvas.drawCircle(
+        Offset(x(velocity), mid),
+        newest ? 7 : 4.5,
+        Paint()..color = color.withValues(alpha: newest ? 1 : 0.85 - 0.6 * age),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_VelocityStripPainter old) =>
+      old.velocities != velocities || old.threshold != threshold;
 }
 
 class _Seen {

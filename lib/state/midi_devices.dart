@@ -99,33 +99,45 @@ class MidiDeviceConfig {
   /// Its calibration for each audio output that it's been calibrated for, by the output's id.
   final Map<String, Calibration> calibrations;
 
+  /// The velocity (1-127) at or above which a hit counts as accented, if it's been set (and
+  /// otherwise accents aren't graded).
+  final int? accentVelocity;
+
   const MidiDeviceConfig({
     required this.key,
     this.name,
     this.pads = const {},
     this.calibrations = const {},
+    this.accentVelocity,
   });
 
-  MidiDeviceConfig withName(String? name) =>
-      MidiDeviceConfig(key: key, name: name, pads: pads, calibrations: calibrations);
-
-  MidiDeviceConfig withPads(Map<int, PadRole> pads) => MidiDeviceConfig(
+  // A copy with whatever's given changed (the nullable ones, by a function returning the new value).
+  MidiDeviceConfig _copy({
+    String? Function()? name,
+    Map<int, PadRole>? pads,
+    Map<String, Calibration>? calibrations,
+    int? Function()? accentVelocity,
+  }) => MidiDeviceConfig(
     key: key,
-    name: name,
-    pads: Map.unmodifiable(pads),
-    calibrations: calibrations,
+    name: name == null ? this.name : name(),
+    pads: pads == null ? this.pads : Map.unmodifiable(pads),
+    calibrations: calibrations == null ? this.calibrations : Map.unmodifiable(calibrations),
+    accentVelocity: accentVelocity == null ? this.accentVelocity : accentVelocity(),
   );
 
-  MidiDeviceConfig withCalibrations(Map<String, Calibration> calibrations) => MidiDeviceConfig(
-    key: key,
-    name: name,
-    pads: pads,
-    calibrations: Map.unmodifiable(calibrations),
-  );
+  MidiDeviceConfig withName(String? name) => _copy(name: () => name);
+
+  MidiDeviceConfig withPads(Map<int, PadRole> pads) => _copy(pads: pads);
+
+  MidiDeviceConfig withCalibrations(Map<String, Calibration> calibrations) =>
+      _copy(calibrations: calibrations);
+
+  MidiDeviceConfig withAccentVelocity(int? velocity) => _copy(accentVelocity: () => velocity);
 
   Map<String, Object?> toJson() => {
     'key': key,
     if (name != null) 'name': name,
+    if (accentVelocity != null) 'accentVelocity': accentVelocity,
     'pads': {for (final MapEntry(:key, :value) in pads.entries) '$key': value.name},
     'calibrations': {
       for (final MapEntry(:key, :value) in calibrations.entries) key: value.toJson(),
@@ -152,11 +164,13 @@ class MidiDeviceConfig {
         if (key is String && calibration != null) calibrations[key] = calibration;
       }
     }
+    final accentVelocity = json['accentVelocity'];
     return MidiDeviceConfig(
       key: json['key'] as String,
       name: name is String ? name : null,
       pads: Map.unmodifiable(pads),
       calibrations: Map.unmodifiable(calibrations),
+      accentVelocity: accentVelocity is int ? accentVelocity : null,
     );
   }
 }
@@ -228,6 +242,15 @@ class MidiDevices extends ChangeNotifier {
       }
       return device.withCalibrations(calibrations);
     });
+  }
+
+  /// The velocity at or above which a hit on the device with [key] counts as accented, if set.
+  int? accentVelocityOf(String key) => _devices[key]?.accentVelocity;
+
+  /// Sets the velocity at or above which a hit on the device with [key] counts as accented (or
+  /// with null, stops grading accents on it).
+  void setAccentVelocity(String key, int? velocity) {
+    _update(key, (device) => device.withAccentVelocity(velocity?.clamp(1, 127)));
   }
 
   /// Removes every device's calibration for the output with [outputId], which is gone.

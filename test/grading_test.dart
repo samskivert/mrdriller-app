@@ -112,4 +112,59 @@ void main() {
     expect(combined.extras, 2);
     expect(combined.offsets.mean, closeTo(OffsetStats.of([0, 10, -10, 5, 60, 70]).mean, 1e-9));
   });
+
+  test('grades accents when told whether hits were accented', () {
+    final grader = Grader()
+      ..expect(const ExpectedStroke(timeMs: 0, hand: Hand.R, accent: true, spot: 0))
+      ..expect(const ExpectedStroke(timeMs: 200, hand: Hand.L, spot: 200))
+      ..expect(const ExpectedStroke(timeMs: 400, hand: Hand.R, accent: true, spot: 400));
+    expect(grader.hit(0, Hand.R, accented: false)?.wrongAccent, isTrue);
+    expect(grader.hit(200, Hand.L, accented: true)?.wrongAccent, isTrue);
+    final right = grader.hit(400, Hand.R, accented: true)!;
+    expect(right.wrongAccent, isFalse);
+    expect(right.judgement, Judgement.perfect);
+    final summary = grader.summary;
+    expect(summary.accentsGraded, isTrue);
+    expect(summary.wrongAccents, 2);
+  });
+
+  test("doesn't grade accents when it isn't told whether hits were accented", () {
+    final grader = Grader()
+      ..expect(const ExpectedStroke(timeMs: 0, hand: Hand.R, accent: true, spot: 0));
+    expect(grader.hit(0, Hand.R)?.wrongAccent, isFalse);
+    expect(grader.summary.accentsGraded, isFalse);
+  });
+
+  test('combines accent grades', () {
+    final combined = GradeSummary.combine([
+      GradeSummary(counts: const {}, wrongHands: 0, extras: 0, offsets: OffsetStats.empty),
+      GradeSummary(
+        counts: const {},
+        wrongHands: 0,
+        accentsGraded: true,
+        wrongAccents: 3,
+        extras: 0,
+        offsets: OffsetStats.empty,
+      ),
+    ]);
+    expect(combined.accentsGraded, isTrue);
+    expect(combined.wrongAccents, 3);
+  });
+
+  group('accentVelocityFor', () {
+    test('splits soft and loud hits halfway across the gap between them', () {
+      expect(accentVelocityFor([40, 45, 38, 50, 100, 110, 96, 105]), 73);
+    });
+
+    test("needs enough hits, that aren't all alike", () {
+      expect(accentVelocityFor([40, 100, 45]), isNull);
+      expect(accentVelocityFor([60, 62, 64, 61, 63]), isNull);
+    });
+
+    test('copes with uneven groups', () {
+      final split = accentVelocityFor([30, 32, 35, 31, 33, 34, 90])!;
+      expect(split, greaterThan(35));
+      expect(split, lessThanOrEqualTo(90));
+    });
+  });
 }

@@ -116,7 +116,8 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
 - Grading (`model/grading.dart`): when a drum pad is set up, `drill_practice_view.dart` matches
   its hits (by pad role, less the calibration, on the metronome's clock) to the strokes expected,
   which it finds by playing the state machine forward like `ClicksFor` does. Grades are marked on
-  the strokes (`StrokeView.grade`, drawn over the block so layout is unchanged), and the clear
+  the strokes (`StrokeView.grade`, drawn over the block so layout is unchanged). Accents are
+  graded too once a device has an accent velocity (hits at or above it are accented), and the clear
   card shows a summary and waits for DONE instead of moving on.
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.

@@ -17,14 +17,20 @@ enum Judgement {
   const Judgement(this.label);
 }
 
-/// A stroke the drill expects to be hit at [timeMs] by [hand]. [spot] is whatever the caller
-/// needs to know where it is in the drill (to show its grade there).
+/// A stroke the drill expects to be hit at [timeMs] by [hand], [accent]ed or not. [spot] is
+/// whatever the caller needs to know where it is in the drill (to show its grade there).
 class ExpectedStroke {
   final double timeMs;
   final Hand hand;
+  final bool accent;
   final Object spot;
 
-  const ExpectedStroke({required this.timeMs, required this.hand, required this.spot});
+  const ExpectedStroke({
+    required this.timeMs,
+    required this.hand,
+    this.accent = false,
+    required this.spot,
+  });
 }
 
 class Grade {
@@ -38,11 +44,15 @@ class Grade {
   /// Whether it was hit with the other hand than the stroke's.
   final bool wrongHand;
 
+  /// Whether it was hit softly though accented, or hard though not (if accents were graded).
+  final bool wrongAccent;
+
   const Grade({
     required this.stroke,
     required this.judgement,
     this.errorMs,
     this.wrongHand = false,
+    this.wrongAccent = false,
   });
 }
 
@@ -50,6 +60,11 @@ class Grade {
 class GradeSummary {
   final Map<Judgement, int> counts;
   final int wrongHands;
+
+  /// Whether accents were graded (which needs the pad's accent velocity), and how many strokes
+  /// were hit with the wrong accent.
+  final bool accentsGraded;
+  final int wrongAccents;
 
   /// Hits that weren't near any stroke.
   final int extras;
@@ -60,6 +75,8 @@ class GradeSummary {
   const GradeSummary({
     required this.counts,
     required this.wrongHands,
+    this.accentsGraded = false,
+    this.wrongAccents = 0,
     required this.extras,
     required this.offsets,
   });
@@ -79,6 +96,8 @@ class GradeSummary {
     return GradeSummary(
       counts: counts,
       wrongHands: summaries.fold(0, (n, s) => n + s.wrongHands),
+      accentsGraded: summaries.any((s) => s.accentsGraded),
+      wrongAccents: summaries.fold(0, (n, s) => n + s.wrongAccents),
       extras: summaries.fold(0, (n, s) => n + s.extras),
       offsets: OffsetStats.combine(summaries.map((s) => s.offsets)),
     );
@@ -106,6 +125,7 @@ class Grader {
   final _pending = <ExpectedStroke>[];
   final _grades = <Grade>[];
   var _extras = 0;
+  var _accentsGraded = false;
 
   Grader({this.windowMs = 120, this.perfectMs = 25, this.goodMs = 50});
 
@@ -117,8 +137,8 @@ class Grader {
   /// Grades a hit at [timeMs] (adjusted by the calibration) with [hand], against the nearest
   /// stroke expected within [windowMs] (or a stroke for [hand] nearly as near, if the nearest is
   /// for the other hand), or returns null if there isn't one (and, if [countExtra], counts it as
-  /// an extra hit).
-  Grade? hit(double timeMs, Hand hand, {bool countExtra = true}) {
+  /// an extra hit). If whether it was [accented] is known, that's graded too.
+  Grade? hit(double timeMs, Hand hand, {bool? accented, bool countExtra = true}) {
     ExpectedStroke? nearest;
     ExpectedStroke? nearestSameHand;
     for (final stroke in _pending) {
@@ -140,11 +160,13 @@ class Grader {
         : nearest;
     _pending.remove(stroke);
     final error = timeMs - stroke.timeMs;
+    if (accented != null) _accentsGraded = true;
     final grade = Grade(
       stroke: stroke,
       judgement: judge(error),
       errorMs: error,
       wrongHand: stroke.hand != hand,
+      wrongAccent: accented != null && accented != stroke.accent,
     );
     _grades.add(grade);
     return grade;
@@ -179,8 +201,43 @@ class Grader {
     return GradeSummary(
       counts: counts,
       wrongHands: _grades.where((g) => g.wrongHand).length,
+      accentsGraded: _accentsGraded,
+      wrongAccents: _grades.where((g) => g.wrongAccent).length,
       extras: _extras,
       offsets: OffsetStats.of([for (final g in _grades) ?g.errorMs]),
     );
   }
+}
+
+/// The velocity (1-127) that best splits [velocities] (a mix of soft and loud hits) into two groups:
+/// hits at or above it count as accented. It's the split that makes the two groups' velocities
+/// each as close together as can be (Otsu's method). Null if there aren't enough to tell, or
+/// they're all much the same.
+int? accentVelocityFor(List<int> velocities) {
+  if (velocities.length < 4) return null;
+  final sorted = [...velocities]..sort();
+  if (sorted.last - sorted.first < 10) return null;
+  int? best;
+  var bestSpread = double.infinity;
+  for (var split = sorted.first + 1; split <= sorted.last; split++) {
+    final soft = sorted.where((v) => v < split).toList();
+    final loud = sorted.where((v) => v >= split).toList();
+    if (soft.isEmpty || loud.isEmpty) continue;
+    double variance(List<int> group) {
+      final mean = group.reduce((a, b) => a + b) / group.length;
+      return group.fold(0.0, (sum, v) => sum + (v - mean) * (v - mean));
+    }
+
+    // (How spread out the two groups are, in all.)
+    final spread = variance(soft) + variance(loud);
+    if (spread < bestSpread) {
+      bestSpread = spread;
+      best = split;
+    }
+  }
+  // Halfway across the gap between the groups, rather than at the loud group's quietest.
+  if (best == null) return null;
+  final softest = sorted.where((v) => v >= best!).first;
+  final loudestSoft = sorted.where((v) => v < best!).last;
+  return ((softest + loudestSoft + 1) / 2).floor();
 }

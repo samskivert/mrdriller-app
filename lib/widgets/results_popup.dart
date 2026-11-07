@@ -181,8 +181,9 @@ class _GradeSummaryViewState extends State<_GradeSummaryView> {
 }
 
 /// A [summary] of grades as HUD cards, meant for a navy panel: how many of each judgement (in the
-/// colors their marks on the strokes have), how many mistakes of each kind, on average how early
-/// or late and give or take how much, and (if [uncalibrated]) that the pad wasn't calibrated.
+/// colors their marks on the strokes have), how many mistakes of each kind (including the wrong
+/// accent, if accents were graded), on average how early or late and give or take how much, and
+/// (if [uncalibrated]) that the pad wasn't calibrated.
 class GradeCards extends StatelessWidget {
   final GradeSummary summary;
   final bool uncalibrated;
@@ -255,6 +256,7 @@ class GradeCards extends StatelessWidget {
               summary.count(Judgement.miss),
             ),
             ('Wrong hand', AppColors.bannerOrange, summary.wrongHands),
+            if (summary.accentsGraded) ('Accent', AppColors.bannerOrange, summary.wrongAccents),
             ('Extra hits', AppColors.bannerOrange, summary.extras),
           ])
             // (Narrow, three to a row, so their counts go below their banners.)

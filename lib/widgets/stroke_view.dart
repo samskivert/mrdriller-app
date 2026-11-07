@@ -19,8 +19,9 @@ const double _popScale = 1.15;
 /// with a glow behind it. Renders nothing (just reserves space) when [stroke] is null, matching a
 /// "no stroke for this hand on this beat" slot. A [grade] (of the player's hit, from a drum pad) is
 /// marked over the block: a gold ring if perfect, green if good, pink with an arrow off the side it
-/// was off to if early or late, a red cross over the block faded if missed, and a red dot if hit
-/// with the wrong hand.
+/// was off to if early or late, a red cross over the block faded if missed, a red dot if hit
+/// with the wrong hand, and a gold triangle if hit with the wrong accent (pointing up if it
+/// should have been louder, down if softer).
 class StrokeView extends StatelessWidget {
   final Stroke? stroke;
   final bool highlight;
@@ -119,6 +120,26 @@ class _GradePainter extends CustomPainter {
       final dot = center.translate(s * 0.42, -s * 0.42);
       canvas.drawCircle(dot, s * 0.14, Paint()..color = AppColors.candyRed.outline);
       canvas.drawCircle(dot, s * 0.1, Paint()..color = AppColors.candyRed.base);
+    }
+    if (grade.wrongAccent) {
+      // Pointing the way it should have gone: up for an accent hit too softly, down otherwise.
+      final up = grade.stroke.accent;
+      final c = center.translate(-s * 0.42, -s * 0.42);
+      final h = s * 0.13 * (up ? 1 : -1);
+      final triangle = Path()
+        ..moveTo(c.dx, c.dy - h)
+        ..lineTo(c.dx + s * 0.15, c.dy + h)
+        ..lineTo(c.dx - s * 0.15, c.dy + h)
+        ..close();
+      canvas.drawPath(
+        triangle,
+        Paint()
+          ..color = AppColors.goldOutline
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.06
+          ..strokeJoin = StrokeJoin.round,
+      );
+      canvas.drawPath(triangle, Paint()..color = AppColors.gold);
     }
   }
 

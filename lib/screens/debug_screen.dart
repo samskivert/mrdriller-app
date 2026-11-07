@@ -170,6 +170,8 @@ class _Run {
   final String label;
   final Map<Judgement, int> counts;
   final int wrongHands;
+  // How many were hit with the wrong accent, if accents were graded.
+  final int? wrongAccents;
   final int extras;
   final double meanMs;
   final double spreadMs;
@@ -180,6 +182,7 @@ class _Run {
     this.label, {
     required this.counts,
     this.wrongHands = 0,
+    this.wrongAccents,
     this.extras = 0,
     required this.meanMs,
     required this.spreadMs,
@@ -196,10 +199,19 @@ class _Run {
   };
 
   static const all = [
-    _Run('Typical', counts: _typical, wrongHands: 2, extras: 1, meanMs: -14, spreadMs: 22),
+    _Run(
+      'Typical',
+      counts: _typical,
+      wrongHands: 2,
+      wrongAccents: 4,
+      extras: 1,
+      meanMs: -14,
+      spreadMs: 22,
+    ),
     _Run(
       'Great',
       counts: {Judgement.perfect: 74, Judgement.good: 5, Judgement.early: 1},
+      wrongAccents: 1,
       meanMs: -3,
       spreadMs: 9,
     ),
@@ -213,11 +225,12 @@ class _Run {
         Judgement.miss: 16,
       },
       wrongHands: 11,
+      wrongAccents: 13,
       extras: 7,
       meanMs: -38,
       spreadMs: 41,
     ),
-    _Run('Uncal.', counts: _typical, meanMs: 31, spreadMs: 20, uncalibrated: true),
+    _Run('Uncal.', counts: _typical, wrongAccents: 3, meanMs: 31, spreadMs: 20, uncalibrated: true),
     _Run('Playlist', counts: _typical, wrongHands: 2, meanMs: -14, spreadMs: 22, playlist: true),
   ];
 
@@ -237,6 +250,8 @@ class _Run {
   GradeSummary get summary => GradeSummary(
     counts: counts,
     wrongHands: wrongHands,
+    accentsGraded: wrongAccents != null,
+    wrongAccents: wrongAccents ?? 0,
     extras: extras,
     offsets: OffsetStats.of(_offsets),
   );
@@ -246,6 +261,7 @@ class _Run {
     final random = math.Random(seed);
     final total = counts.values.fold(0, (a, b) => a + b);
     final wrongChance = wrongHands / total;
+    final wrongAccentChance = (wrongAccents ?? 0) / total;
     Judgement pick() {
       var n = random.nextInt(total);
       for (final MapEntry(:key, :value) in counts.entries) {
@@ -272,10 +288,17 @@ class _Run {
                 (l, m, b, i): () {
                   final judgement = pick();
                   return Grade(
-                    stroke: ExpectedStroke(timeMs: 0, hand: stroke.hand, spot: (l, m, b, i)),
+                    stroke: ExpectedStroke(
+                      timeMs: 0,
+                      hand: stroke.hand,
+                      accent: stroke.accent,
+                      spot: (l, m, b, i),
+                    ),
                     judgement: judgement,
                     errorMs: judgement == Judgement.miss ? null : errorFor(judgement),
                     wrongHand: judgement != Judgement.miss && random.nextDouble() < wrongChance,
+                    wrongAccent:
+                        judgement != Judgement.miss && random.nextDouble() < wrongAccentChance,
                   );
                 }(),
     };

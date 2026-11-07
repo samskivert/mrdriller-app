@@ -99,4 +99,19 @@ void main() {
     devices.setCalibration(key, 'default', null);
     expect((await reloaded()).byKey(key)?.calibrations, isEmpty);
   });
+
+  test('keeps an accent velocity, alongside the rest', () async {
+    final devices = MidiDevices();
+    await devices.load();
+    expect(devices.accentVelocityOf(key), isNull);
+    devices.rename(key, 'KAT pad');
+    devices.setAccentVelocity(key, 84);
+    final loaded = await reloaded();
+    expect(loaded.accentVelocityOf(key), 84);
+    expect(loaded.nameOf(key), 'KAT pad');
+    devices.setAccentVelocity(key, 300);
+    expect(devices.accentVelocityOf(key), 127);
+    devices.setAccentVelocity(key, null);
+    expect((await reloaded()).accentVelocityOf(key), isNull);
+  });
 }
