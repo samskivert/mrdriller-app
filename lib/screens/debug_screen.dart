@@ -8,6 +8,7 @@ import '../model/model.dart';
 import '../model/timing.dart';
 import '../state/drill_config.dart';
 import '../state/playlists.dart';
+import 'playlist_run_screen.dart';
 import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
@@ -66,6 +67,93 @@ List<PlaylistEntry> debugPlaylistEntries() => [
       config: DrillConfig(bpm: 80 + i * 10, bpmIncrease: i.isEven ? 5 : 0, drillRepeat: 1 + i % 3),
     ),
 ];
+
+/// The STAGE CLEAR screen shown at the end of a playlist (see [debugPlaylistEntries]), with or
+/// without (made-up) grades of each drill, as if played with or without a drum pad.
+class PlaylistResultsDebugScreen extends StatefulWidget {
+  const PlaylistResultsDebugScreen({super.key});
+
+  @override
+  State<PlaylistResultsDebugScreen> createState() => _PlaylistResultsDebugScreenState();
+}
+
+class _PlaylistResultsDebugScreenState extends State<PlaylistResultsDebugScreen> {
+  var _midiStats = true;
+  late final _entries = debugPlaylistEntries();
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = MediaQuery.paddingOf(context);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: PlaylistResults(
+            entries: _entries,
+            grades: _midiStats
+                ? [
+                    // Each drill like one of the made-up runs in turn.
+                    for (var i = 0; i < _entries.length; i++)
+                      GradedRun(
+                        _Run.all[i % _Run.all.length].summary,
+                        uncalibrated: _Run.all[i % _Run.all.length].uncalibrated,
+                      ),
+                  ]
+                : const [],
+          ),
+        ),
+        Positioned(
+          right: safe.right + 12,
+          bottom: safe.bottom + 12,
+          child: _DebugSwitch(
+            label: 'MIDI stats',
+            value: _midiStats,
+            onChanged: (v) => setState(() => _midiStats = v),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A labelled switch on a little cream panel, to float over a screen being looked at.
+class _DebugSwitch extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _DebugSwitch({required this.label, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+        decoration: BoxDecoration(
+          color: AppColors.cream,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: AppColors.inkShadow, offset: Offset(0, 3))],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: AppFonts.body,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(width: 10),
+            CandySwitch(value: value, onChanged: onChanged),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// The results popup shown at the end of a graded drill, over a drill's sections with grades
 /// marked on their strokes, all from made-up grades, in a few kinds of run.

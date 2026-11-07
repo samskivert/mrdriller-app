@@ -67,6 +67,31 @@ class GradeSummary {
   int get strokes => counts.values.fold(0, (a, b) => a + b);
 
   int count(Judgement judgement) => counts[judgement] ?? 0;
+
+  /// All of [summaries] (e.g. of each drill in a playlist) together.
+  factory GradeSummary.combine(Iterable<GradeSummary> summaries) {
+    final counts = <Judgement, int>{};
+    for (final summary in summaries) {
+      for (final MapEntry(:key, :value) in summary.counts.entries) {
+        counts.update(key, (n) => n + value, ifAbsent: () => value);
+      }
+    }
+    return GradeSummary(
+      counts: counts,
+      wrongHands: summaries.fold(0, (n, s) => n + s.wrongHands),
+      extras: summaries.fold(0, (n, s) => n + s.extras),
+      offsets: OffsetStats.combine(summaries.map((s) => s.offsets)),
+    );
+  }
+}
+
+/// How a drill went, graded: its [summary], and whether the drum pad wasn't calibrated for the
+/// audio output in use (so its timings include the sound's delay).
+class GradedRun {
+  final GradeSummary summary;
+  final bool uncalibrated;
+
+  const GradedRun(this.summary, {this.uncalibrated = false});
 }
 
 class Grader {

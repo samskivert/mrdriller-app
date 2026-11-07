@@ -43,6 +43,21 @@ class OffsetStats {
     final worst = list.reduce((a, b) => a.abs() >= b.abs() ? a : b);
     return OffsetStats._(list.length, mean, math.sqrt(variance), worst);
   }
+
+  /// The stats of all the offsets that [parts] are the stats of, together: exactly, without the
+  /// offsets themselves.
+  factory OffsetStats.combine(Iterable<OffsetStats> parts) {
+    final nonEmpty = parts.where((p) => p.count > 0).toList();
+    if (nonEmpty.isEmpty) return empty;
+    final count = nonEmpty.fold(0, (n, p) => n + p.count);
+    final mean = nonEmpty.fold(0.0, (sum, p) => sum + p.mean * p.count) / count;
+    // Each part's offsets' mean square is its spread squared plus its mean squared.
+    final meanSquare =
+        nonEmpty.fold(0.0, (sum, p) => sum + (p.spread * p.spread + p.mean * p.mean) * p.count) /
+        count;
+    final worst = nonEmpty.map((p) => p.worst).reduce((a, b) => a.abs() >= b.abs() ? a : b);
+    return OffsetStats._(count, mean, math.sqrt(math.max(0, meanSquare - mean * mean)), worst);
+  }
 }
 
 /// Maps times on a smooth clock onto one that only advances in steps, like an audio engine's,

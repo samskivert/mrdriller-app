@@ -133,8 +133,64 @@ class _GradeSummaryViewState extends State<_GradeSummaryView> {
     super.dispose();
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final timeout = widget.timeout;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Center(
+          child: PuffyText(
+            'RESULTS',
+            size: 30,
+            color: AppColors.gold,
+            shadow: AppColors.goldOutline,
+          ),
+        ),
+        const SizedBox(height: 14),
+        GradeCards(summary: widget.summary, uncalibrated: widget.uncalibratedFor != null),
+        if (timeout != null) ...[
+          const SizedBox(height: 16),
+          // Draining as the time to moving on runs out.
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 1, end: 0),
+            duration: timeout,
+            builder: (context, left, _) => Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: AppColors.panelBorder,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: left,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.gold,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// A [summary] of grades as HUD cards, meant for a navy panel: how many of each judgement (in the
+/// colors their marks on the strokes have), how many mistakes of each kind, on average how early
+/// or late and give or take how much, and (if [uncalibrated]) that the pad wasn't calibrated.
+class GradeCards extends StatelessWidget {
+  final GradeSummary summary;
+  final bool uncalibrated;
+
+  const GradeCards({super.key, required this.summary, this.uncalibrated = false});
+
   Widget _judgement(Judgement judgement) =>
-      _count(judgement.label, _judgementBanners[judgement]!, widget.summary.count(judgement));
+      _count(judgement.label, _judgementBanners[judgement]!, summary.count(judgement));
 
   Widget _count(String label, Color color, int count, {bool stacked = false}) => _StatCard(
     label: label,
@@ -157,7 +213,7 @@ class _GradeSummaryViewState extends State<_GradeSummaryView> {
   );
 
   Widget _average() {
-    final offsets = widget.summary.offsets;
+    final offsets = summary.offsets;
     final mean = offsets.mean.round();
     final (tag, tagColor) = mean == 0
         ? ('On time', AppColors.bannerGreen)
@@ -183,21 +239,10 @@ class _GradeSummaryViewState extends State<_GradeSummaryView> {
 
   @override
   Widget build(BuildContext context) {
-    final summary = widget.summary;
-    final timeout = widget.timeout;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Center(
-          child: PuffyText(
-            'RESULTS',
-            size: 30,
-            color: AppColors.gold,
-            shadow: AppColors.goldOutline,
-          ),
-        ),
-        const SizedBox(height: 14),
         _row([_judgement(Judgement.perfect), _judgement(Judgement.good)]),
         const SizedBox(height: _gap),
         _row([_judgement(Judgement.early), _judgement(Judgement.late)]),
@@ -216,34 +261,9 @@ class _GradeSummaryViewState extends State<_GradeSummaryView> {
             _count(label, color, count, stacked: true),
         ]),
         if (summary.offsets.count > 0) ...[const SizedBox(height: _gap), _average()],
-        if (widget.uncalibratedFor != null) ...[
+        if (uncalibrated) ...[
           const SizedBox(height: 6),
           const Center(child: _Tag('Not calibrated', AppColors.bannerRed)),
-        ],
-        if (timeout != null) ...[
-          const SizedBox(height: 16),
-          // Draining as the time to moving on runs out.
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 1, end: 0),
-            duration: timeout,
-            builder: (context, left, _) => Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: AppColors.panelBorder,
-                borderRadius: BorderRadius.circular(3),
-              ),
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: left,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.gold,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ],
     );

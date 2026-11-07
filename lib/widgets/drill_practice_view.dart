@@ -290,6 +290,10 @@ class DrillPracticeView extends StatefulWidget {
   /// results are left up for them to leave from.
   final VoidCallback? onFinished;
 
+  /// If the player's hits on a drum pad were graded, gets how it went, once the drill's done and
+  /// its last strokes' windows have passed.
+  final ValueChanged<GradedRun>? onGraded;
+
   /// If the player's hits on a drum pad were graded, the results shown at the end move on by
   /// themselves after this long (e.g. in a playlist), or if null, stay up until the player leaves.
   final Duration? summaryTimeout;
@@ -303,6 +307,7 @@ class DrillPracticeView extends StatefulWidget {
     required this.status,
     required this.onDone,
     this.onFinished,
+    this.onGraded,
     this.summaryTimeout,
   });
 
@@ -501,7 +506,11 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
         _lastHitsOpen = true;
         Timer(Duration(milliseconds: _grader.windowMs.round() + 10), () {
           _lastHitsOpen = false;
-          if (mounted) setState(() => _addGrades(_grader.expire(end + _grader.windowMs + 1)));
+          if (!mounted) return;
+          setState(() => _addGrades(_grader.expire(end + _grader.windowMs + 1)));
+          if (_graded) {
+            widget.onGraded?.call(GradedRun(_grader.summary, uncalibrated: _uncalibrated));
+          }
         });
         _celebrate();
       }

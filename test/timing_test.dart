@@ -69,4 +69,17 @@ void main() {
       expect(sync.offset, 990);
     });
   });
+
+  test('combines the stats of parts as if they were of all the offsets together', () {
+    final a = <double>[10, 20, 30, -40];
+    final b = <double>[5, -15];
+    final c = <double>[];
+    final combined = OffsetStats.combine([OffsetStats.of(a), OffsetStats.of(b), OffsetStats.of(c)]);
+    final all = OffsetStats.of([...a, ...b]);
+    expect(combined.count, all.count);
+    expect(combined.mean, closeTo(all.mean, 1e-9));
+    expect(combined.spread, closeTo(all.spread, 1e-9));
+    expect(combined.worst, -40);
+    expect(OffsetStats.combine([]).count, 0);
+  });
 }

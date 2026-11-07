@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/drills.dart' as data;
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../state/drill_config.dart';
 import '../state/playlists.dart';
@@ -14,6 +15,7 @@ import '../widgets/drill_overview_view.dart';
 import '../widgets/drill_practice_host.dart';
 import '../widgets/drill_status_view.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/results_popup.dart';
 
 const _introDuration = Duration(seconds: 5);
 
@@ -82,6 +84,9 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
 
   void _handleDrillDone() => _goToIndex(_index + 1);
 
+  // How each drill went, by its index, if the player's hits on a drum pad were graded.
+  final _grades = <int, GradedRun>{};
+
   // Skips the rest of the intro, starting the drill straight away.
   void _startNow() {
     _introTimer?.cancel();
@@ -90,7 +95,12 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_phase == _Phase.outro) return PlaylistResults(entries: _entries);
+    if (_phase == _Phase.outro) {
+      return PlaylistResults(
+        entries: _entries,
+        grades: [for (var i = 0; i < _entries.length; i++) _grades[i]],
+      );
+    }
 
     final entry = _entries[_index];
     final drill = _activeDrillFor(entry)!;
@@ -100,6 +110,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
       value: '${_index + 1}/${_entries.length}',
     );
     if (_phase == _Phase.running) {
+      final index = _index;
       return DrillPracticeHost(
         key: ValueKey(_index),
         title: drill.title,
@@ -112,6 +123,7 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
         // So the playlist carries on by itself (or on to its end, after the last drill).
         summaryTimeout: const Duration(seconds: 5),
         nextLabel: _index == _entries.length - 1 ? 'Finish' : 'Next drill',
+        onGraded: (run) => _grades[index] = run,
       );
     }
 
@@ -303,18 +315,24 @@ class _IntroView extends StatelessWidget {
 
 /// The end of the run: STAGE CLEAR!, a results card (how many drills, the total time, the top bpm
 /// reached, and which drills were cleared), and a button to go back to the playlist. (Each drill
-/// was already recorded in the practice log as it was completed.)
+/// was already recorded in the practice log as it was completed.) If the player's hits on a drum
+/// pad were graded, how they went too: over all the drills, then drill by drill.
 class PlaylistResults extends StatelessWidget {
   final List<PlaylistEntry> entries;
 
-  const PlaylistResults({super.key, required this.entries});
+  /// How each entry's drill went, by its index in [entries], if it was graded.
+  final List<GradedRun?> grades;
+
+  const PlaylistResults({super.key, required this.entries, this.grades = const []});
 
   // Only entries that actually resolved to a real drill (and so actually got practiced) count --
   // an entry whose drill no longer exists was silently skipped, not completed.
-  Iterable<({Drill drill, DrillConfig config})> get _completed sync* {
-    for (final entry in entries) {
+  Iterable<({Drill drill, DrillConfig config, GradedRun? graded})> get _completed sync* {
+    for (final (i, entry) in entries.indexed) {
       final drill = data.findDrillById(entry.drillId);
-      if (drill != null) yield (drill: drill, config: entry.config);
+      if (drill != null) {
+        yield (drill: drill, config: entry.config, graded: i < grades.length ? grades[i] : null);
+      }
     }
   }
 
@@ -341,9 +359,17 @@ class PlaylistResults extends StatelessWidget {
     return top;
   }
 
+  // The drills that were graded, and how each went.
+  List<({Drill drill, GradedRun graded})> get _graded => [
+    for (final c in _completed)
+      if (c.graded case final graded?) (drill: c.drill, graded: graded),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final completed = _completed.map((c) => c.drill).toList();
+    // With grades, the drills are each listed with theirs, so they aren't also listed as cleared.
+    final graded = _graded;
     final safe = MediaQuery.paddingOf(context);
     Widget row(String label, Color color, String value) => Row(
       children: [
@@ -457,36 +483,42 @@ class PlaylistResults extends StatelessWidget {
                             row('Time', AppColors.bannerMagenta, formatDrillClock(_totalSeconds)),
                             const SizedBox(height: 10),
                             row('Top BPM', AppColors.bannerBlue, '$_topBpm'),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Divider(height: 2, thickness: 2, color: Color(0xFFF3E8D2)),
-                            ),
-                            const Text(
-                              'CLEARED',
-                              style: TextStyle(
-                                fontFamily: AppFonts.body,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                fontStyle: FontStyle.italic,
-                                letterSpacing: 1.6,
-                                color: AppColors.inkMuted,
+                            if (graded.isEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Divider(height: 2, thickness: 2, color: Color(0xFFF3E8D2)),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (var i = 0; i < completed.length; i++)
-                                  _ClearedChip(
-                                    title: completed[i].title,
-                                    color: AppColors.banner(i),
-                                  ),
-                              ],
-                            ),
+                              const Text(
+                                'CLEARED',
+                                style: TextStyle(
+                                  fontFamily: AppFonts.body,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  fontStyle: FontStyle.italic,
+                                  letterSpacing: 1.6,
+                                  color: AppColors.inkMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (var i = 0; i < completed.length; i++)
+                                    _ClearedChip(
+                                      title: completed[i].title,
+                                      color: AppColors.banner(i),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
+                      if (graded.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _GradePager(graded: graded),
+                      ],
                       const SizedBox(height: 24),
                       CandyButton(
                         label: 'DONE!',
@@ -502,6 +534,129 @@ class PlaylistResults extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// How the graded drills of a playlist went, a page at a time: all together (ALL DRILLS), then
+/// each, paged through with arrow buttons either side of the page's title (or by swiping).
+class _GradePager extends StatefulWidget {
+  final List<({Drill drill, GradedRun graded})> graded;
+
+  const _GradePager({required this.graded});
+
+  @override
+  State<_GradePager> createState() => _GradePagerState();
+}
+
+class _GradePagerState extends State<_GradePager> {
+  // 0 for all the drills together, then each drill's (one more than its index).
+  var _page = 0;
+
+  int get _pages => widget.graded.length + 1;
+
+  void _go(int page) {
+    if (page >= 0 && page < _pages) setState(() => _page = page);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final graded = widget.graded;
+    final all = _page == 0;
+    final (title, color, run) = all
+        ? (
+            'All drills',
+            const Color(0xFFB98400),
+            GradedRun(
+              GradeSummary.combine(graded.map((g) => g.graded.summary)),
+              uncalibrated: graded.any((g) => g.graded.uncalibrated),
+            ),
+          )
+        : (graded[_page - 1].drill.title, AppColors.banner(_page - 1), graded[_page - 1].graded);
+    Widget arrow(IconData icon, String tooltip, int to) {
+      final enabled = to >= 0 && to < _pages;
+      return Opacity(
+        opacity: enabled ? 1 : 0.25,
+        child: IgnorePointer(
+          ignoring: !enabled,
+          child: RoundIconButton(icon: icon, tooltip: tooltip, onPressed: () => _go(to)),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            arrow(Icons.chevron_left_rounded, 'Previous', _page - 1),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _Sausage(title: title, color: color),
+            ),
+            const SizedBox(width: 10),
+            arrow(Icons.chevron_right_rounded, 'Next', _page + 1),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity < -200) _go(_page + 1);
+            if (velocity > 200) _go(_page - 1);
+          },
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: PlayfieldPanel(
+              key: ValueKey(_page),
+              active: all,
+              padding: const EdgeInsets.all(12),
+              child: GradeCards(summary: run.summary, uncalibrated: run.uncalibrated),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A title on a colorful sausage of a pill, in the style of the HUD's banners.
+class _Sausage extends StatelessWidget {
+  final String title;
+  final Color color;
+
+  const _Sausage({required this.title, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(color: Color.lerp(color, Colors.black, 0.45)!, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          title.toUpperCase(),
+          maxLines: 1,
+          style: const TextStyle(
+            fontFamily: AppFonts.body,
+            fontSize: 17,
+            height: 1,
+            fontWeight: FontWeight.w900,
+            fontStyle: FontStyle.italic,
+            letterSpacing: 1.5,
+            color: Colors.white,
+          ),
         ),
       ),
     );

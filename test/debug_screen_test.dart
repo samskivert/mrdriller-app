@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mrdriller/data/drills.dart' as data;
 import 'package:mrdriller/main.dart';
 import 'package:mrdriller/screens/debug_screen.dart';
 import 'package:mrdriller/screens/playlist_run_screen.dart';
 import 'package:mrdriller/widgets/arcade.dart';
+import 'package:mrdriller/widgets/hud_controls.dart';
 import 'package:mrdriller/widgets/results_popup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -82,4 +84,39 @@ void main() {
     expect(find.byType(PlaylistResults), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final size in const [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800)]) {
+    testWidgets('shows playlist results with and without MIDI stats on a $size screen', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(const MaterialApp(home: PlaylistResultsDebugScreen()));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      // A page over all the drills, then one for each (so they aren't also listed as cleared).
+      expect(find.text('ALL DRILLS'), findsOneWidget);
+      expect(find.byType(GradeCards), findsOneWidget);
+      expect(find.text('CLEARED'), findsNothing);
+      for (final entry in debugPlaylistEntries()) {
+        await tester.ensureVisible(find.byTooltip('Next'));
+        await tester.tap(find.byTooltip('Next'));
+        await tester.pumpAndSettle();
+        expect(find.text(data.findDrillById(entry.drillId)!.title.toUpperCase()), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+      await tester.ensureVisible(find.byTooltip('Previous'));
+      await tester.tap(find.byTooltip('Previous'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GradeCards), findsOneWidget);
+
+      await tester.tap(find.byType(CandySwitch));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('ALL DRILLS'), findsNothing);
+      expect(find.byType(GradeCards), findsNothing);
+      expect(find.text('CLEARED'), findsOneWidget);
+    });
+  }
 }

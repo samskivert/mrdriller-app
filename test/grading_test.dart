@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/model/grading.dart';
 import 'package:mrdriller/model/model.dart';
+import 'package:mrdriller/model/timing.dart';
 
 // A stroke expected at [ms] with [hand], whose spot is its time.
 ExpectedStroke _stroke(double ms, Hand hand) => ExpectedStroke(timeMs: ms, hand: hand, spot: ms);
@@ -90,5 +91,25 @@ void main() {
     expect(summary.wrongHands, 1);
     expect(summary.extras, 1);
     expect(summary.offsets.mean, 10);
+  });
+
+  test('combines summaries', () {
+    GradeSummary summary(Map<Judgement, int> counts, int wrong, int extras, List<double> offsets) =>
+        GradeSummary(
+          counts: counts,
+          wrongHands: wrong,
+          extras: extras,
+          offsets: OffsetStats.of(offsets),
+        );
+    final combined = GradeSummary.combine([
+      summary({Judgement.perfect: 3, Judgement.miss: 1}, 1, 0, [0, 10, -10]),
+      summary({Judgement.perfect: 1, Judgement.late: 2}, 0, 2, [5, 60, 70]),
+    ]);
+    expect(combined.count(Judgement.perfect), 4);
+    expect(combined.count(Judgement.late), 2);
+    expect(combined.count(Judgement.miss), 1);
+    expect(combined.wrongHands, 1);
+    expect(combined.extras, 2);
+    expect(combined.offsets.mean, closeTo(OffsetStats.of([0, 10, -10, 5, 60, 70]).mean, 1e-9));
   });
 }

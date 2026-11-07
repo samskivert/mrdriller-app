@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../model/grading.dart';
 import '../model/model.dart';
 import '../services/metronome.dart';
 import '../state/drill_config.dart';
@@ -36,6 +37,8 @@ class DrillPracticeHost extends StatefulWidget {
   // drill is done says (e.g. Next drill): it moves on ([onDone]) straight away. Without one, it's
   // a button to replay the drill.
   final String? nextLabel;
+  // Gets how the drill went, if the player's hits on a drum pad were graded.
+  final ValueChanged<GradedRun>? onGraded;
 
   const DrillPracticeHost({
     super.key,
@@ -47,6 +50,7 @@ class DrillPracticeHost extends StatefulWidget {
     required this.onDone,
     this.summaryTimeout,
     this.nextLabel,
+    this.onGraded,
   });
 
   @override
@@ -137,6 +141,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               metronome: _metronome,
               status: _status,
               onFinished: _handleFinished,
+              onGraded: widget.onGraded,
               onDone: _next,
               summaryTimeout: widget.summaryTimeout,
             ),

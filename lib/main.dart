@@ -14,7 +14,6 @@ import 'screens/metronome_screen.dart';
 import 'screens/daily_practice_screen.dart';
 import 'screens/debug_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
-import 'screens/playlist_run_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/playlists_screen.dart';
 import 'screens/settings_screen.dart';
@@ -180,7 +179,7 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
     final Widget? screen = switch (segments.length > 1 ? segments[1] : null) {
       null => const DebugMenuScreen(),
       'drill-results' => const DrillResultsDebugScreen(),
-      'playlist-results' => PlaylistResults(entries: debugPlaylistEntries()),
+      'playlist-results' => const PlaylistResultsDebugScreen(),
       _ => null,
     };
     if (screen != null) {

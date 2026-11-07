@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/data/drills.dart' as data;
+import 'package:mrdriller/model/grading.dart';
+import 'package:mrdriller/model/timing.dart';
 import 'package:mrdriller/screens/playlist_run_screen.dart';
 import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/playlists.dart';
 import 'package:mrdriller/state/practice_log.dart';
 import 'package:mrdriller/widgets/drill_practice_host.dart';
 import 'package:mrdriller/widgets/drill_practice_view.dart';
+import 'package:mrdriller/widgets/results_popup.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _sizes = [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800), Size(1920, 1200)];
@@ -113,5 +116,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(PlaylistResults), findsOneWidget);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets("the drills' grades are shown at the end, all together and each", (tester) async {
+    _setSize(tester, const Size(390, 844));
+    await practiceLog.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlaylistRunScreen(title: 'Warm Up', entries: _entries().take(2).toList()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    // The first drill graded, the second not.
+    for (final graded in [true, false]) {
+      await tester.tap(find.bySemanticsLabel('START NOW'));
+      await tester.pump(const Duration(milliseconds: 100));
+      final view = tester.widget<DrillPracticeView>(find.byType(DrillPracticeView));
+      view.onFinished!();
+      if (graded) {
+        view.onGraded!(
+          GradedRun(
+            GradeSummary(
+              counts: const {Judgement.perfect: 7, Judgement.late: 1},
+              wrongHands: 0,
+              extras: 0,
+              offsets: OffsetStats.of([0, 10, 60]),
+            ),
+          ),
+        );
+      }
+      await tester.pump();
+      await tester.tap(find.byTooltip(graded ? 'Next drill' : 'Finish'));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(PlaylistResults), findsOneWidget);
+    await tester.pumpAndSettle();
+    // All together, then the one that was graded (and no more).
+    expect(find.text('ALL DRILLS'), findsOneWidget);
+    expect(find.byType(GradeCards), findsOneWidget);
+    await tester.tap(find.byTooltip('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text(data.allDrills.first.title.toUpperCase()), findsOneWidget);
+    await tester.tap(find.byTooltip('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text(data.allDrills.first.title.toUpperCase()), findsOneWidget);
   });
 }
