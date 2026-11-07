@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -11,6 +12,7 @@ import 'screens/metronome_preset_screen.dart';
 import 'screens/midi_diagnostics_screen.dart';
 import 'screens/metronome_screen.dart';
 import 'screens/daily_practice_screen.dart';
+import 'screens/debug_screen.dart';
 import 'screens/pattern_trainer_screen.dart';
 import 'screens/playlist_screen.dart';
 import 'screens/playlists_screen.dart';
@@ -171,6 +173,10 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
         builder: (_) => MetronomePresetScreen(presetId: id),
       );
     }
+  }
+  // For working on how things look, in debug builds only.
+  if (segments[0] == 'debug' && kDebugMode) {
+    return MaterialPageRoute(settings: routeSettings, builder: (_) => const DebugScreen());
   }
   if (segments[0] == 'daily-practice') {
     return MaterialPageRoute(settings: routeSettings, builder: (_) => const DailyPracticeScreen());

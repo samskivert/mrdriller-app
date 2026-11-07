@@ -20,6 +20,7 @@ import '../util/route_settled.dart';
 import 'arcade.dart';
 import 'components.dart';
 import 'drill_status_view.dart';
+import 'results_popup.dart';
 import 'section_view.dart';
 
 class _PState {
@@ -284,8 +285,13 @@ class DrillPracticeView extends StatefulWidget {
   final ValueNotifier<DrillRunStatus> status;
   final VoidCallback onDone;
 
-  /// If the player's hits on a drum pad were graded, the summary shown at the end moves on by
-  /// itself after this long (e.g. in a playlist), or if null, waits for them to tap OK.
+  /// Fires once when the drill finishes all its repeats on its own (as its celebration starts),
+  /// whether or not [onDone] follows: it doesn't if the player's hits were graded and their
+  /// results are left up for them to leave from.
+  final VoidCallback? onFinished;
+
+  /// If the player's hits on a drum pad were graded, the results shown at the end move on by
+  /// themselves after this long (e.g. in a playlist), or if null, stay up until the player leaves.
   final Duration? summaryTimeout;
 
   const DrillPracticeView({
@@ -296,6 +302,7 @@ class DrillPracticeView extends StatefulWidget {
     required this.metronome,
     required this.status,
     required this.onDone,
+    this.onFinished,
     this.summaryTimeout,
   });
 
@@ -489,6 +496,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
       widget.metronome.stop();
       if (mounted && !_finished) {
         _finished = true;
+        widget.onFinished?.call();
         // The last strokes can still be hit until their windows pass.
         _lastHitsOpen = true;
         Timer(Duration(milliseconds: _grader.windowMs.round() + 10), () {
@@ -889,26 +897,11 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
             Positioned.fill(
               child: FadeTransition(
                 opacity: _summaryFade,
-                child: ColoredBox(
-                  color: AppColors.navy.withValues(alpha: 0.75),
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 480),
-                        child: PlayfieldPanel(
-                          active: true,
-                          padding: const EdgeInsets.all(20),
-                          child: _GradeSummaryView(
-                            summary: _grader.summary,
-                            uncalibratedFor: _uncalibrated ? audioOutputs.current.name : null,
-                            timeout: widget.summaryTimeout,
-                            onDone: _notifyDone,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                child: ResultsPopup(
+                  summary: _grader.summary,
+                  uncalibratedFor: _uncalibrated ? audioOutputs.current.name : null,
+                  timeout: widget.summaryTimeout,
+                  onDone: _notifyDone,
                 ),
               ),
             ),
@@ -1199,146 +1192,4 @@ class _BlingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BlingPainter old) =>
       old.rays != rays || old.burst != burst || old.spin != spin || old.center != center;
-}
-
-/// How the player's hits on a drum pad went, over the whole drill: how many of each judgement, and
-/// on average how early or late, and how steadily. [onDone] moves on: when they tap OK, or if
-/// there's a [timeout], once it runs out (or they tap CONTINUE).
-class _GradeSummaryView extends StatefulWidget {
-  final GradeSummary summary;
-
-  /// The audio output the pad wasn't calibrated for, if it wasn't.
-  final String? uncalibratedFor;
-  final Duration? timeout;
-  final VoidCallback onDone;
-
-  const _GradeSummaryView({
-    required this.summary,
-    this.uncalibratedFor,
-    this.timeout,
-    required this.onDone,
-  });
-
-  @override
-  State<_GradeSummaryView> createState() => _GradeSummaryViewState();
-}
-
-class _GradeSummaryViewState extends State<_GradeSummaryView> {
-  Timer? _countdown;
-  // Seconds left until it moves on, if it does.
-  int? _left;
-
-  @override
-  void initState() {
-    super.initState();
-    final timeout = widget.timeout;
-    if (timeout != null) {
-      _left = timeout.inSeconds;
-      _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (_left! <= 1) {
-          _countdown?.cancel();
-          widget.onDone();
-        } else {
-          setState(() => _left = _left! - 1);
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _countdown?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const text = TextStyle(
-      fontFamily: AppFonts.body,
-      fontSize: 15,
-      height: 1.4,
-      fontWeight: FontWeight.w800,
-      color: AppColors.cream,
-    );
-    final summary = widget.summary;
-    final offsets = summary.offsets;
-    final mean = offsets.mean;
-    final colors = {
-      Judgement.perfect: AppColors.gold,
-      Judgement.good: AppColors.candyGreen.base,
-      Judgement.early: AppColors.candyPink.base,
-      Judgement.late: AppColors.candyPink.base,
-      Judgement.miss: AppColors.candyRed.base,
-    };
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const PuffyText('RESULTS', size: 30, color: AppColors.gold, shadow: AppColors.goldOutline),
-        const SizedBox(height: 12),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 16,
-          runSpacing: 6,
-          children: [
-            for (final judgement in Judgement.values)
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${summary.count(judgement)} ',
-                      style: text.copyWith(color: colors[judgement], fontSize: 20),
-                    ),
-                    TextSpan(text: judgement.label),
-                  ],
-                ),
-                style: text,
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (offsets.count > 0)
-          Text(
-            'On average ${mean.abs().toStringAsFixed(0)}ms ${mean < 0 ? 'early' : 'late'}, '
-            'give or take ${offsets.spread.toStringAsFixed(0)}ms.',
-            style: text,
-            textAlign: TextAlign.center,
-          ),
-        if (summary.wrongHands > 0 || summary.extras > 0)
-          Text(
-            [
-              if (summary.wrongHands > 0) '${summary.wrongHands} with the wrong hand',
-              if (summary.extras > 0)
-                '${summary.extras} extra hit${summary.extras == 1 ? '' : 's'}',
-            ].join(', '),
-            style: text,
-            textAlign: TextAlign.center,
-          ),
-        if (widget.uncalibratedFor case final output?) ...[
-          const SizedBox(height: 8),
-          Text(
-            "The pad isn't calibrated for $output, so these timings include the sound's delay.",
-            style: text.copyWith(fontSize: 13, color: AppColors.cream.withValues(alpha: 0.7)),
-            textAlign: TextAlign.center,
-          ),
-        ],
-        const SizedBox(height: 16),
-        CandyButton(
-          label: _left == null ? 'OK' : 'CONTINUE',
-          icon: _left == null ? Icons.check_rounded : Icons.skip_next_rounded,
-          colors: AppColors.candyGreen,
-          onPressed: () {
-            _countdown?.cancel();
-            widget.onDone();
-          },
-        ),
-        if (_left case final left?) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Continuing in $left...',
-            style: text.copyWith(fontSize: 13, color: AppColors.cream.withValues(alpha: 0.7)),
-          ),
-        ],
-      ],
-    );
-  }
 }

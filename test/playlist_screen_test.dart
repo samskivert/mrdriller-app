@@ -182,8 +182,8 @@ void main() {
     await tester.pump();
     // (The drill itself can't play to the end in a test, since its sounds never finish loading, so
     // this skips to it finishing.)
-    tester.widget<DrillPracticeView>(find.byType(DrillPracticeView)).onDone();
-    expect(done, isTrue);
+    tester.widget<DrillPracticeView>(find.byType(DrillPracticeView)).onFinished!();
+    expect(done, isFalse);
     expect(practiceLog.entries.first.drillId, drill.id);
     expect(practiceLog.entries.first.config.bpm, 200);
     expect(practiceLog.entries.first.seconds, drillDuration(drill, config).round());

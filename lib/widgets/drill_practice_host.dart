@@ -14,7 +14,8 @@ import 'hud_layout.dart';
 /// and a cream HUD (back button, [title], the [DrillStatusView] readouts (plus [extraReadout], if
 /// any) and a [PauseButton]).
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
-/// finishes on its own, it's recorded in the [practiceLog] before [onDone] is called.
+/// finishes on its own, it's recorded in the [practiceLog] (whether or not [onDone] follows: the
+/// player can leave from its results instead).
 ///
 /// Give this a fresh [Key] (e.g. keyed by the drill's id or an index) when reusing it across a
 /// sequence of drills, so each gets its own freshly-initialized metronome/status/drill state
@@ -66,10 +67,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
     super.dispose();
   }
 
-  void _handleDone() {
-    practiceLog.recordDrill(widget.drill, widget.config);
-    widget.onDone();
-  }
+  void _handleFinished() => practiceLog.recordDrill(widget.drill, widget.config);
 
   Widget _statusView({required bool vertical}) => ValueListenableBuilder(
     valueListenable: _status,
@@ -97,7 +95,8 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               clearText: widget.clearText,
               metronome: _metronome,
               status: _status,
-              onDone: _handleDone,
+              onFinished: _handleFinished,
+              onDone: widget.onDone,
               summaryTimeout: widget.summaryTimeout,
             ),
           ),

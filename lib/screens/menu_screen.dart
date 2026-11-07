@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -64,6 +65,23 @@ class MenuScreen extends StatelessWidget {
               right: wide ? (right - RoundIconButton.defaultSize) / 2 : safe.right + 16,
               child: const HudSettingsButton(),
             ),
+            // In debug builds, a way to the debug screen: left of the settings button, or below it
+            // in landscape, where it has a column of its own.
+            if (kDebugMode)
+              Positioned(
+                top:
+                    safe.top +
+                    (wide && safe.right > 0 ? 30 : 14) +
+                    (wide ? RoundIconButton.defaultSize + 12 : 0),
+                right: wide
+                    ? (right - RoundIconButton.defaultSize) / 2
+                    : safe.right + 16 + RoundIconButton.defaultSize + 10,
+                child: RoundIconButton(
+                  icon: Icons.bug_report_rounded,
+                  tooltip: 'Debug',
+                  onPressed: () => Navigator.of(context).pushNamed('/debug'),
+                ),
+              ),
           ],
         ),
       ),
