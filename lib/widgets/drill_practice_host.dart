@@ -12,7 +12,8 @@ import 'hud_layout.dart';
 /// The screen-level shell for running one drill, laid out like the arcade game (see [HudLayout]):
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
 /// and a cream HUD (back button, [title], the [DrillStatusView] readouts (plus [extraReadout], if
-/// any) and a [PauseButton], which becomes a [ReplayButton] once the drill is done).
+/// any) and a [PauseButton], which becomes a [ReplayButton] once the drill is done, or (with a
+/// [nextLabel]) a [NextButton]).
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
 /// finishes on its own, it's recorded in the [practiceLog] (whether or not [onDone] follows: the
 /// player can leave from its results instead).
@@ -31,6 +32,10 @@ class DrillPracticeHost extends StatefulWidget {
   final VoidCallback onDone;
   // How long the summary of graded hits waits before moving on (see DrillPracticeView).
   final Duration? summaryTimeout;
+  // In a sequence of drills (e.g. a playlist), what the button the pause button becomes once the
+  // drill is done says (e.g. Next drill): it moves on ([onDone]) straight away. Without one, it's
+  // a button to replay the drill.
+  final String? nextLabel;
 
   const DrillPracticeHost({
     super.key,
@@ -41,6 +46,7 @@ class DrillPracticeHost extends StatefulWidget {
     this.extraReadout,
     required this.onDone,
     this.summaryTimeout,
+    this.nextLabel,
   });
 
   @override
@@ -54,6 +60,8 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
   // run of the drill, keyed by [_run].
   var _finished = false;
   var _run = 0;
+  // Whether it's moved on from the drill (by its next button), which it only does once.
+  var _movedOn = false;
 
   DrillRunStatus _startingStatus() => DrillRunStatus(
     bpm: widget.config.bpm,
@@ -86,9 +94,20 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
     });
   }
 
-  Widget _playButton({bool showLabel = false}) => _finished
-      ? ReplayButton(onPressed: _replay, showLabel: showLabel)
-      : PauseButton(metronome: _metronome, showLabel: showLabel);
+  // Moves on from the drill straight away, skipping the rest of its celebration or results.
+  void _next() {
+    if (_movedOn) return;
+    _movedOn = true;
+    widget.onDone();
+  }
+
+  Widget _playButton({bool showLabel = false}) {
+    if (!_finished) return PauseButton(metronome: _metronome, showLabel: showLabel);
+    if (widget.nextLabel case final label?) {
+      return NextButton(label: label, onPressed: _next, showLabel: showLabel);
+    }
+    return ReplayButton(onPressed: _replay, showLabel: showLabel);
+  }
 
   Widget _statusView({required bool vertical}) => ValueListenableBuilder(
     valueListenable: _status,
@@ -118,7 +137,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               metronome: _metronome,
               status: _status,
               onFinished: _handleFinished,
-              onDone: widget.onDone,
+              onDone: _next,
               summaryTimeout: widget.summaryTimeout,
             ),
           ),

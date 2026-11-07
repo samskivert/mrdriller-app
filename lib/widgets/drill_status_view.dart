@@ -261,3 +261,28 @@ class ReplayButton extends StatelessWidget {
     onPressed: onPressed,
   );
 }
+
+/// A button to move on from a drill once it's done (e.g. to the next one in a playlist), in place
+/// of the [PauseButton]: icon-only by default, like it (with [label] as its tooltip), or with
+/// [label] on it if [showLabel].
+class NextButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  final bool showLabel;
+
+  const NextButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.showLabel = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => CandyButton(
+    label: showLabel ? label.toUpperCase() : null,
+    tooltip: showLabel ? null : label,
+    icon: Icons.skip_next_rounded,
+    colors: AppColors.candyGreen,
+    onPressed: onPressed,
+  );
+}

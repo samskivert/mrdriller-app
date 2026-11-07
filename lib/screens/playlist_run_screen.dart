@@ -109,8 +109,9 @@ class _PlaylistRunScreenState extends State<PlaylistRunScreen> {
         clearText: 'DRILL CLEAR!',
         extraReadout: drillCount,
         onDone: _handleDrillDone,
-        // So the playlist carries on by itself.
+        // So the playlist carries on by itself (or on to its end, after the last drill).
         summaryTimeout: const Duration(seconds: 5),
+        nextLabel: _index == _entries.length - 1 ? 'Finish' : 'Next drill',
       );
     }
 

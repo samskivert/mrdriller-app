@@ -4,7 +4,9 @@ import 'package:mrdriller/data/drills.dart' as data;
 import 'package:mrdriller/screens/playlist_run_screen.dart';
 import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/playlists.dart';
+import 'package:mrdriller/state/practice_log.dart';
 import 'package:mrdriller/widgets/drill_practice_host.dart';
+import 'package:mrdriller/widgets/drill_practice_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _sizes = [Size(320, 568), Size(390, 844), Size(844, 390), Size(1280, 800), Size(1920, 1200)];
@@ -78,5 +80,38 @@ void main() {
     await tester.tap(find.bySemanticsLabel('DONE!'));
     await tester.pumpAndSettle();
     expect(find.byType(PlaylistResults), findsNothing);
+  });
+
+  testWidgets('a finished drill has a button to go straight on, to the next or to the end', (
+    tester,
+  ) async {
+    _setSize(tester, const Size(390, 844));
+    await practiceLog.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PlaylistRunScreen(title: 'Warm Up', entries: _entries().take(2).toList()),
+      ),
+    );
+    Future<void> playDrill() async {
+      await tester.tap(find.bySemanticsLabel('START NOW'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byTooltip('Pause'), findsOneWidget);
+      // (A drill can't play to the end in a test, as its sounds never load, so skip to its end.)
+      tester.widget<DrillPracticeView>(find.byType(DrillPracticeView)).onFinished!();
+      await tester.pump();
+      expect(find.byTooltip('Replay'), findsNothing);
+    }
+
+    await tester.pump(const Duration(milliseconds: 100));
+    await playDrill();
+    await tester.tap(find.byTooltip('Next drill'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('DRILL 2 OF 2'), findsOneWidget);
+
+    await playDrill();
+    await tester.tap(find.byTooltip('Finish'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(PlaylistResults), findsOneWidget);
+    await tester.pumpAndSettle();
   });
 }
