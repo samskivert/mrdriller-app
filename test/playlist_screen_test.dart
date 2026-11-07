@@ -188,4 +188,32 @@ void main() {
     expect(practiceLog.entries.first.config.bpm, 200);
     expect(practiceLog.entries.first.seconds, drillDuration(drill, config).round());
   });
+
+  testWidgets('a finished drill can be replayed, from the start', (tester) async {
+    _setSize(tester, const Size(390, 844));
+    final drill = data.allDrills.first;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DrillPracticeHost(
+          title: drill.title,
+          drill: drill,
+          config: const DrillConfig(bpm: 200),
+          onDone: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    final firstRun = tester.state(find.byType(DrillPracticeView));
+    // (Skipping to it finishing, as above.)
+    tester.widget<DrillPracticeView>(find.byType(DrillPracticeView)).onFinished!();
+    await tester.pump();
+    expect(find.byTooltip('Pause'), findsNothing);
+    await tester.tap(find.byTooltip('Replay'));
+    await tester.pump();
+    expect(find.byTooltip('Pause'), findsOneWidget);
+    // A new run of the drill, not the finished one.
+    expect(tester.state(find.byType(DrillPracticeView)), isNot(same(firstRun)));
+    expect(practiceLog.entries, hasLength(1));
+  });
 }

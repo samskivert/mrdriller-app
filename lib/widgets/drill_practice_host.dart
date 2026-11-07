@@ -12,7 +12,7 @@ import 'hud_layout.dart';
 /// The screen-level shell for running one drill, laid out like the arcade game (see [HudLayout]):
 /// a navy playfield with a rainbow depth ruler, hosting a [DrillPracticeView] for [drill]/[config],
 /// and a cream HUD (back button, [title], the [DrillStatusView] readouts (plus [extraReadout], if
-/// any) and a [PauseButton]).
+/// any) and a [PauseButton], which becomes a [ReplayButton] once the drill is done).
 /// Owns the [Metronome] and live-status notifier that the playfield and HUD share. When the drill
 /// finishes on its own, it's recorded in the [practiceLog] (whether or not [onDone] follows: the
 /// player can leave from its results instead).
@@ -49,15 +49,19 @@ class DrillPracticeHost extends StatefulWidget {
 
 class _DrillPracticeHostState extends State<DrillPracticeHost> {
   late final Metronome _metronome = Metronome();
-  late final ValueNotifier<DrillRunStatus> _status = ValueNotifier(
-    DrillRunStatus(
-      bpm: widget.config.bpm,
-      bpmIncrease: widget.config.bpmIncrease,
-      drillRepeat: widget.config.drillRepeat,
-      drillRepeatCount: 0,
-      elapsedSeconds: 0,
-      totalSeconds: drillDuration(widget.drill, widget.config),
-    ),
+  late final ValueNotifier<DrillRunStatus> _status = ValueNotifier(_startingStatus());
+  // Once the drill has finished, the pause button becomes a replay button. Each replay is a fresh
+  // run of the drill, keyed by [_run].
+  var _finished = false;
+  var _run = 0;
+
+  DrillRunStatus _startingStatus() => DrillRunStatus(
+    bpm: widget.config.bpm,
+    bpmIncrease: widget.config.bpmIncrease,
+    drillRepeat: widget.config.drillRepeat,
+    drillRepeatCount: 0,
+    elapsedSeconds: 0,
+    totalSeconds: drillDuration(widget.drill, widget.config),
   );
 
   @override
@@ -67,7 +71,24 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
     super.dispose();
   }
 
-  void _handleFinished() => practiceLog.recordDrill(widget.drill, widget.config);
+  void _handleFinished() {
+    practiceLog.recordDrill(widget.drill, widget.config);
+    setState(() => _finished = true);
+  }
+
+  // Plays the drill again from the start, with a new DrillPracticeView (and everything it has).
+  void _replay() {
+    _metronome.stop();
+    _status.value = _startingStatus();
+    setState(() {
+      _finished = false;
+      _run++;
+    });
+  }
+
+  Widget _playButton({bool showLabel = false}) => _finished
+      ? ReplayButton(onPressed: _replay, showLabel: showLabel)
+      : PauseButton(metronome: _metronome, showLabel: showLabel);
 
   Widget _statusView({required bool vertical}) => ValueListenableBuilder(
     valueListenable: _status,
@@ -90,6 +111,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
           ),
           Expanded(
             child: DrillPracticeView(
+              key: ValueKey(_run),
               drill: widget.drill,
               config: widget.config,
               clearText: widget.clearText,
@@ -110,7 +132,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
               const SizedBox(width: 12),
               Expanded(child: HudTitle(widget.title)),
               const SizedBox(width: 12),
-              PauseButton(metronome: _metronome),
+              _playButton(),
             ],
           ),
           const SizedBox(height: 14),
@@ -131,7 +153,7 @@ class _DrillPracticeHostState extends State<DrillPracticeHost> {
             ],
           ),
           const SizedBox(height: 14),
-          PauseButton(metronome: _metronome, showLabel: true),
+          _playButton(showLabel: true),
           const SizedBox(height: 14),
           _statusView(vertical: true),
         ],

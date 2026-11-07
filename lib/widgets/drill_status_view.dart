@@ -243,3 +243,21 @@ class PauseButton extends StatelessWidget {
     );
   }
 }
+
+/// A button to play the drill again, once it's done, in place of the [PauseButton]: icon-only by
+/// default, like it, or with REPLAY text if [showLabel].
+class ReplayButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool showLabel;
+
+  const ReplayButton({super.key, required this.onPressed, this.showLabel = false});
+
+  @override
+  Widget build(BuildContext context) => CandyButton(
+    label: showLabel ? 'REPLAY' : null,
+    tooltip: showLabel ? null : 'Replay',
+    icon: Icons.replay_rounded,
+    colors: AppColors.candyBlue,
+    onPressed: onPressed,
+  );
+}
