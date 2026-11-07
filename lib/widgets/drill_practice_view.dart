@@ -402,7 +402,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
   // Grading the player's hits on a drum pad (see grading.dart), if one is set up: the grades so
   // far, by where their strokes are, and the last tick (as the metronome counts them) whose
   // strokes are expected. Once it's done, and if anything was hit, the summary is shown.
-  final _grader = Grader();
+  final _grader = Grader.at(settings.gradingDifficulty);
   final _grades = <_Spot, Grade>{};
   StreamSubscription<MidiMessage>? _midiHits;
   int _expectedThrough = -1;

@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../model/grading.dart';
 import '../services/cloud_store.dart';
 import 'sync.dart';
 
@@ -12,10 +13,14 @@ class Settings extends ChangeNotifier {
   static const _oldShowBouncingDotKey = 'settings.showBouncingDot';
 
   bool _showBouncingDot = true;
+  GradingDifficulty _gradingDifficulty = GradingDifficulty.normal;
   SharedPreferences? _prefs;
   bool _listening = false;
 
   bool get showBouncingDot => _showBouncingDot;
+
+  /// How strictly hits on a drum pad are judged.
+  GradingDifficulty get gradingDifficulty => _gradingDifficulty;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -31,8 +36,23 @@ class Settings extends ChangeNotifier {
 
   void setShowBouncingDot(bool value) {
     _showBouncingDot = value;
+    _save();
+  }
+
+  void setGradingDifficulty(GradingDifficulty value) {
+    _gradingDifficulty = value;
+    _save();
+  }
+
+  // (All of them together, as they're stamped and synced as one.)
+  void _save() {
     final prefs = _prefs;
-    if (prefs != null) saveLatest(prefs, _key, {'showBouncingDot': value});
+    if (prefs != null) {
+      saveLatest(prefs, _key, {
+        'showBouncingDot': _showBouncingDot,
+        'gradingDifficulty': _gradingDifficulty.name,
+      });
+    }
     notifyListeners();
   }
 
@@ -46,6 +66,9 @@ class Settings extends ChangeNotifier {
     final values = Stamped.read(merged)?.v;
     final showBouncingDot = values is Map ? values['showBouncingDot'] : null;
     _showBouncingDot = showBouncingDot is bool ? showBouncingDot : true;
+    final difficulty = values is Map ? values['gradingDifficulty'] : null;
+    _gradingDifficulty =
+        GradingDifficulty.values.asNameMap()[difficulty] ?? GradingDifficulty.normal;
     notifyListeners();
   }
 }

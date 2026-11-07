@@ -4,6 +4,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/cloud_store.dart';
 import 'package:mrdriller/state/drill_config.dart';
+import 'package:mrdriller/model/grading.dart';
 import 'package:mrdriller/state/metronome_settings.dart';
 import 'package:mrdriller/state/playlists.dart';
 import 'package:mrdriller/state/practice_log.dart';
@@ -197,5 +198,17 @@ void main() {
     settings.setShowBouncingDot(true);
     await _launch({});
     expect(settings.showBouncingDot, isTrue);
+  });
+
+  test("the grading difficulty is kept, and setting the note highlight doesn't lose it", () async {
+    await _launch({});
+    expect(settings.gradingDifficulty, GradingDifficulty.normal);
+    settings.setGradingDifficulty(GradingDifficulty.hard);
+    settings.setShowBouncingDot(false);
+    await _launch({});
+    expect(settings.gradingDifficulty, GradingDifficulty.hard);
+    expect(settings.showBouncingDot, isFalse);
+    settings.setGradingDifficulty(GradingDifficulty.normal);
+    settings.setShowBouncingDot(true);
   });
 }

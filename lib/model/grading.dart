@@ -17,6 +17,20 @@ enum Judgement {
   const Judgement(this.label);
 }
 
+/// How strictly hits are judged: how close to its stroke a hit has to be to be perfect, or good.
+enum GradingDifficulty {
+  easy('Easy', 35, 70),
+  normal('Normal', 25, 50),
+  hard('Hard', 15, 30),
+  expert('Expert', 10, 20);
+
+  final String label;
+  final double perfectMs;
+  final double goodMs;
+
+  const GradingDifficulty(this.label, this.perfectMs, this.goodMs);
+}
+
 /// A stroke the drill expects to be hit at [timeMs] by [hand], [accent]ed or not. [spot] is
 /// whatever the caller needs to know where it is in the drill (to show its grade there).
 class ExpectedStroke {
@@ -128,6 +142,11 @@ class Grader {
   var _accentsGraded = false;
 
   Grader({this.windowMs = 120, this.perfectMs = 25, this.goodMs = 50});
+
+  /// A grader judging as strictly as [difficulty] says.
+  Grader.at(GradingDifficulty difficulty, {this.windowMs = 120})
+    : perfectMs = difficulty.perfectMs,
+      goodMs = difficulty.goodMs;
 
   List<Grade> get grades => List.unmodifiable(_grades);
 

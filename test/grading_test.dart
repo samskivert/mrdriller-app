@@ -167,4 +167,19 @@ void main() {
       expect(split, lessThanOrEqualTo(90));
     });
   });
+
+  test('judges more or less strictly by difficulty', () {
+    Judgement judge(GradingDifficulty d, double errorMs) => Grader.at(d).judge(errorMs);
+    expect(judge(GradingDifficulty.easy, 30), Judgement.perfect);
+    expect(judge(GradingDifficulty.normal, 30), Judgement.good);
+    expect(judge(GradingDifficulty.hard, 20), Judgement.good);
+    expect(judge(GradingDifficulty.hard, -35), Judgement.early);
+    expect(judge(GradingDifficulty.expert, 9), Judgement.perfect);
+    expect(judge(GradingDifficulty.expert, 25), Judgement.late);
+    // The window a hit can match a stroke within is the same at every difficulty.
+    expect(
+      Grader.at(GradingDifficulty.expert).windowMs,
+      Grader.at(GradingDifficulty.easy).windowMs,
+    );
+  });
 }

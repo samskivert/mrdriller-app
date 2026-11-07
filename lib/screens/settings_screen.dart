@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../model/model.dart';
 import '../state/app_info.dart';
 import '../services/midi_connection.dart';
+import '../model/grading.dart';
 import '../state/app_name.dart';
 import '../state/audio_outputs.dart';
 import '../state/midi_devices.dart';
@@ -45,6 +46,8 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: settings.setShowBouncingDot,
                     preview: _HighlightPreview(on: settings.showBouncingDot),
                   ),
+                  const SizedBox(height: 16),
+                  const _DifficultyCard(),
                   const SizedBox(height: 16),
                   const _AudioOutputsCard(),
                   const SizedBox(height: 16),
@@ -148,6 +151,43 @@ class _SettingCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// How strictly hits on a drum pad are judged, picked from Easy to Expert, with what that means.
+class _DifficultyCard extends StatelessWidget {
+  const _DifficultyCard();
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(listenable: settings, builder: _build);
+
+  Widget _build(BuildContext context, Widget? _) {
+    final difficulty = settings.gradingDifficulty;
+    String ms(double ms) => '±${ms.round()}ms';
+    return BannerCard(
+      label: 'Grading difficulty',
+      color: AppColors.bannerMagenta,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('How close to the beat your hits on a drum pad have to be.', style: midiTextStyle()),
+          const SizedBox(height: 10),
+          CandySegmented<GradingDifficulty>(
+            options: [for (final d in GradingDifficulty.values) (d, d.label)],
+            value: difficulty,
+            onChanged: settings.setGradingDifficulty,
+            colors: AppColors.candyPink,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Perfect within ${ms(difficulty.perfectMs)}, good within ${ms(difficulty.goodMs)}.'
+            '${difficulty == GradingDifficulty.expert ? ' Best with a pad plugged in directly, as '
+                      'small delays in the sound or the hits start to matter.' : ''}',
+            style: midiTextStyle(strong: true),
+          ),
+        ],
       ),
     );
   }
