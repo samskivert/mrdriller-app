@@ -7,6 +7,8 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 
 import '../model/timing.dart';
 import '../services/metronome_sounds.dart';
+import '../services/audio_latency.dart';
+import '../services/mic_recorder.dart';
 import '../services/midi_input.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
@@ -58,15 +60,18 @@ class MidiTimingTest extends StatefulWidget {
 class _MidiTimingTestState extends State<MidiTimingTest> {
   static const _tempos = [60, 90, 120, 150];
   static const _beatsPerMeasure = 4;
+  // Clicks come twice a beat (on it, and halfway to the next), which is easier to keep time with
+  // than once. The grid is of clicks, not beats.
+  static const _clicksPerBeat = 2;
   // A measure of clicks to settle into the beat, whose hits don't count.
-  static const _countInBeats = _beatsPerMeasure;
+  static const _countInClicks = _beatsPerMeasure * _clicksPerBeat;
   static const _shownHits = 40;
   static const _pollInterval = Duration(milliseconds: 2);
   // Before the first click, after starting.
   static const _leadInMs = 600.0;
   // How far ahead clicks are scheduled. The main thread would have to stall for longer than this
   // for one to be late.
-  static const _lookaheadMs = 150.0;
+  static const _lookaheadMs = 400.0;
   // A scheduled click that's due longer ago than this is skipped rather than played late.
   static const _tooLateMs = 20.0;
   // Hits closer together than this are one hit, retriggering (or setting off another pad).
@@ -103,6 +108,46 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
 
   bool get _running => _starting || _grid != null;
 
+  // To check whether recording the microphone (as the microphone calibration does) changes how
+  // long sound takes to come out: the microphone recording (into nothing) while switched on, and
+  // the browser's estimates of the output delay, as last checked.
+  MicRecorder? _mic;
+  var _micOpening = false;
+  String? _micError;
+  AudioLatency? _latency;
+  var _checkedLatency = false;
+
+  Future<void> _setMicOpen(bool open) async {
+    if (!open) {
+      _mic?.close();
+      setState(() => _mic = null);
+      return;
+    }
+    setState(() {
+      _micOpening = true;
+      _micError = null;
+    });
+    try {
+      final mic = await MicRecorder.open();
+      if (!mounted) return mic.close();
+      setState(() => _mic = mic);
+    } on MicUnavailable catch (e) {
+      if (mounted) setState(() => _micError = e.message);
+    } finally {
+      if (mounted) setState(() => _micOpening = false);
+    }
+  }
+
+  Future<void> _checkLatency() async {
+    final latency = await browserAudioLatency();
+    if (mounted) {
+      setState(() {
+        _latency = latency;
+        _checkedLatency = true;
+      });
+    }
+  }
+
   // The hits' offsets, adjusted by the calibration.
   List<double> get _adjusted {
     final calibration = widget.calibrationMs;
@@ -124,6 +169,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
 
   @override
   void dispose() {
+    _mic?.close();
     _poll?.cancel();
     _messages?.cancel();
     _cancelPending();
@@ -157,7 +203,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   // Starts counting in afresh, with the current settings.
   void _restartGrid() {
     _cancelPending();
-    _grid = BeatGrid.bpm(start: widget.now() + _leadInMs, bpm: _bpm);
+    _grid = BeatGrid(start: widget.now() + _leadInMs, interval: 60000 / _bpm / _clicksPerBeat);
     _nextBeat = 0;
     _shownBeat = -1;
     _lastHitAt = null;
@@ -215,7 +261,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
       if (at == null) return;
       if (time >= now - _tooLateMs) {
         final atTime = Duration(microseconds: (at * 1000).round());
-        final handle = _nextBeat % _beatsPerMeasure == 0
+        // A beep on the beat, and a boop between.
+        final handle = _nextBeat % _clicksPerBeat == 0
             ? sounds.scheduleBeep(atTime)
             : sounds.scheduleBoop(atTime);
         if (handle != null) _pending.add((time, handle));
@@ -233,7 +280,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     while (grid.timeOf(beat + 1) <= now) {
       beat++;
     }
-    if (beat % _beatsPerMeasure == 0) {
+    if (beat % _clicksPerBeat == 0) {
       sounds.playBeep();
     } else {
       sounds.playBoop();
@@ -252,7 +299,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     }
     _lastHitAt = message.timestamp;
     final beat = grid.nearestBeat(message.timestamp);
-    if (beat < _countInBeats) return;
+    if (beat < _countInClicks) return;
     setState(() {
       _offsets.add(grid.offsetOf(message.timestamp));
       _hitBeats.add(beat);
@@ -265,6 +312,15 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Copied the results'), duration: Duration(seconds: 2)),
     );
+  }
+
+  // The browser's estimates of the output delay, as last checked, in a sentence.
+  String _latencyText() {
+    if (!_checkedLatency) return "The browser's estimate of the output delay: not checked yet.";
+    final latency = _latency;
+    if (latency == null) return "The browser couldn't estimate the output delay.";
+    return "The browser's estimate of the output delay: ${_ms(latency.output)}, plus "
+        '${_ms(latency.base)} of its own buffering.';
   }
 
   // How the clicks went, in a sentence.
@@ -285,8 +341,11 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     final stats = OffsetStats.of(_offsets);
     String list(Iterable<double> values) => values.map((v) => v.toStringAsFixed(1)).join(', ');
     return [
-      'Timing test at $_testedBpm bpm, clicks ${_testedScheduled ? 'scheduled' : 'played now'} '
-          '(count-in of $_countInBeats beats not counted)',
+      'Timing test at $_testedBpm bpm, clicks ${_testedScheduled ? 'scheduled' : 'played now'}, '
+          'microphone ${_mic == null ? 'closed' : 'open'} '
+          '($_clicksPerBeat clicks a beat; count-in of $_countInClicks clicks not counted)',
+      if (_latency case final latency?)
+        "Browser's output delay estimate: ${_ms(latency.output)} + ${_ms(latency.base)} buffering",
       'Hits: ${stats.count}, average ${_ms(stats.mean)}, spread ${_ms(stats.spread)}, '
           'worst ${_ms(stats.worst)} (negative is early); $_doubleTriggers double triggers '
           'ignored',
@@ -311,7 +370,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     final adjusted = _adjusted;
     final stats = OffsetStats.of(adjusted);
     final calibration = widget.calibrationMs;
-    final countingIn = _grid != null && _shownBeat < _countInBeats;
+    final countingIn = _grid != null && _shownBeat < _countInClicks;
     return BannerCard(
       label: 'Timing test',
       color: AppColors.bannerRed,
@@ -319,8 +378,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _Text(
-            'Play along with the click. After a measure to count in, each hit is compared with '
-            'its nearest beat.',
+            'Play along with the clicks, twice a beat: a high one on the beat, and a low one '
+            'between. After a measure to count in, each hit is compared with its nearest click.',
           ),
           const SizedBox(height: 12),
           CandySegmented<int>(
@@ -335,6 +394,31 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             value: _scheduled,
             onChanged: _setScheduled,
           ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Expanded(child: _Text('Microphone open', strong: true)),
+              CandySwitch(
+                value: _mic != null,
+                onChanged: (open) => _micOpening ? null : _setMicOpen(open),
+              ),
+            ],
+          ),
+          if (_micError case final error?) _Text(error),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(child: _Text(_latencyText())),
+              const SizedBox(width: 10),
+              CandyButton(
+                label: 'CHECK',
+                colors: AppColors.candyBlue,
+                height: 36,
+                fontSize: 13,
+                onPressed: _checkLatency,
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           CandyButton(
             label: _running ? 'STOP' : 'START',
@@ -348,7 +432,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             child: Center(
               child: countingIn
                   ? _Readout(
-                      _shownBeat < 0 ? 'Ready...' : 'Count in: ${_shownBeat + 1}',
+                      // (By beat, though it counts clicks.)
+                      _shownBeat < 0 ? 'Ready...' : 'Count in: ${_shownBeat ~/ _clicksPerBeat + 1}',
                       AppColors.candyBlue,
                     )
                   : _offsets.isEmpty

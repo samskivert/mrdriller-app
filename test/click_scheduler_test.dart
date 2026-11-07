@@ -83,16 +83,20 @@ void main() {
     });
   }
 
+  // (The metronome starts 20ms in, after the scheduler's warmed up, so a tick at t on its clock is
+  // scheduled at 5000 + 20 + t on the engine's.)
+  const lookahead = ClickScheduler.lookaheadMs;
+
   test('schedules each click ahead, at its time on the engine clock', () {
     withScheduler((async, metronome, sounds, _) {
-      metronome.ensureRunning(bpm: 60); // A tick every 250ms.
-      async.elapse(const Duration(milliseconds: 90));
+      metronome.ensureRunning(bpm: 15); // A tick a second.
+      // Not until the first tick is within the lookahead.
+      async.elapse(Duration(milliseconds: (1000 - lookahead - 10).round()));
       expect(sounds.scheduled, isEmpty);
-      // Within the 150ms lookahead of the first tick, 250ms after it started.
       async.elapse(const Duration(milliseconds: 20));
-      expect(sounds.scheduled, [(Click.beep, 5270.0)]);
-      async.elapse(const Duration(milliseconds: 500));
-      expect(sounds.scheduled.map((s) => s.$2), [5270, 5520, 5770]);
+      expect(sounds.scheduled, [(Click.beep, 6020.0)]);
+      async.elapse(const Duration(seconds: 2));
+      expect(sounds.scheduled.map((s) => s.$2), [6020, 7020, 8020]);
       expect(sounds.played, isEmpty);
     });
   });
@@ -103,12 +107,16 @@ void main() {
     withScheduler(
       (async, metronome, sounds, _) {
         m = metronome;
-        metronome.ensureRunning(bpm: 300); // A tick every 50ms: three within the lookahead.
+        metronome.ensureRunning(bpm: 300); // A tick every 50ms: lots within the lookahead.
         async.elapse(const Duration(milliseconds: 130));
-        // Each tick, as the current tick and how far ahead of it.
-        expect([for (final (current, ahead) in asked) current + ahead], [1, 2, 3, 4, 5]);
+        // 150ms in, the current tick is the second, and those up to the lookahead are scheduled.
+        final last = ((150 + lookahead - 20) / 50).floor();
+        expect(
+          [for (final (current, ahead) in asked) current + ahead],
+          [for (var tick = 1; tick <= last; tick++) tick],
+        );
         expect(asked.first, (0, 1));
-        expect(asked.last, (2, 3));
+        expect(asked.last, (2, last - 2));
       },
       clicksFor: (ahead) {
         asked.add((m.ticks, ahead));
@@ -130,29 +138,29 @@ void main() {
   test('plays a tick at once if it comes due without having been scheduled', () {
     withScheduler((async, metronome, sounds, _) {
       sounds.running = false;
-      metronome.ensureRunning(bpm: 60);
-      async.elapse(const Duration(milliseconds: 260));
+      metronome.ensureRunning(bpm: 15);
+      async.elapse(const Duration(milliseconds: 1010));
       expect(sounds.scheduled, isEmpty);
       expect(sounds.played, [Click.beep]);
       // Once the engine's running, it schedules ahead again.
       sounds.running = true;
-      async.elapse(const Duration(milliseconds: 250));
+      async.elapse(const Duration(seconds: 1));
       expect(sounds.played, [Click.beep]);
-      expect(sounds.scheduled.map((s) => s.$2), [5520]);
+      expect(sounds.scheduled.map((s) => s.$2), [7020]);
     });
   });
 
   test("resetting cancels what hasn't played, and schedules afresh", () {
     withScheduler((async, metronome, sounds, scheduler) {
-      metronome.ensureRunning(bpm: 60);
-      async.elapse(const Duration(milliseconds: 200));
+      metronome.ensureRunning(bpm: 15);
+      async.elapse(Duration(milliseconds: (1000 - lookahead + 100).round()));
       expect(sounds.scheduled.length, 1);
       scheduler.reset();
       expect(sounds.cancelled, [const SoundHandle(1)]);
       async.elapse(const Duration(milliseconds: 20));
-      expect(sounds.scheduled.map((s) => s.$2), [5270, 5270]);
+      expect(sounds.scheduled.map((s) => s.$2), [6020, 6020]);
       // Nothing played twice, once it's due.
-      async.elapse(const Duration(milliseconds: 40));
+      async.elapse(Duration(milliseconds: lookahead.round()));
       expect(sounds.played, isEmpty);
     });
   });

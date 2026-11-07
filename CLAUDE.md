@@ -73,7 +73,7 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
 - `services/metronome_sounds.dart`: beep/boop through `flutter_soloud`. SoLoud is FFI-based and
   low-jitter; `audioplayers` was dropped because of audible timing jitter. Don't swap it back.
 - `services/click_scheduler.dart`: every player's clicks (drills, the pattern trainer, the
-  metronome tool) are scheduled 150ms ahead with SoLoud's `playScheduled`, on the audio engine's
+  metronome tool) are scheduled 400ms ahead with SoLoud's `playScheduled`, on the audio engine's
   clock, so they play exactly on time however busy the main thread is. Playing them when a poll
   found them due wobbled audibly, by up to 90ms. Each player answers what sounds on the tick n
   ahead (`ClicksFor`) by playing its state forward on a copy, and says null where a tempo change

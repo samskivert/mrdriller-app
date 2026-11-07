@@ -30,6 +30,9 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   // The device's pads' hits, and just its mapped pads', for the timing test.
   late final Stream<MidiMessage> _notes;
   late final Stream<MidiMessage> _hits;
+  // How many hits there have been, for what shows them to rebuild on.
+  final _hitCount = ValueNotifier(0);
+
   // What's been hit since the screen opened, by note, and the latest hits' velocities.
   final _seen = <int, _Seen>{};
   static const _velocitiesKept = 40;
@@ -47,13 +50,14 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
     super.initState();
     final notes = _notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
     _subscription = notes.listen((message) {
-      setState(() {
-        final seen = _seen.putIfAbsent(message.note, _Seen.new);
-        seen.hits++;
-        seen.velocity = message.velocity;
-        _velocities.add(message.velocity);
-        if (_velocities.length > _velocitiesKept) _velocities.removeAt(0);
-      });
+      final seen = _seen.putIfAbsent(message.note, _Seen.new);
+      seen.hits++;
+      seen.velocity = message.velocity;
+      _velocities.add(message.velocity);
+      if (_velocities.length > _velocitiesKept) _velocities.removeAt(0);
+      // (Rebuilding just what shows them: rebuilding the whole screen on every hit stalled it
+      // long enough to make the timing test's clicks late.)
+      _hitCount.value++;
     });
     _hits = notes.where((m) {
       final role = midiDevices.roleOf(_key, m.note);
@@ -65,6 +69,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _hitCount.dispose();
     super.dispose();
   }
 
@@ -107,9 +112,15 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                 children: [
                   _statusCard(),
                   const SizedBox(height: 16),
-                  _padsCard(),
+                  ValueListenableBuilder(
+                    valueListenable: _hitCount,
+                    builder: (context, _, _) => _padsCard(),
+                  ),
                   const SizedBox(height: 16),
-                  _accentsCard(),
+                  ValueListenableBuilder(
+                    valueListenable: _hitCount,
+                    builder: (context, _, _) => _accentsCard(),
+                  ),
                   const SizedBox(height: 16),
                   _calibrationCard(),
                   const SizedBox(height: 16),

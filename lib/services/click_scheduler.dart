@@ -23,8 +23,9 @@ typedef ClicksFor = List<Click>? Function(int ahead);
 
 class ClickScheduler {
   /// How far ahead clicks are scheduled. The app would have to stall for longer than this for one
-  /// to be late; anything already scheduled when the metronome pauses is cancelled.
-  static const lookaheadMs = 150.0;
+  /// to be late (which a busy screen in a debug build has done for a quarter of a second);
+  /// anything already scheduled when the metronome pauses is cancelled.
+  static const lookaheadMs = 400.0;
 
   // A tick that comes due without having been scheduled is played then if it's at most this late,
   // and otherwise skipped (as a late poll's catch-up would).
