@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart';
 /// Drives a steady beat at a given bpm (quarter notes, further scaled by an optional [scale]
 /// factor passed to [ensureRunning]), calling [onDue] once elapsed time says a beat is due.
 ///
-/// Elapsed time is measured from [clock.now()] (a monotonic-in-practice clock unaffected by GC
-/// pauses or a busy isolate, and one that tests can override via `package:fake_async`'s zone --
-/// see metronome_test.dart) rather than by counting how many times an internal poll happened to
+/// Elapsed time is measured on [now] (a steady clock unaffected by GC pauses or a busy isolate,
+/// and one that tests can override via `package:fake_async`'s zone -- see metronome_test.dart)
+/// rather than by counting how many times an internal poll happened to
 /// fire. A [Timer.periodic] alone doesn't guarantee that: if the isolate is busy when one fire is
 /// due, the next one still only advances the beat count by one, and the schedule quietly slides
 /// later and later forever. Comparing against real elapsed time instead means a late poll just
@@ -29,18 +29,31 @@ import 'package:flutter/foundation.dart';
 /// track "is the metronome actually doing something right now" (keeping the screen awake, pausing
 /// a sound engine) can just listen here instead of keeping its own copy of the playing/paused
 /// bookkeeping.
+///
+/// Owners that schedule sounds ahead of time (see click_scheduler.dart) can also see where the
+/// schedule is going: [ticks] counts the ticks delivered so far, [timeOfTick] says when a coming
+/// one is due on the [now] clock, and [onPoll] is called after every poll, to look ahead from.
 class Metronome extends ChangeNotifier {
   static const _pollInterval = Duration(milliseconds: 5);
   static void _noop(int beatsDue) {}
 
   void Function(int beatsDue) onDue;
 
-  Metronome({this.onDue = _noop});
+  /// Called after every poll while running (after [onDue], if ticks were due).
+  VoidCallback? onPoll;
+
+  /// The current time in milliseconds, on the steady clock that the schedule is kept on.
+  final double Function() now;
+
+  Metronome({this.onDue = _noop}) : now = _steadyClock();
 
   Timer? _pollTimer;
-  DateTime? _startTime;
   int _intervalUs = 0;
-  int _processed = 0;
+  // The current stretch of the schedule (since it started, changed tempo or resumed): tick
+  // [_startTick] fell at [_startMs], and those after it fall every interval from there.
+  double _startMs = 0;
+  int _startTick = 0;
+  int _ticks = 0;
   bool _paused = false;
 
   bool get isPaused => _paused;
@@ -49,13 +62,22 @@ class Metronome extends ChangeNotifier {
   /// while [pause]d.
   bool get isActive => _pollTimer != null;
 
+  /// How many ticks have been delivered to [onDue] since it started (from stopped).
+  int get ticks => _ticks;
+
+  /// When [tick] (counted like [ticks]) is due, on the [now] clock, if the tempo doesn't change
+  /// before then. Null unless it's running.
+  double? timeOfTick(int tick) =>
+      _pollTimer == null ? null : _startMs + (tick - _startTick) * _intervalUs / 1000;
+
   /// Starts ticking at [bpm] (scaled by [scale]), or re-bases the schedule if it's already running
-  /// at a different bpm/scale. Rebasing starts the next beat exactly one interval from *now*,
-  /// rather than measuring against elapsed time that belonged to a different interval -- which
-  /// would otherwise read as a pile of beats suddenly overdue. Calling this again with the same
-  /// bpm/scale while already running is a no-op, so callers can call it unconditionally on every
-  /// state change without worrying about restarting an already-correct schedule. While paused,
-  /// this just remembers the bpm/scale to pick up on [resume] -- it doesn't start ticking.
+  /// at a different bpm/scale. Rebasing puts the next beat one new interval after the last one
+  /// (or after now, if that's already passed), rather than measuring against elapsed time that
+  /// belonged to a different interval -- which would otherwise read as a pile of beats suddenly
+  /// overdue. Calling this again with the same bpm/scale while already running is a no-op, so
+  /// callers can call it unconditionally on every state change without worrying about restarting
+  /// an already-correct schedule. While paused, this just remembers the bpm/scale to pick up on
+  /// [resume] -- it doesn't start ticking.
   void ensureRunning({required int bpm, double scale = 1}) {
     final intervalUs = ((60000000 / bpm / 4) * scale).round();
     if (_paused) {
@@ -64,11 +86,19 @@ class Metronome extends ChangeNotifier {
     }
     if (_pollTimer != null && intervalUs == _intervalUs) return;
     final wasActive = isActive;
-    _pollTimer?.cancel();
+    final now = this.now();
+    if (wasActive) {
+      // Usually called as a tick is handled, when the next falls one new interval after it, just as
+      // anything scheduled ahead expects.
+      final lastTick = timeOfTick(_ticks)!;
+      _startMs = lastTick + intervalUs / 1000 > now ? lastTick : now;
+    } else {
+      _startMs = now;
+      _ticks = 0;
+    }
+    _startTick = _ticks;
     _intervalUs = intervalUs;
-    _startTime = clock.now();
-    _processed = 0;
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _poll());
+    _pollTimer ??= Timer.periodic(_pollInterval, (_) => _poll());
     if (!wasActive) notifyListeners();
   }
 
@@ -78,9 +108,9 @@ class Metronome extends ChangeNotifier {
     final wasActive = isActive;
     _pollTimer?.cancel();
     _pollTimer = null;
-    _startTime = null;
     _intervalUs = 0;
-    _processed = 0;
+    _ticks = 0;
+    _startTick = 0;
     _paused = false;
     if (wasActive) notifyListeners();
   }
@@ -102,21 +132,23 @@ class Metronome extends ChangeNotifier {
     if (!_paused) return;
     _paused = false;
     if (_intervalUs <= 0) return; // ensureRunning was never actually called
-    _startTime = clock.now();
-    _processed = 0;
+    _startMs = now();
+    _startTick = _ticks;
     _pollTimer = Timer.periodic(_pollInterval, (_) => _poll());
     notifyListeners();
   }
 
   void _poll() {
-    final startTime = _startTime;
-    if (startTime == null) return;
-    final elapsedUs = clock.now().difference(startTime).inMicroseconds;
-    final due = elapsedUs ~/ _intervalUs;
-    final newlyDue = due - _processed;
-    if (newlyDue <= 0) return;
-    _processed = due;
-    onDue(newlyDue);
+    if (_pollTimer == null) return;
+    final elapsedUs = ((now() - _startMs) * 1000).floor();
+    final due = _startTick + elapsedUs ~/ _intervalUs;
+    final newlyDue = due - _ticks;
+    if (newlyDue > 0) {
+      _ticks = due;
+      onDue(newlyDue);
+    }
+    // (Unless onDue stopped or paused it.)
+    if (_pollTimer != null) onPoll?.call();
   }
 
   @override
@@ -124,4 +156,17 @@ class Metronome extends ChangeNotifier {
     stop();
     super.dispose();
   }
+}
+
+// A steady, fine-grained clock, in milliseconds: a Stopwatch (performance.now() on web, to the
+// microsecond, where DateTime.now() only has milliseconds), unless something (a test, with
+// fake_async) has overridden package:clock's clock, in which case that.
+double Function() _steadyClock() {
+  final overridden = clock;
+  if (identical(overridden, const Clock())) {
+    final stopwatch = Stopwatch()..start();
+    return () => stopwatch.elapsedMicroseconds / 1000;
+  }
+  final start = overridden.now();
+  return () => overridden.now().difference(start).inMicroseconds / 1000;
 }

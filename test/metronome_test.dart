@@ -234,4 +234,57 @@ void main() {
       metronome.dispose();
     });
   });
+
+  test('a tempo change as a tick is handled puts the next tick one new interval after it', () {
+    fakeAsync((async) {
+      late Metronome metronome;
+      final due = <int>[];
+      metronome = Metronome(
+        onDue: (n) {
+          due.add(n);
+          // Speeds up on the first tick, which is due at 250ms, but handled a little later.
+          metronome.ensureRunning(bpm: 120);
+        },
+      );
+      metronome.ensureRunning(bpm: 60); // 250ms per beat
+      async.elapse(const Duration(milliseconds: 252));
+      expect(due, [1]);
+      // The next is 125ms after the first was due (375ms), not after it was handled.
+      async.elapse(const Duration(milliseconds: 120));
+      expect(due, [1]);
+      async.elapse(const Duration(milliseconds: 5));
+      expect(due, [1, 1]);
+      metronome.dispose();
+    });
+  });
+
+  test('counts ticks and says when coming ones are due', () {
+    fakeAsync((async) {
+      final metronome = Metronome();
+      expect(metronome.timeOfTick(1), isNull);
+      metronome.ensureRunning(bpm: 60); // 250ms per beat
+      expect(metronome.timeOfTick(1), 250);
+      expect(metronome.timeOfTick(4), 1000);
+      async.elapse(const Duration(milliseconds: 510));
+      expect(metronome.ticks, 2);
+      expect(metronome.timeOfTick(3), 750);
+      metronome.dispose();
+    });
+  });
+
+  test('calls onPoll after each poll while running', () {
+    fakeAsync((async) {
+      var polls = 0;
+      final metronome = Metronome()..onPoll = () => polls++;
+      async.elapse(const Duration(milliseconds: 50));
+      expect(polls, 0);
+      metronome.ensureRunning(bpm: 60);
+      async.elapse(const Duration(milliseconds: 50));
+      expect(polls, 10);
+      metronome.stop();
+      async.elapse(const Duration(milliseconds: 50));
+      expect(polls, 10);
+      metronome.dispose();
+    });
+  });
 }

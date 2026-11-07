@@ -8,6 +8,7 @@ import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
+import '../widgets/midi_timing_test.dart';
 
 /// A diagnostic tool for MIDI input: lists the MIDI inputs, lights up a block for each note as
 /// it's hit, and logs every message with its timestamps, to check that a drum pad is hooked up and
@@ -119,14 +120,17 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
         if (_midi != null)
           RoundIconButton(icon: Icons.delete_sweep_rounded, tooltip: 'Clear', onPressed: _clear),
       ],
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _midi == null ? _disconnected() : _connected(),
+      // So that the results and the log can be selected and copied.
+      child: SelectionArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _midi == null ? _disconnected() : _connected(),
+              ),
             ),
           ),
         ),
@@ -200,6 +204,8 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
                 ],
               ),
       ),
+      const SizedBox(height: 16),
+      MidiTimingTest(midi: _midi!),
       const SizedBox(height: 16),
       BannerCard(
         label: 'Messages',

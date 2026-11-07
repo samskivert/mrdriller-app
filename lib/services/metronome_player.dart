@@ -8,6 +8,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../state/metronome_settings.dart';
 import '../state/practice_log.dart';
+import 'click_scheduler.dart';
 import 'metronome.dart';
 import 'metronome_sounds.dart';
 
@@ -16,6 +17,7 @@ class MetronomePlayer extends ChangeNotifier {
   final _metronome = Metronome();
   final MetronomeSounds Function() _makeSounds;
   MetronomeSounds? _sounds;
+  ClickScheduler? _scheduler;
   bool _disposed = false;
 
   bool _playing = false;
@@ -68,7 +70,11 @@ class MetronomePlayer extends ChangeNotifier {
       _bpm = config.bpm;
       _measures = 0;
     }
-    if (_playing) _keepTime();
+    if (_playing) {
+      _keepTime();
+      // What's coming up has changed.
+      _scheduler?.reset();
+    }
     notifyListeners();
   }
 
@@ -79,10 +85,12 @@ class MetronomePlayer extends ChangeNotifier {
     notifyListeners();
     WakelockPlus.enable();
     final sounds = _sounds ??= _makeSounds();
+    _scheduler ??= ClickScheduler(metronome: _metronome, sounds: sounds, clicksFor: _clicksFor);
     await sounds.start();
     if (_disposed || !_playing) return;
     _playingSince = clock.now();
-    _playNext();
+    // The first beat plays at once, and the metronome's ticks (scheduled ahead) play the rest.
+    _playNext(sound: true);
     _keepTime();
   }
 
@@ -98,35 +106,56 @@ class MetronomePlayer extends ChangeNotifier {
     if (_playingSince case final since?) _unlogged += clock.now().difference(since);
     _playingSince = null;
     _metronome.stop();
+    _scheduler?.reset();
     _sounds?.pause();
     WakelockPlus.disable();
     notifyListeners();
   }
 
   void _handleBeatsDue(int due) {
-    // If it's fallen behind, catch up, but only sound the latest beat.
+    // (If it's fallen behind, this catches up.)
     for (var i = 0; i < due; i++) {
-      _playNext(sound: i == due - 1);
+      _playNext();
     }
   }
 
-  void _playNext({bool sound = true}) {
+  static List<Click> _clicksOf(BeatLevel level) => switch (level) {
+    BeatLevel.high => const [Click.beep],
+    BeatLevel.low => const [Click.boop],
+    BeatLevel.off => const [],
+  };
+
+  // The clicks on the metronome's tick [ahead] ticks after the current one (see ClicksFor): the
+  // beat that'll be playing then, unless it speeds up before then.
+  List<Click>? _clicksFor(int ahead) {
+    final beats = _config.beats;
+    if (ahead == 0) return _clicksOf(beats[_beat ?? 0]);
+    var measures = _measures;
+    // Each tick before that one, which plays one beat, and speeds up after the last of a measure.
+    for (var i = 1; i < ahead; i++) {
+      final finishesMeasure = (_next + i) % beats.length == 0;
+      if (finishesMeasure && _config.increaseEvery > 0 && ++measures >= _config.increaseEvery) {
+        if (_faster() != _bpm) return null;
+        measures = 0;
+      }
+    }
+    return _clicksOf(beats[(_next + ahead - 1) % beats.length]);
+  }
+
+  int _faster() => (_bpm + _config.bpmIncrease).clamp(_bpm, metronomeBpmLimits.max);
+
+  void _playNext({bool sound = false}) {
     final beats = _config.beats;
     _beat = _next;
     if (sound) {
-      switch (beats[_next]) {
-        case BeatLevel.high:
-          _sounds?.playBeep();
-        case BeatLevel.low:
-          _sounds?.playBoop();
-        case BeatLevel.off:
-          break;
+      for (final click in _clicksOf(beats[_next])) {
+        click == Click.beep ? _sounds?.playBeep() : _sounds?.playBoop();
       }
     }
     _next = (_next + 1) % beats.length;
     if (_next == 0 && _config.increaseEvery > 0 && ++_measures >= _config.increaseEvery) {
       _measures = 0;
-      final faster = (_bpm + _config.bpmIncrease).clamp(_bpm, metronomeBpmLimits.max);
+      final faster = _faster();
       if (faster != _bpm) {
         _bpm = faster;
         // From the next beat: the first of the next measure.
@@ -154,6 +183,7 @@ class MetronomePlayer extends ChangeNotifier {
     _lifecycle.dispose();
     _disposed = true;
     if (_playing) WakelockPlus.disable();
+    _scheduler?.dispose();
     _metronome.dispose();
     _sounds?.dispose();
     super.dispose();

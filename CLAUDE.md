@@ -61,11 +61,19 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
 `_openDeepLink`.
 
 **Timing and playback:**
-- `services/metronome.dart`: polls every 5ms against `clock.now()` and reports how many ticks are
-  newly due (`onDue(n)`), so a late poll catches up instead of drifting. Tests drive it with
-  `fake_async` (which is why it uses `package:clock`, not `DateTime.now()`).
+- `services/metronome.dart`: polls every 5ms against a steady clock (a `Stopwatch`, so
+  microseconds even on web, where `DateTime.now()` has only milliseconds) and reports how many
+  ticks are newly due (`onDue(n)`), so a late poll catches up instead of drifting. Tests drive it
+  with `fake_async`: when `package:clock`'s clock is overridden, it uses that instead.
 - `services/metronome_sounds.dart`: beep/boop through `flutter_soloud`. SoLoud is FFI-based and
   low-jitter; `audioplayers` was dropped because of audible timing jitter. Don't swap it back.
+- `services/click_scheduler.dart`: every player's clicks (drills, the pattern trainer, the
+  metronome tool) are scheduled 150ms ahead with SoLoud's `playScheduled`, on the audio engine's
+  clock, so they play exactly on time however busy the main thread is. Playing them when a poll
+  found them due wobbled audibly, by up to 90ms. Each player answers what sounds on the tick n
+  ahead (`ClicksFor`) by playing its state forward on a copy, and says null where a tempo change
+  comes first, as the ticks after it are timed at the new tempo. Only each run's first click is
+  played immediately.
 - `widgets/drill_practice_view.dart`: the core playback state machine. `_tick()` advances an
   immutable `_PState` (intro → row/section/line/measure/offset → section repeat → drill repeat,
   with a bpm increase per drill repeat). It also auto-scrolls, plays sounds, and handles the
@@ -84,7 +92,9 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
 - `services/midi_input.dart`: MIDI input (for a drum pad), web-only for now via Web MIDI
   (`midi_input_web.dart`, picked by conditional import; a stub elsewhere). Each message carries the
   browser's arrival timestamp and the time Dart got it, both on `performance.now()`'s clock.
-  `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log.
+  `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log, and holds
+  the timing test (`widgets/midi_timing_test.dart`), which schedules clicks on that same clock and
+  compares hits with the ideal beat times (`model/timing.dart`).
 - `model.computeDrillDuration` has to agree with the state machine's intro and repeat rules. Change
   them together.
 

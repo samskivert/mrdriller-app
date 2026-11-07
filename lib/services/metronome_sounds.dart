@@ -68,6 +68,42 @@ class MetronomeSounds {
     SoLoud.instance.play(sound);
   }
 
+  /// The audio engine's clock, which [scheduleBeep] and [scheduleBoop] schedule against, or null if
+  /// sound isn't working. It only advances while the output device runs (see [start]), and then
+  /// in steps, at the start of each buffer that it mixes.
+  ///
+  /// With [running], also null unless the output device is running, as the clock is stopped
+  /// otherwise.
+  Duration? engineTime({bool running = false}) {
+    final soloud = SoLoud.instance;
+    if (!soloud.isInitialized) return null;
+    if (running && soloud.getAudioDeviceState() != AudioDeviceState.started) return null;
+    return soloud.getEngineTime();
+  }
+
+  /// Plays the beep at [at] on the engine's clock (see [engineTime]), exactly, however busy the
+  /// app happens to be then. Unlike [playBeep], which plays at the start of whichever buffer is
+  /// mixed next after the app gets around to calling it. Returns a handle that [cancel] takes.
+  SoundHandle? scheduleBeep(Duration at) => _schedule(_beep, at);
+
+  SoundHandle? scheduleBoop(Duration at) => _schedule(_boop, at);
+
+  SoundHandle? _schedule(String asset, Duration at) {
+    final sound = loadedSound(asset);
+    if (sound == null) {
+      logSound('$asset not loaded');
+      return null;
+    }
+    _keepDeviceRunning(true);
+    return SoLoud.instance.playScheduled(sound, at);
+  }
+
+  /// Stops a sound from [scheduleBeep] or [scheduleBoop], if it hasn't played yet.
+  void cancel(SoundHandle handle) {
+    if (!SoLoud.instance.isInitialized) return;
+    SoLoud.instance.stop(handle).catchError((Object e) => logSound('stop failed: $e'));
+  }
+
   /// Called whenever the metronome stops (paused, or done).
   void pause() => _keepDeviceRunning(false);
 

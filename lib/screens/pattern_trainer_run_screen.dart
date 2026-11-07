@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
+import '../services/click_scheduler.dart';
 import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
@@ -222,6 +223,9 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
 
   MetronomeSounds? _sounds;
   late final _metronome = Metronome(onDue: _handleBeatsDue);
+  ClickScheduler? _scheduler;
+  // The stroke that the last tick played, if any.
+  Stroke? _lastStroke;
 
   // Guards against the "finished" pop firing more than once (e.g. a beat tick arriving just as
   // the last pattern completes).
@@ -249,11 +253,14 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
     ];
     _metronome.addListener(_handleMetronomeActiveChanged);
     _sounds = MetronomeSounds();
+    _scheduler = ClickScheduler(metronome: _metronome, sounds: _sounds!, clicksFor: _clicksFor);
     // Wait for the tones to load and the audio device to start, and for this screen to finish
     // sliding in, before processing the very first beat (see DrillPracticeView.initState).
     Future.wait([_sounds!.start(), routeSettled(context)]).then((_) {
       if (!mounted) return;
+      // The first beat plays at once, and the metronome's ticks (scheduled ahead) play the rest.
       _applyState(_PTState(playing: true, intro: true, mode: _Mode.listen, bpm: widget.config.bpm));
+      _playClicks(_clicksOf(_state, null));
     });
   }
 
@@ -261,7 +268,13 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
   // source of truth for "is something actually happening right now", so pausing via the button
   // (which pauses the metronome directly) silences sound with no extra plumbing needed.
   void _handleMetronomeActiveChanged() {
-    if (!_metronome.isActive) _sounds?.pause();
+    if (_metronome.isActive) {
+      // (Once it's resumed, the audio device may need restarting.)
+      _sounds?.start();
+    } else {
+      _scheduler?.reset();
+      _sounds?.pause();
+    }
   }
 
   bool _left = false;
@@ -276,18 +289,38 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
   void dispose() {
     _celebration.dispose();
     _metronome.removeListener(_handleMetronomeActiveChanged);
+    _scheduler?.dispose();
     _metronome.dispose();
     _sounds?.dispose();
     super.dispose();
   }
 
-  void _playStroke(Stroke? stroke) {
-    if (stroke == null) return;
-    if (stroke.accent) {
-      _sounds?.playBeep();
-    } else {
-      _sounds?.playBoop();
+  void _playClicks(List<Click> clicks) {
+    for (final click in clicks) {
+      click == Click.beep ? _sounds?.playBeep() : _sounds?.playBoop();
     }
+  }
+
+  // The clicks on the tick that brings the session to state [s], playing [stroke]: the count-in's
+  // click, or the stroke's.
+  static List<Click> _clicksOf(_PTState s, Stroke? stroke) => [
+    if (s.playing && s.intro) s.beat % _beatsPerMeasure == 0 ? Click.beep : Click.boop,
+    if (stroke != null) stroke.accent ? Click.beep : Click.boop,
+  ];
+
+  // The clicks on the metronome's tick [ahead] ticks after the current one (see ClicksFor), found
+  // by playing the session forward on a copy of the state. (Its tempo never changes.)
+  List<Click>? _clicksFor(int ahead) {
+    if (ahead == 0) return _clicksOf(_state, _lastStroke);
+    var s = _state;
+    Stroke? stroke;
+    for (var i = 0; i < ahead; i++) {
+      if (!s.playing) return null;
+      final result = _tickPT(s, _patterns);
+      s = result.state;
+      stroke = result.strokeToPlay;
+    }
+    return _clicksOf(s, stroke);
   }
 
   void _applyState(_PTState next) {
@@ -297,14 +330,6 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
 
   void _afterStateChange() {
     final s = _state;
-    if (s.playing && s.intro) {
-      final beatInMeasure = s.beat % _beatsPerMeasure;
-      if (beatInMeasure == 0) {
-        _sounds?.playBeep();
-      } else {
-        _sounds?.playBoop();
-      }
-    }
     if (!s.playing) {
       _sounds?.pause();
       _metronome.stop();
@@ -335,8 +360,8 @@ class _PatternTrainerRunScreenState extends State<PatternTrainerRunScreen>
       strokeToPlay = result.strokeToPlay;
       if (!next.playing) break;
     }
+    _lastStroke = strokeToPlay;
     _applyState(next);
-    _playStroke(strokeToPlay);
   }
 
   bool get _visibilityOk {

@@ -1,4 +1,6 @@
+import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/metronome_player.dart';
 import 'package:mrdriller/services/metronome_sounds.dart';
@@ -29,11 +31,45 @@ class _FakeSounds implements MetronomeSounds {
   @override
   void playBoop() => played.add('boop');
 
+  // The metronome player doesn't schedule sounds (yet).
+  @override
+  Duration? engineTime({bool running = false}) => null;
+
+  @override
+  SoundHandle? scheduleBeep(Duration at) => null;
+
+  @override
+  SoundHandle? scheduleBoop(Duration at) => null;
+
+  @override
+  void cancel(SoundHandle handle) {}
+
   @override
   void pause() {}
 
   @override
   void dispose() {}
+}
+
+// An audio engine whose clock runs smoothly (on fake_async's), so that clicks are scheduled ahead
+// of time on it, and which keeps track of what it scheduled when.
+class _SchedulingSounds extends _FakeSounds {
+  final _epoch = clock.now();
+  final scheduled = <(String, Duration)>[];
+
+  @override
+  Duration? engineTime({bool running = false}) => clock.now().difference(_epoch);
+
+  @override
+  SoundHandle? scheduleBeep(Duration at) => _schedule('beep', at);
+
+  @override
+  SoundHandle? scheduleBoop(Duration at) => _schedule('boop', at);
+
+  SoundHandle _schedule(String sound, Duration at) {
+    scheduled.add((sound, at));
+    return SoundHandle(scheduled.length);
+  }
 }
 
 MetronomePlayer _player(MetronomeConfig config, [_FakeSounds? sounds]) =>
@@ -79,6 +115,29 @@ void main() {
       expect(player.beat, 1);
       async.elapse(const Duration(milliseconds: 100));
       expect(player.beat, 0);
+      player.dispose();
+    });
+  });
+
+  test('schedules the beats ahead, at the new tempo from where it speeds up', () {
+    fakeAsync((async) {
+      final sounds = _SchedulingSounds();
+      final player = _player(
+        const MetronomeConfig(bpm: 60, beats: [_hi, _lo], bpmIncrease: 30, increaseEvery: 2),
+        sounds,
+      );
+      player.play();
+      async.flushMicrotasks();
+      async.elapse(const Duration(milliseconds: 4500));
+      // The first beat plays at once, and the rest are scheduled: three more at 60 bpm, ending
+      // two measures, then 90 bpm.
+      expect(sounds.played, ['beep']);
+      expect(sounds.scheduled.map((s) => s.$1), ['boop', 'beep', 'boop', 'beep', 'boop']);
+      final first = sounds.scheduled.first.$2;
+      expect(
+        [for (final (_, at) in sounds.scheduled) (at - first).inMilliseconds],
+        [0, 1000, 2000, 2666, 3333],
+      );
       player.dispose();
     });
   });

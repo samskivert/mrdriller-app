@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../model/model.dart';
+import '../services/click_scheduler.dart';
 import '../services/metronome.dart';
 import '../services/metronome_sounds.dart';
 import '../state/drill_config.dart';
@@ -289,6 +290,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   late _PState _state;
 
   MetronomeSounds? _sounds;
+  late final ClickScheduler _scheduler;
 
   // widget.drill never changes for the lifetime of this widget (swapHands, if requested, was
   // already applied by the caller before it was ever handed to us), so unlike the overview screen
@@ -358,6 +360,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
     widget.metronome.addListener(_handleMetronomeActiveChanged);
     final sounds = MetronomeSounds();
     _sounds = sounds;
+    _scheduler = ClickScheduler(metronome: widget.metronome, sounds: sounds, clicksFor: _clicksFor);
     _state = _PState(
       playing: true,
       intro: true,
@@ -381,6 +384,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   void _start() {
     if (!mounted) return;
     setState(() => _started = true);
+    // The first beat plays at once, and the metronome's ticks (scheduled ahead) play the rest.
     _playBeatSound();
     _publishStatus();
     widget.metronome.ensureRunning(bpm: _state.bpm, scale: widget.drill.scale);
@@ -391,6 +395,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
     _celebration.dispose();
     _startTimer?.cancel();
     widget.metronome.removeListener(_handleMetronomeActiveChanged);
+    _scheduler.dispose();
     _sounds?.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -403,8 +408,11 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   // re-acquires the wakelock, with no extra plumbing needed for either.
   void _handleMetronomeActiveChanged() {
     if (widget.metronome.isActive) {
+      // (Once it's resumed, the audio device may need restarting.)
+      _sounds?.start();
       WakelockPlus.enable();
     } else {
+      _scheduler.reset();
       _sounds?.pause();
       WakelockPlus.disable();
     }
@@ -413,7 +421,6 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   void _applyState(_PState next) {
     _scrollIfMoved(_state, next);
     setState(() => _state = next);
-    _playBeatSound();
     _publishStatus();
     if (next.playing) {
       widget.metronome.ensureRunning(bpm: next.bpm, scale: widget.drill.scale);
@@ -427,25 +434,34 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with SingleTicker
   }
 
   void _playBeatSound() {
-    final s = _state;
-    if (!s.playing) return;
+    for (final click in _clicksOf(_state)) {
+      click == Click.beep ? _sounds?.playBeep() : _sounds?.playBoop();
+    }
+  }
+
+  // The clicks that sound on the tick that brings the drill to state [s].
+  List<Click> _clicksOf(_PState s) {
+    if (!s.playing) return const [];
     final beatInMeasure = s.beat % widget.drill.bpm;
     final beeps = widget.drill.beeps;
     if (beeps != null) {
-      if (beeps.contains(beatInMeasure + 1)) {
-        if (beatInMeasure + 1 == beeps.first) {
-          _sounds?.playBeep();
-        } else {
-          _sounds?.playBoop();
-        }
-      }
-    } else {
-      if (beatInMeasure == 0) {
-        _sounds?.playBeep();
-      } else {
-        _sounds?.playBoop();
-      }
+      if (!beeps.contains(beatInMeasure + 1)) return const [];
+      return [beatInMeasure + 1 == beeps.first ? Click.beep : Click.boop];
     }
+    return [beatInMeasure == 0 ? Click.beep : Click.boop];
+  }
+
+  // The clicks on the metronome's tick [ahead] ticks after the current one (see ClicksFor), found
+  // by playing the state machine forward on a copy of the state.
+  List<Click>? _clicksFor(int ahead) {
+    var s = _state;
+    for (var i = 0; i < ahead; i++) {
+      // After a tempo change, the ticks come at the new tempo, which the metronome hasn't been told
+      // about yet. (And there are none after the end.)
+      if (!s.playing || s.bpm != _state.bpm) return null;
+      s = _tick(s, widget.drill, widget.config.drillRepeat, widget.config.replayIntroOnBpmIncrease);
+    }
+    return _clicksOf(s);
   }
 
   void _publishStatus() {
