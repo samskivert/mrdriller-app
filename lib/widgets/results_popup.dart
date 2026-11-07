@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../model/grading.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
+import 'timing_chart.dart';
 
 /// The results of grading a player's hits on a drum pad over a drill (see grading.dart), shown
 /// over the drill once it's done: a card of how it went (see [_GradeSummaryView]) on a backdrop
@@ -222,6 +223,14 @@ class GradeCards extends StatelessWidget {
     return _StatCard(
       label: 'Average',
       color: AppColors.bannerBlue,
+      below: summary.errors.isEmpty
+          ? null
+          : TimingChart(
+              errors: summary.errors,
+              perfectMs: summary.perfectMs,
+              goodMs: summary.goodMs,
+              mean: offsets.mean,
+            ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -282,12 +291,16 @@ class _StatCard extends StatelessWidget {
   final bool faded;
   final bool stacked;
 
+  /// Shown below the banner and [child], across the card.
+  final Widget? below;
+
   const _StatCard({
     required this.label,
     required this.color,
     required this.child,
     this.faded = false,
     this.stacked = false,
+    this.below,
   });
 
   @override
@@ -319,16 +332,23 @@ class _StatCard extends StatelessWidget {
                   ),
                 ],
               )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  banner,
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
-                      child: Align(alignment: Alignment.centerRight, child: value),
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      banner,
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+                          child: Align(alignment: Alignment.centerRight, child: value),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (below case final below?)
+                    Padding(padding: const EdgeInsets.fromLTRB(10, 2, 10, 8), child: below),
                 ],
               ),
       ),

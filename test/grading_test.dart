@@ -91,6 +91,9 @@ void main() {
     expect(summary.wrongHands, 1);
     expect(summary.extras, 1);
     expect(summary.offsets.mean, 10);
+    // Each hit's offset, to chart, and how strictly they were judged.
+    expect(summary.errors, [-10, 30]);
+    expect(summary.goodMs, 50);
   });
 
   test('combines summaries', () {
@@ -100,6 +103,7 @@ void main() {
           wrongHands: wrong,
           extras: extras,
           offsets: OffsetStats.of(offsets),
+          errors: offsets,
         );
     final combined = GradeSummary.combine([
       summary({Judgement.perfect: 3, Judgement.miss: 1}, 1, 0, [0, 10, -10]),
@@ -111,6 +115,7 @@ void main() {
     expect(combined.wrongHands, 1);
     expect(combined.extras, 2);
     expect(combined.offsets.mean, closeTo(OffsetStats.of([0, 10, -10, 5, 60, 70]).mean, 1e-9));
+    expect(combined.errors, [0, 10, -10, 5, 60, 70]);
   });
 
   test('grades accents when told whether hits were accented', () {

@@ -7,6 +7,7 @@ import 'package:mrdriller/screens/playlist_run_screen.dart';
 import 'package:mrdriller/widgets/arcade.dart';
 import 'package:mrdriller/widgets/hud_controls.dart';
 import 'package:mrdriller/widgets/results_popup.dart';
+import 'package:mrdriller/widgets/timing_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -24,6 +25,8 @@ void main() {
         await tester.pump();
         expect(tester.takeException(), isNull);
       }
+      // The timings' histogram.
+      expect(find.byType(TimingChart), findsOneWidget);
       // A playlist's moves on by itself (with a bar draining until it does), with no buttons.
       expect(find.byType(TweenAnimationBuilder<double>), findsOneWidget);
       expect(find.text('CONTINUE'), findsNothing);

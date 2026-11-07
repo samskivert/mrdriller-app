@@ -248,6 +248,7 @@ class _Run {
   }
 
   GradeSummary get summary => GradeSummary(
+    errors: _offsets,
     counts: counts,
     wrongHands: wrongHands,
     accentsGraded: wrongAccents != null,
@@ -407,6 +408,7 @@ class _DrillResultsDebugScreenState extends State<DrillResultsDebugScreen> {
             value: _run,
             onChanged: (run) => setState(() => _run = run),
           ),
+
           const SizedBox(height: 8),
           Row(
             children: [

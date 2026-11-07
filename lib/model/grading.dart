@@ -83,8 +83,14 @@ class GradeSummary {
   /// Hits that weren't near any stroke.
   final int extras;
 
-  /// The offsets of the strokes that were hit.
+  /// The offsets of the strokes that were hit, summed up, and each (in milliseconds, negative if
+  /// early), if known.
   final OffsetStats offsets;
+  final List<double> errors;
+
+  /// How close to their strokes hits had to be to be perfect, or good.
+  final double perfectMs;
+  final double goodMs;
 
   const GradeSummary({
     required this.counts,
@@ -93,13 +99,17 @@ class GradeSummary {
     this.wrongAccents = 0,
     required this.extras,
     required this.offsets,
+    this.errors = const [],
+    this.perfectMs = 25,
+    this.goodMs = 50,
   });
 
   int get strokes => counts.values.fold(0, (a, b) => a + b);
 
   int count(Judgement judgement) => counts[judgement] ?? 0;
 
-  /// All of [summaries] (e.g. of each drill in a playlist) together.
+  /// All of [summaries] (e.g. of each drill in a playlist) together. (Judged as strictly as the
+  /// first was.)
   factory GradeSummary.combine(Iterable<GradeSummary> summaries) {
     final counts = <Judgement, int>{};
     for (final summary in summaries) {
@@ -114,6 +124,9 @@ class GradeSummary {
       wrongAccents: summaries.fold(0, (n, s) => n + s.wrongAccents),
       extras: summaries.fold(0, (n, s) => n + s.extras),
       offsets: OffsetStats.combine(summaries.map((s) => s.offsets)),
+      errors: [for (final s in summaries) ...s.errors],
+      perfectMs: summaries.firstOrNull?.perfectMs ?? 25,
+      goodMs: summaries.firstOrNull?.goodMs ?? 50,
     );
   }
 }
@@ -213,6 +226,7 @@ class Grader {
   void forgetPending() => _pending.clear();
 
   GradeSummary get summary {
+    final errors = List<double>.unmodifiable([for (final g in _grades) ?g.errorMs]);
     final counts = <Judgement, int>{};
     for (final grade in _grades) {
       counts.update(grade.judgement, (n) => n + 1, ifAbsent: () => 1);
@@ -223,7 +237,10 @@ class Grader {
       accentsGraded: _accentsGraded,
       wrongAccents: _grades.where((g) => g.wrongAccent).length,
       extras: _extras,
-      offsets: OffsetStats.of([for (final g in _grades) ?g.errorMs]),
+      offsets: OffsetStats.of(errors),
+      errors: errors,
+      perfectMs: perfectMs,
+      goodMs: goodMs,
     );
   }
 }
