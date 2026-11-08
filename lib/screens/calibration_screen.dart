@@ -55,7 +55,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
   @override
   void initState() {
     super.initState();
-    midi.connect();
+    if (midiDevices.enabled) midi.connect();
   }
 
   void _started() {

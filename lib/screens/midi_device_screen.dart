@@ -54,7 +54,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
       // (Rebuilding just what shows them, not the whole screen on every hit, which stalled it.)
       _hitCount.value++;
     });
-    midi.connect();
+    if (midiDevices.enabled) midi.connect();
   }
 
   @override

@@ -18,6 +18,14 @@ class MidiConnection extends ChangeNotifier {
 
   MidiStatus get status => _status;
 
+  /// Why MIDI can't be used here (when [status] is unsupported), and where it can.
+  String get unsupportedMessage => kIsWeb
+      // (Safari, on Mac and iOS, doesn't do Web MIDI, nor any browser on iOS, which all use
+      // Safari's engine.)
+      ? "This browser doesn't support MIDI devices. Try Chrome, Edge or Firefox, or the iPhone "
+            'app.'
+      : "MIDI devices aren't supported on this device yet.";
+
   /// Why connecting failed, if it did.
   String? get error => _error;
 
@@ -52,6 +60,8 @@ class MidiConnection extends ChangeNotifier {
     notifyListeners();
     try {
       final input = await MidiInput.open();
+      // (Turned off again while it was connecting.)
+      if (_status != MidiStatus.connecting) return input.close();
       _input = input;
       _ports = input.ports;
       input.onPortsChanged.listen((ports) {
@@ -61,9 +71,20 @@ class MidiConnection extends ChangeNotifier {
       input.messages.listen(_messages.add);
       _status = MidiStatus.connected;
     } on MidiUnavailable catch (e) {
+      if (_status != MidiStatus.connecting) return;
       _error = e.message;
       _status = MidiStatus.failed;
     }
+    notifyListeners();
+  }
+
+  /// Stops using MIDI input, until [connect] is called again.
+  void disconnect() {
+    _input?.close();
+    _input = null;
+    _ports = const [];
+    _error = null;
+    if (_status != MidiStatus.unsupported) _status = MidiStatus.disconnected;
     notifyListeners();
   }
 }

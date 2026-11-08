@@ -185,9 +185,21 @@ class MidiDeviceConfig {
 
 class MidiDevices extends ChangeNotifier {
   static const _key = 'midi.devices';
+  static const _enabledKey = 'midi.enabled';
 
   SharedPreferences? _prefs;
   final _devices = <String, MidiDeviceConfig>{};
+  bool _enabled = false;
+
+  /// Whether to use MIDI at all, turned on in Settings: until then, it isn't touched (in a browser,
+  /// connecting asks for permission, which most players, without a drum pad, don't need asked).
+  bool get enabled => _enabled;
+
+  void setEnabled(bool enabled) {
+    _enabled = enabled;
+    _prefs?.setBool(_enabledKey, enabled);
+    notifyListeners();
+  }
 
   /// Every device with settings saved, in the order they were first saved.
   Iterable<MidiDeviceConfig> get all => _devices.values;
@@ -214,6 +226,8 @@ class MidiDevices extends ChangeNotifier {
     } on FormatException {
       // Start over.
     }
+    // (On, for anyone who'd set up a device before it could be turned off.)
+    _enabled = prefs.getBool(_enabledKey) ?? _devices.isNotEmpty;
     notifyListeners();
   }
 

@@ -106,7 +106,9 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   `CLOCK_MONOTONIC` (`System.nanoTime()`, which Dart's `Timeline.now` reads). Never time hits by
   when Dart got them: that's late by however long the main thread was busy.
   Screens share one connection, `midi` (`services/midi_connection.dart`): opening a second
-  `MidiInput` closes the first. Settings lists MIDI devices, each opening
+  `MidiInput` closes the first. MIDI is off until turned on in Settings' MIDI devices card
+  (`midiDevices.enabled`, local): nothing may connect before then, as a browser asks permission
+  to, which players without a drum pad shouldn't be asked. Settings lists MIDI devices, each opening
   `screens/midi_device_screen.dart` to rename it, map its pads (notes) to a hand, and calibrate
   it, saved in `midiDevices` (`state/midi_devices.dart`, keyed by port name). A `Calibration` (the
   system's delay, sound out plus hit in, which hits are adjusted by) is kept per device per audio

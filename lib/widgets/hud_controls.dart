@@ -946,6 +946,8 @@ class BannerCard extends StatelessWidget {
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Row(
+              // (The banner in the very corner, however tall what's beside it.)
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HudBanner(
                   label: label,
@@ -955,7 +957,7 @@ class BannerCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (trailing case final trailing?)
-                  Padding(padding: const EdgeInsets.only(right: 10), child: trailing),
+                  Padding(padding: const EdgeInsets.fromLTRB(0, 5, 15, 0), child: trailing),
               ],
             ),
           ),

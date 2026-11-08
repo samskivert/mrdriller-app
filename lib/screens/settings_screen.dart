@@ -24,7 +24,8 @@ class SettingsScreen extends StatelessWidget {
 
   // Whether there's a drum pad: plugged in now, or set up before (as the MIDI devices card lists).
   static bool get _hasMidiDevice =>
-      midiDevices.all.isNotEmpty || midi.ports.any((port) => port.connected);
+      midiDevices.enabled &&
+      (midiDevices.all.isNotEmpty || midi.ports.any((port) => port.connected));
 
   @override
   Widget build(BuildContext context) {
@@ -125,17 +126,20 @@ class _SettingCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: HudBanner(
-                          label: label,
-                          color: bannerColor,
-                          fontSize: 14,
-                          padding: const EdgeInsets.fromLTRB(14, 9, 16, 9),
+                      // (As BannerCard has them, so the switch is where the other cards' are.)
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: HudBanner(
+                            label: label,
+                            color: bannerColor,
+                            fontSize: 13,
+                            padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+                          ),
                         ),
                       ),
-                      const Spacer(),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 14, 0),
+                        padding: const EdgeInsets.fromLTRB(12, 5, 15, 0),
                         child: CandySwitch(value: value, onChanged: onChanged),
                       ),
                     ],
@@ -401,7 +405,16 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
   @override
   void initState() {
     super.initState();
-    midi.connect();
+    if (midiDevices.enabled) midi.connect();
+  }
+
+  void _setEnabled(bool enabled) {
+    midiDevices.setEnabled(enabled);
+    if (enabled) {
+      midi.connect();
+    } else {
+      midi.disconnect();
+    }
   }
 
   @override
@@ -414,14 +427,21 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
             if (port.connected) midiDeviceKey(port),
         };
         final keys = {...connected, ...midiDevices.all.map((d) => d.key)};
+        final unsupported = midi.status == MidiStatus.unsupported;
+        final enabled = midiDevices.enabled && !unsupported;
         return BannerCard(
           label: 'MIDI devices',
           color: AppColors.bannerMagenta,
+          trailing: unsupported
+              ? null
+              : CandySwitch(value: midiDevices.enabled, onChanged: _setEnabled),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (midi.status == MidiStatus.unsupported)
-                Text("MIDI input isn't supported here yet.", style: midiTextStyle())
+              if (unsupported)
+                Text(midi.unsupportedMessage, style: midiTextStyle())
+              else if (!enabled)
+                Text('Turn on MIDI support to use a MIDI drum pad.', style: midiTextStyle())
               else if (midi.status == MidiStatus.failed) ...[
                 Text(midi.error ?? "Couldn't connect to MIDI.", style: midiTextStyle()),
                 const SizedBox(height: 10),
@@ -438,13 +458,15 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
                       : 'Connecting to MIDI...',
                   style: midiTextStyle(),
                 ),
-              for (final key in keys) _deviceRow(key, connected: connected.contains(key)),
-              const SizedBox(height: 4),
-              _row(
-                icon: Icons.monitor_heart_rounded,
-                title: 'MIDI diagnostics',
-                onTap: () => Navigator.of(context).pushNamed('/tool/midi-diagnostics'),
-              ),
+              if (enabled) ...[
+                for (final key in keys) _deviceRow(key, connected: connected.contains(key)),
+                const SizedBox(height: 4),
+                _row(
+                  icon: Icons.monitor_heart_rounded,
+                  title: 'MIDI diagnostics',
+                  onTap: () => Navigator.of(context).pushNamed('/tool/midi-diagnostics'),
+                ),
+              ],
             ],
           ),
         );

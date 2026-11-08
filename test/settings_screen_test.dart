@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mrdriller/model/click_sound.dart';
 import 'package:mrdriller/model/grading.dart';
 import 'package:mrdriller/screens/settings_screen.dart';
+import 'package:mrdriller/services/midi_connection.dart';
 import 'package:mrdriller/state/midi_devices.dart';
 import 'package:mrdriller/state/settings.dart';
 import 'package:mrdriller/widgets/hud_controls.dart';
@@ -19,7 +20,9 @@ void main() {
       // (With a drum pad set up, so that every card shows.)
       SharedPreferences.setMockInitialValues({});
       await tester.runAsync(midiDevices.load);
-      midiDevices.setRole('Test pad', 60, PadRole.right);
+      midiDevices
+        ..setEnabled(true)
+        ..setRole('Test pad', 60, PadRole.right);
       addTearDown(() => midiDevices.forget('Test pad'));
       await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
       await tester.pump(const Duration(seconds: 1));
@@ -64,6 +67,7 @@ void main() {
     addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     await tester.runAsync(midiDevices.load);
+    midiDevices.setEnabled(true);
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('MIDI DEVICES'), findsOneWidget);
@@ -75,6 +79,34 @@ void main() {
     await tester.pump();
     expect(find.text('AUDIO OUTPUT'), findsOneWidget);
     expect(find.text('GRADING DIFFICULTY'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  test('MIDI starts off, unless a device was set up before it could be turned off', () async {
+    SharedPreferences.setMockInitialValues({});
+    await midiDevices.load();
+    expect(midiDevices.enabled, isFalse);
+    SharedPreferences.setMockInitialValues({
+      'midi.devices': '[{"key": "KAT / KTMP1", "pads": {"60": "right"}}]',
+    });
+    await midiDevices.load();
+    expect(midiDevices.enabled, isTrue);
+    midiDevices.setEnabled(false);
+    await midiDevices.load();
+    expect(midiDevices.enabled, isFalse);
+  });
+
+  testWidgets("doesn't touch MIDI until it's turned on", (tester) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    await tester.runAsync(midiDevices.load);
+    await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
+    await tester.pump(const Duration(seconds: 1));
+    // (Tests run where MIDI isn't supported, so there's no switch to show.)
+    expect(find.text('MIDI diagnostics'), findsNothing);
+    expect(midi.status, isNot(MidiStatus.connecting));
     await tester.pumpWidget(const SizedBox());
   });
 }

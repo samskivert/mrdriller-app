@@ -116,12 +116,7 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
 
   List<Widget> _disconnectedCards() {
     if (midi.status == MidiStatus.unsupported) {
-      return const [
-        EmptyCard(
-          'MIDI input only works in the web version for now, in a browser that supports it '
-          '(Chrome, Edge or Firefox).',
-        ),
-      ];
+      return [EmptyCard(midi.unsupportedMessage)];
     }
     return [
       BannerCard(

@@ -418,7 +418,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
     widget.metronome.onDue = _handleBeatsDue;
     widget.metronome.addListener(_handleMetronomeActiveChanged);
     final padSetUp = midiDevices.all.any((d) => d.pads.values.any((r) => r != PadRole.ignore));
-    if (padSetUp) {
+    if (midiDevices.enabled && padSetUp) {
       midi.connect();
       _midiHits = midi.messages.listen(_handleMidi);
     }
