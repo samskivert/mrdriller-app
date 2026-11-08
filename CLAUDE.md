@@ -105,8 +105,9 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   output, as output delay varies a lot by device (Bluetooth, TVs). Outputs are named by the user
   on web and one is in use (`audioOutputs`, `state/audio_outputs.dart`); on mobile they could come
   from the audio route. Both are local only, not synced: calibrations hold for one host device.
-  Calibrating is done on `screens/calibration_screen.dart`, opened from the device screen's
-  Calibration card, in one of two ways, both with the microphone so the player's own habit of
+  How calibration works, and the lessons behind its design, are in `docs/calibration.md`: read
+  it before changing the timing analysis. Calibrating is done on `screens/calibration_screen.dart`,
+  opened from the device screen's Calibration card, in one of two ways, both with the microphone so the player's own habit of
   hitting early or late stays out of it (the timing test, which would take it in, can't save one,
   and calibrations it saved before aren't loaded). "Between clicks" is measured with the microphone (`model/mic_calibration.dart`,
   `services/mic_recorder.dart`, web-only for now): it hears both the click and the stick, and
