@@ -79,6 +79,7 @@ void main() {
       hits: 40,
       bpm: 120,
       measured: DateTime(2026, 11, 6, 10, 30),
+      source: CalibrationSource.inTheAir,
     );
     devices.setRole(key, 48, PadRole.right);
     devices.setCalibration(key, 'default', calibration);
@@ -90,6 +91,7 @@ void main() {
     expect(saved?.hits, 40);
     expect(saved?.bpm, 120);
     expect(saved?.measured, DateTime(2026, 11, 6, 10, 30));
+    expect(saved?.source, CalibrationSource.inTheAir);
     // The pads are kept alongside.
     expect(loaded.roleOf(key, 48), PadRole.right);
 

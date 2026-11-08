@@ -911,13 +911,24 @@ class CandySegmented<T> extends StatelessWidget {
   }
 }
 
-/// A white card with a banner [label] in its top-left corner, holding [child] below it.
+/// A white card with a banner [label] in its top-left corner, holding [child] below it (or, with
+/// no child, just the banner), and [trailing] at the right of the banner's row, which [onTap]
+/// (if given) is called on tapping.
 class BannerCard extends StatelessWidget {
   final String label;
   final Color color;
-  final Widget child;
+  final Widget? child;
+  final Widget? trailing;
+  final VoidCallback? onTap;
 
-  const BannerCard({super.key, required this.label, required this.color, required this.child});
+  const BannerCard({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.child,
+    this.trailing,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -931,16 +942,25 @@ class BannerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: HudBanner(
-              label: label,
-              color: color,
-              fontSize: 13,
-              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                HudBanner(
+                  label: label,
+                  color: color,
+                  fontSize: 13,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+                ),
+                const Spacer(),
+                if (trailing case final trailing?)
+                  Padding(padding: const EdgeInsets.only(right: 10), child: trailing),
+              ],
             ),
           ),
-          Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 14), child: child),
+          if (child case final child?)
+            Padding(padding: const EdgeInsets.fromLTRB(14, 10, 14, 14), child: child),
         ],
       ),
     );

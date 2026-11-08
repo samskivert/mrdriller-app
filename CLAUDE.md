@@ -101,15 +101,28 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   `MidiInput` closes the first. Settings lists MIDI devices, each opening
   `screens/midi_device_screen.dart` to rename it, map its pads (notes) to a hand, and calibrate
   it, saved in `midiDevices` (`state/midi_devices.dart`, keyed by port name). A `Calibration` (the
-  timing test's average hit offset, which hits are adjusted by) is kept per device per audio
+  system's delay, sound out plus hit in, which hits are adjusted by) is kept per device per audio
   output, as output delay varies a lot by device (Bluetooth, TVs). Outputs are named by the user
   on web and one is in use (`audioOutputs`, `state/audio_outputs.dart`); on mobile they could come
   from the audio route. Both are local only, not synced: calibrations hold for one host device.
-  Playing along (the timing test) takes the player's own habit of hitting early or late into a
-  calibration, so it can also be measured with the microphone (`model/mic_calibration.dart`,
+  Calibrating is done on `screens/calibration_screen.dart`, opened from the device screen's
+  Calibration card, in one of two ways, both with the microphone so the player's own habit of
+  hitting early or late stays out of it (the timing test, which would take it in, can't save one,
+  and calibrations it saved before aren't loaded). "Between clicks" is measured with the microphone (`model/mic_calibration.dart`,
   `services/mic_recorder.dart`, web-only for now): it hears both the click and the stick, and
   (click sound - stick sound) + (MIDI hit - click scheduled) is the delay, with the mic's own
-  delay cancelling out.
+  delay cancelling out. "Play along" is the timing test with the mic open, hearing the player's
+  hits against the clicks in the air (`model/ear_check.dart`, drawn by `widgets/ear_raster.dart`): it learns
+  from the count-in how long after its scheduled time a click is heard, and from the first few
+  hits how long after its MIDI time a hit is heard (both steady to about a millisecond on a real
+  recording), then finds each hit's burst just there, so the player's lead or lag is measured by
+  ear. Its hits' MIDI offsets less their in-air ones (`systemDelay`) are the delay alone, with the
+  player's lead cancelled out, so it can save a calibration too, from natural playing. In debug
+  builds on web, SAVE RECORDING downloads its last recording (`services/file_download.dart`) as a
+  float WAV (`model/wav.dart`) with the clicks, hits and results as JSON in a `json` chunk, for
+  working on the detection offline; `test/ear_check_recording_test.dart` replays the ones in
+  `test/recordings/` (real runs through a MacBook's speakers and microphone), checking the delay
+  comes out steady.
   `screens/midi_diagnostics_screen.dart` shows the inputs, hit notes and a message log, and holds
   the timing test (`widgets/midi_timing_test.dart`), which schedules clicks on that same clock and
   compares hits with the ideal beat times (`model/timing.dart`).

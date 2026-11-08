@@ -181,7 +181,7 @@ class _MidiDiagnosticsScreenState extends State<MidiDiagnosticsScreen> {
               ),
       ),
       const SizedBox(height: 16),
-      MidiTimingTest(hits: midi.messages, now: midi.now),
+      MidiTimingTest(hits: midi.messages, now: midi.now, debugControls: true),
       const SizedBox(height: 16),
       BannerCard(
         label: 'Messages',

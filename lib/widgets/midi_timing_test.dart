@@ -1,17 +1,23 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
+import '../model/ear_check.dart';
 import '../model/timing.dart';
+import '../model/wav.dart';
 import '../services/metronome_sounds.dart';
 import '../services/audio_latency.dart';
+import '../services/file_download.dart';
 import '../services/mic_recorder.dart';
 import '../services/midi_input.dart';
 import '../util/colors.dart';
 import 'arcade.dart';
+import 'calibration_grid.dart';
+import 'ear_raster.dart';
 import 'hud_controls.dart';
 
 /// A test of hitting in time with a click: plays a steady click and measures how early or late
@@ -40,9 +46,23 @@ class MidiTimingTest extends StatefulWidget {
   final double? calibrationMs;
   final String? calibrationLabel;
 
-  /// Saves a calibration from a test's (unadjusted) hits, at a tempo. Without it, there's no way
-  /// to save one.
+  /// For [listen], saves a calibration from the system's delay (see systemDelay), at a tempo.
+  /// Without it, there's no way to save one.
   final void Function(OffsetStats hits, int bpm)? onSave;
+
+  /// Whether to show the controls for investigating timing (playing clicks unscheduled, keeping
+  /// the microphone open, the browser's output delay), as on the MIDI diagnostics screen.
+  final bool debugControls;
+
+  /// Called when a test starts.
+  final VoidCallback? onStarted;
+
+  /// Shown at the top of the card, if given.
+  final Widget? header;
+
+  /// Whether, instead of judging hits by their MIDI times, it's the "In the air" check: with the
+  /// microphone open, hearing how the hits line up with the clicks (see ear_check.dart).
+  final bool listen;
 
   const MidiTimingTest({
     super.key,
@@ -51,6 +71,10 @@ class MidiTimingTest extends StatefulWidget {
     this.calibrationMs,
     this.calibrationLabel,
     this.onSave,
+    this.debugControls = false,
+    this.listen = false,
+    this.onStarted,
+    this.header,
   });
 
   @override
@@ -78,6 +102,11 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   static const _doubleTriggerMs = 30.0;
   // Fewer hits than this aren't enough to calibrate by.
   static const _minCalibrationHits = 16;
+  // Playing along (see MidiTimingTest.listen) is a set number of clicks after the count-in, then
+  // it ends, once the last has had time to be heard.
+  static const _playClicks = 64;
+  static const _totalClicks = _countInClicks + _playClicks;
+  static const _settleMs = 1200.0;
 
   int _bpm = 90;
   bool _scheduled = true;
@@ -113,13 +142,24 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   // the browser's estimates of the output delay, as last checked.
   MicRecorder? _mic;
   var _micOpening = false;
+  // And with it open from the start of a test, hearing how the hits lined up with the clicks in
+  // the air (see ear_check.dart), from the MIDI times of every hit since the start.
+  EarCheck? _ear;
+  Timer? _earTimer;
+  final _hitTimes = <double>[];
   String? _micError;
+  // In debug builds, the In the air check's last recording, kept from when it stopped (as the
+  // microphone closes), with what it was of, to save for working on it (see _saveRecording).
+  ({Float32List samples, int sampleRate, Map<String, Object?> notes})? _recording;
+  String? _recordingProblem;
   AudioLatency? _latency;
   var _checkedLatency = false;
 
   Future<void> _setMicOpen(bool open) async {
     if (!open) {
       _mic?.close();
+      _earTimer?.cancel();
+      _earTimer = null;
       setState(() => _mic = null);
       return;
     }
@@ -154,8 +194,19 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     return calibration == null ? _offsets : [for (final o in _offsets) o - calibration];
   }
 
+  // In the air (see systemDelay), with the microphone open and the clicks heard.
+  OffsetStats get _systemDelay {
+    final ear = _ear;
+    if (ear == null || ear.state != EarCheckState.checking) return OffsetStats.empty;
+    final midiOffsets = <int, List<double>>{};
+    for (var i = 0; i < _offsets.length; i++) {
+      (midiOffsets[_hitBeats[i]] ??= []).add(_offsets[i]);
+    }
+    return systemDelay(ear.beats, midiOffsets);
+  }
+
   void _save() {
-    widget.onSave?.call(OffsetStats.of(_offsets), _testedBpm);
+    widget.onSave?.call(_systemDelay, _testedBpm);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saved the calibration'), duration: Duration(seconds: 2)),
     );
@@ -165,11 +216,13 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   void initState() {
     super.initState();
     _messages = widget.hits.listen(_onMessage);
+    if (widget.listen) _bpm = 120;
   }
 
   @override
   void dispose() {
     _mic?.close();
+    _earTimer?.cancel();
     _poll?.cancel();
     _messages?.cancel();
     _cancelPending();
@@ -178,7 +231,16 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   }
 
   Future<void> _start() async {
+    widget.onStarted?.call();
     setState(() => _starting = true);
+    if (widget.listen && _mic == null) {
+      await _setMicOpen(true);
+      if (!mounted) return;
+      if (_mic == null) {
+        setState(() => _starting = false);
+        return;
+      }
+    }
     final sounds = _sounds ??= MetronomeSounds();
     await sounds.start();
     if (!mounted || !_starting) return;
@@ -190,14 +252,28 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   }
 
   void _stop() {
+    // (Keeping what it heard, before the grid it was timed by goes.)
+    if (widget.listen && kDebugMode) {
+      try {
+        _recordingProblem = null;
+        _keepRecording();
+      } catch (e, stack) {
+        _recording = null;
+        _recordingProblem = "Couldn't keep the recording: $e";
+        debugPrint('$e\n$stack');
+      }
+    }
     setState(() {
       _starting = false;
       _grid = null;
     });
     _poll?.cancel();
     _poll = null;
+    _earTimer?.cancel();
+    _earTimer = null;
     _cancelPending();
     _sounds?.pause();
+    if (widget.listen) _setMicOpen(false);
   }
 
   // Starts counting in afresh, with the current settings.
@@ -213,7 +289,124 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     _hitBeats.clear();
     _doubleTriggers = 0;
     _clickTiming.clear();
+    _hitTimes.clear();
+    _startEarCheck();
   }
+
+  // With the microphone open, starts hearing the test afresh (from a fresh recording).
+  void _startEarCheck() {
+    _earTimer?.cancel();
+    _earTimer = null;
+    final mic = _mic;
+    final grid = _grid;
+    if (mic == null || grid == null) {
+      _ear = null;
+      return;
+    }
+    mic.clear();
+    _ear = EarCheck(
+      countIn: _countInClicks,
+      intervalMs: grid.interval,
+      // A beep on the beat, and a boop between.
+      toneHz: (i) => i % _clicksPerBeat == 0 ? 800 : 400,
+      sampleRate: mic.sampleRate,
+    );
+    _earTimer = Timer.periodic(const Duration(milliseconds: 100), (_) => _updateEarCheck());
+  }
+
+  void _updateEarCheck() {
+    final ear = _ear, mic = _mic, grid = _grid;
+    if (ear == null || mic == null || grid == null) return;
+    final now = widget.now();
+    final checked = ear.update(
+      samples: mic.samples,
+      startFrame: mic.startFrame,
+      clicks: _clicksSoFar(grid, now),
+      hits: _hitTimes,
+      frameAt: mic.frameAt,
+    );
+    if (checked || ear.state == EarCheckState.cantHear) setState(() {});
+    if (ear.state == EarCheckState.cantHear) {
+      _earTimer?.cancel();
+      _earTimer = null;
+    }
+  }
+
+  // Keeps the recording so far, with the clicks' and hits' times on its frames (as best it knows:
+  // see MicRecorder.frameAt) and what the In the air check made of it.
+  void _keepRecording() {
+    final mic = _mic, grid = _grid, ear = _ear;
+    if (mic == null || grid == null) {
+      _recording = null;
+      _recordingProblem =
+          'No recording kept: ${mic == null ? 'the microphone was closed' : 'it had stopped'}.';
+      return;
+    }
+    final now = widget.now();
+    final midiOffsets = <int, List<double>>{};
+    for (var i = 0; i < _offsets.length; i++) {
+      (midiOffsets[_hitBeats[i]] ??= []).add(_offsets[i]);
+    }
+    _recording = (
+      samples: Float32List.fromList(mic.samples),
+      sampleRate: mic.sampleRate.round(),
+      notes: {
+        'bpm': _testedBpm,
+        'clicksPerBeat': _clicksPerBeat,
+        'countIn': _countInClicks,
+        'intervalMs': grid.interval,
+        // The recording's first sample's frame, which the frames below count from.
+        'startFrame': mic.startFrame,
+        // Each click: its index, when it was scheduled (ms, on the MIDI clock), the frame that's
+        // roughly at, and its tone.
+        'clicks': [
+          for (final (i, ms) in _clicksSoFar(grid, now).indexed)
+            {
+              'index': i,
+              'ms': ms,
+              'frame': mic.frameAt(ms),
+              'hz': i % _clicksPerBeat == 0 ? 800 : 400,
+            },
+        ],
+        // Each hit (less double triggers): its MIDI time, the frame that's roughly at.
+        'hits': [
+          for (final ms in _hitTimes) {'ms': ms, 'frame': mic.frameAt(ms)},
+        ],
+        'midiOffsets': {for (final e in midiOffsets.entries) '${e.key}': e.value},
+        if (ear != null) ...{
+          'diagnosis': ear.diagnosis,
+          'beats': [
+            for (final b in ear.beats)
+              {'index': b.index, 'hitMs': b.hitMs, 'clickMatched': b.clickMatched},
+          ],
+        },
+        'results': _results(),
+        // What the recorder's clock read as each block of samples arrived, and what the check
+        // worked out as it went, for replaying it as it happened.
+        'arrivals': [
+          for (final a in mic.arrivals) [a.ms, a.clockMs, a.frame],
+        ],
+        if (ear != null) 'earLog': ear.log,
+      },
+    );
+  }
+
+  void _saveRecording() {
+    final recording = _recording;
+    if (recording == null) return;
+    final stamp = DateTime.now().toIso8601String().substring(0, 19).replaceAll(':', '-');
+    downloadFile(
+      'in-the-air-$_testedBpm-bpm-$stamp.wav',
+      encodeWav(recording.samples, recording.sampleRate, notes: recording.notes),
+      'audio/wav',
+    );
+  }
+
+  // When each click so far was scheduled (only those of the calibration, playing along).
+  List<double> _clicksSoFar(BeatGrid grid, double now) => [
+    for (var i = 0; grid.timeOf(i) <= now && (!widget.listen || i < _totalClicks); i++)
+      grid.timeOf(i),
+  ];
 
   void _cancelPending() {
     for (final (_, handle) in _pending) {
@@ -250,12 +443,18 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     }
     final current = ((now - grid.start) / grid.interval).floor();
     if (current != _shownBeat) setState(() => _shownBeat = current);
+    // Playing along, it ends once the last click has had time to be heard.
+    if (widget.listen && now > grid.timeOf(_totalClicks - 1) + _settleMs) {
+      _updateEarCheck();
+      _stop();
+    }
   }
 
   // Schedules every click that's due within the lookahead.
   void _scheduleClicks(BeatGrid grid, MetronomeSounds sounds, double now) {
     _pending.removeWhere((pending) => pending.$1 < now - 1000);
-    while (grid.timeOf(_nextBeat) <= now + _lookaheadMs) {
+    while (grid.timeOf(_nextBeat) <= now + _lookaheadMs &&
+        (!widget.listen || _nextBeat < _totalClicks)) {
       final time = grid.timeOf(_nextBeat);
       final at = _clockSync.toStepped(time);
       if (at == null) return;
@@ -298,6 +497,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
       return;
     }
     _lastHitAt = message.timestamp;
+    _hitTimes.add(message.timestamp);
     final beat = grid.nearestBeat(message.timestamp);
     if (beat < _countInClicks) return;
     setState(() {
@@ -313,6 +513,238 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
       const SnackBar(content: Text('Copied the results'), duration: Duration(seconds: 2)),
     );
   }
+
+  // The "In the air" check (see MidiTimingTest.listen).
+  Widget _buildListening() {
+    final ear = _ear;
+    final stats = ear?.stats;
+    final countingIn = _grid != null && _shownBeat < _countInClicks;
+    final heard = stats != null && stats.count > 0;
+    final delay = _systemDelay;
+    final String message;
+    if (_micError case final error?) {
+      message = error;
+    } else if (ear == null) {
+      message = '';
+    } else {
+      message = switch (ear.state) {
+        EarCheckState.cantHear =>
+          "Couldn't hear the clicks. Turn the sound up, or hold the headphones to the microphone.",
+        _ when countingIn => "Listen to the first row of clicks, don't play.",
+        _ when _running => 'Play every click, $_playClicks in all.',
+        _ => '',
+      };
+    }
+    return BannerCard(
+      label: 'Play along',
+      color: AppColors.bannerBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.header case final header?) ...[header, const SizedBox(height: 12)],
+          CandySegmented<int>(
+            options: [for (final bpm in _tempos) (bpm, '$bpm bpm')],
+            value: _bpm,
+            onChanged: _setBpm,
+            colors: AppColors.candyPink,
+          ),
+          const SizedBox(height: 12),
+          CandyButton(
+            label: _running ? 'STOP' : 'START',
+            icon: _running ? Icons.stop_rounded : Icons.mic_rounded,
+            colors: _running ? AppColors.candyRed : AppColors.candyGreen,
+            onPressed: _starting ? null : (_running ? _stop : _start),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 40,
+            child: Center(
+              child: countingIn
+                  ? _Readout(
+                      _shownBeat < 0 ? 'Ready...' : 'Count in: ${_shownBeat ~/ _clicksPerBeat + 1}',
+                      AppColors.candyBlue,
+                    )
+                  : _running
+                  ? const _Readout('PLAY', AppColors.candyOrange)
+                  : heard
+                  ? const _Readout('DONE', AppColors.candyGreen)
+                  : const SizedBox.shrink(),
+            ),
+          ),
+          if (message.isNotEmpty) ...[const SizedBox(height: 4), _Text(message, strong: heard)],
+          const SizedBox(height: 10),
+          RepaintBoundary(
+            child: CalibrationGrid(
+              cells: _gridCells(),
+              countIn: _countInClicks,
+              perRow: _beatsPerMeasure * _clicksPerBeat,
+              clicksPerBeat: _clicksPerBeat,
+              current: _running && _shownBeat >= 0 && _shownBeat < _totalClicks ? _shownBeat : null,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _Text(
+            'Each click, checked off as it\'s heard: the first row to listen to, then your hits, '
+            'marked where they landed (the middle line is the click). Faded is a hit the '
+            'microphone missed, and a cross a click it missed, or one you did.',
+          ),
+          const SizedBox(height: 10),
+          RepaintBoundary(
+            child: EarRaster(
+              beats: ear == null || ear.state != EarCheckState.checking
+                  ? const []
+                  : ear.beats.reversed.take(_earRows).toList(),
+              rows: _earRows,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const _Text('Blue is the click, orange your hit.'),
+          if (delay.count > 0 && heard && !_running) ...[
+            const SizedBox(height: 12),
+            _Text('Calibration over ${delay.count} hits:', strong: true),
+            _Text('System delay: ${_ms(delay.mean)} (±${_ms(delay.spread)})'),
+            _Text(
+              'Your hits: ${_ms(stats.mean.abs())} ${stats.mean < 0 ? 'early' : 'late'} on '
+              'average (±${_ms(stats.spread)})',
+            ),
+          ],
+          if (widget.onSave != null && heard && !_running) ...[
+            const SizedBox(height: 10),
+            if (delay.count >= _minCalibrationHits)
+              CandyButton(
+                label: 'SAVE CALIBRATION',
+                icon: Icons.tune_rounded,
+                colors: AppColors.candyGreen,
+                onPressed: _save,
+              )
+            else
+              _Text('Play at least $_minCalibrationHits hits to save a calibration.'),
+          ],
+          if ((heard || ear?.state == EarCheckState.cantHear) && !_running) ...[
+            const SizedBox(height: 10),
+            CandyButton(
+              label: 'COPY RESULTS',
+              icon: Icons.copy_rounded,
+              colors: AppColors.candyBlue,
+              onPressed: _copyResults,
+            ),
+          ],
+          if (kDebugMode && _recordingProblem != null && !_running) ...[
+            const SizedBox(height: 10),
+            _Text(_recordingProblem!),
+          ],
+          if (kDebugMode && !canDownloadFiles && !_running) ...[
+            const SizedBox(height: 10),
+            const _Text("Can't save recordings here (only on web)."),
+          ],
+          if (kDebugMode && canDownloadFiles && _recording != null && !_running) ...[
+            const SizedBox(height: 10),
+            CandyButton(
+              label: 'SAVE RECORDING',
+              icon: Icons.download_rounded,
+              colors: AppColors.candyPink,
+              onPressed: _saveRecording,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // How each click of playing along has gone so far (see CalibrationGrid).
+  List<CalibrationCell> _gridCells() {
+    final ear = _ear;
+    final beats = {for (final b in ear?.beats ?? const <EarBeat>[]) b.index: b};
+    final countInDone = ear != null && ear.state != EarCheckState.listening;
+    return [
+      for (var i = 0; i < _totalClicks; i++)
+        if (i < _countInClicks)
+          !countInDone
+              ? CalibrationCell.pending
+              : CalibrationCell(
+                  ear.countInHeard.contains(i)
+                      ? CalibrationCellKind.clickHeard
+                      : CalibrationCellKind.clickNotHeard,
+                )
+        else if (beats[i] case final beat?)
+          switch (beat.hitMs) {
+            null => const CalibrationCell(CalibrationCellKind.missed),
+            final ms => CalibrationCell(
+              beat.hitHeard ? CalibrationCellKind.hitHeard : CalibrationCellKind.hitNotHeard,
+              ms,
+            ),
+          }
+        else
+          CalibrationCell.pending,
+    ];
+  }
+
+  // The controls for investigating timing (see MidiTimingTest.debugControls).
+  List<Widget> _debugControls() => [
+    const SizedBox(height: 8),
+    CandySegmented<bool>(
+      options: const [(true, 'Scheduled clicks'), (false, 'Play clicks now')],
+      value: _scheduled,
+      onChanged: _setScheduled,
+    ),
+    const SizedBox(height: 10),
+    Row(
+      children: [
+        const Expanded(child: _Text('Microphone open', strong: true)),
+        CandySwitch(
+          value: _mic != null,
+          onChanged: (open) => _micOpening ? null : _setMicOpen(open),
+        ),
+      ],
+    ),
+    if (_micError case final error?) _Text(error),
+    if (_mic != null)
+      const _Text(
+        'Started with the microphone open, the test also hears how your hits line up with the '
+        'clicks in the air. Listen through the count-in without playing.',
+      ),
+    const SizedBox(height: 6),
+    Row(
+      children: [
+        Expanded(child: _Text(_latencyText())),
+        const SizedBox(width: 10),
+        CandyButton(
+          label: 'CHECK',
+          colors: AppColors.candyBlue,
+          height: 36,
+          fontSize: 13,
+          onPressed: _checkLatency,
+        ),
+      ],
+    ),
+  ];
+
+  // How the hits lined up with the clicks in the air, as the microphone heard them.
+  Widget _earCheck(EarCheck ear) {
+    final stats = ear.stats;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Text(switch (ear.state) {
+          EarCheckState.listening =>
+            "Listening to the count-in: just listen, don't play, until it's done.",
+          EarCheckState.cantHear =>
+            "Couldn't hear the clicks. Turn the sound up, or hold the headphones to the "
+                'microphone.',
+          EarCheckState.checking when stats.count == 0 => 'Play along, and see how you line up.',
+          EarCheckState.checking =>
+            'In the air, your hits came ${_ms(stats.mean.abs())} '
+                '${stats.mean < 0 ? 'before' : 'after'} the clicks (spread ${_ms(stats.spread)}).',
+        }, strong: ear.state == EarCheckState.checking && stats.count > 0),
+        if (ear.state == EarCheckState.checking) ...[
+          const SizedBox(height: 8),
+          RepaintBoundary(child: EarRaster(beats: ear.beats.reversed.take(_earRows).toList())),
+        ],
+      ],
+    );
+  }
+
+  static const _earRows = 12;
 
   // The browser's estimates of the output delay, as last checked, in a sentence.
   String _latencyText() {
@@ -362,11 +794,25 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
           ? 'How far ahead each click was scheduled, from beat 0 (ms):'
           : 'How late each click was played, from beat 0 (ms):',
       list(_clickTiming),
+      ?_ear?.diagnosis,
+      if (_ear case final ear? when ear.state == EarCheckState.checking) ...[
+        'In the air (heard by the microphone): hits ${_ms(ear.stats.mean)} from the clicks '
+            '(negative is before), spread ${_ms(ear.stats.spread)}, over ${ear.stats.count} hits',
+        if (_systemDelay case final delay when delay.count > 0)
+          'System delay (MIDI offset less in-air offset, per click): ${_ms(delay.mean)}, spread '
+              '${_ms(delay.spread)}, over ${delay.count} clicks',
+        'Each click (click: hit ms from it, * if the click was predicted, not matched):',
+        [
+          for (final b in ear.beats)
+            '${b.index}: ${b.hitMs?.toStringAsFixed(1) ?? '-'}${b.clickMatched ? '' : '*'}',
+        ].join(', '),
+      ],
     ].join('\n');
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.listen) return _buildListening();
     final adjusted = _adjusted;
     final stats = OffsetStats.of(adjusted);
     final calibration = widget.calibrationMs;
@@ -388,37 +834,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             onChanged: _setBpm,
             colors: AppColors.candyPink,
           ),
-          const SizedBox(height: 8),
-          CandySegmented<bool>(
-            options: const [(true, 'Scheduled clicks'), (false, 'Play clicks now')],
-            value: _scheduled,
-            onChanged: _setScheduled,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Expanded(child: _Text('Microphone open', strong: true)),
-              CandySwitch(
-                value: _mic != null,
-                onChanged: (open) => _micOpening ? null : _setMicOpen(open),
-              ),
-            ],
-          ),
-          if (_micError case final error?) _Text(error),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(child: _Text(_latencyText())),
-              const SizedBox(width: 10),
-              CandyButton(
-                label: 'CHECK',
-                colors: AppColors.candyBlue,
-                height: 36,
-                fontSize: 13,
-                onPressed: _checkLatency,
-              ),
-            ],
-          ),
+          if (widget.debugControls) ..._debugControls(),
           const SizedBox(height: 12),
           CandyButton(
             label: _running ? 'STOP' : 'START',
@@ -449,6 +865,10 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
               mean: stats.count == 0 ? null : stats.mean,
             ),
           ),
+          if (_ear case final ear? when widget.debugControls) ...[
+            const SizedBox(height: 12),
+            _earCheck(ear),
+          ],
           const SizedBox(height: 12),
           if (stats.count > 0) ...[
             _Text(
@@ -474,18 +894,6 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             const SizedBox(height: 4),
           ],
           if (_clickTiming.isNotEmpty) ...[_Text(_clickSummary()), const SizedBox(height: 4)],
-          if (widget.onSave != null && stats.count > 0 && !_running) ...[
-            const SizedBox(height: 8),
-            if (stats.count >= _minCalibrationHits)
-              CandyButton(
-                label: 'SAVE CALIBRATION',
-                icon: Icons.tune_rounded,
-                colors: AppColors.candyGreen,
-                onPressed: _save,
-              )
-            else
-              _Text('Play at least $_minCalibrationHits hits to save a calibration.'),
-          ],
           if (stats.count > 0 && !_running) ...[
             const SizedBox(height: 8),
             CandyButton(
@@ -497,8 +905,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             const SizedBox(height: 12),
           ],
           const _Text(
-            "Playing along well, the average is roughly how long a click takes to reach your ears, "
-            "which is what hits will need to be adjusted by. The spread is how steady you are.",
+            'The average is how far from the clicks your hits came in (less the calibration, if '
+            "there is one, so it's your own timing), and the spread is how steady you are.",
           ),
         ],
       ),

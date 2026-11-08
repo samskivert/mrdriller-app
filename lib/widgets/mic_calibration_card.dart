@@ -24,11 +24,19 @@ class MicCalibrationCard extends StatefulWidget {
   /// Saves a measurement as the pad's calibration.
   final void Function(MicMeasurement measurement) onSave;
 
+  /// Called when a measurement starts.
+  final VoidCallback? onStarted;
+
+  /// Shown at the top of the card, if given.
+  final Widget? header;
+
   const MicCalibrationCard({
     super.key,
     required this.hits,
     required this.now,
     required this.onSave,
+    this.onStarted,
+    this.header,
   });
 
   @override
@@ -83,6 +91,7 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
   }
 
   Future<void> _start() async {
+    widget.onStarted?.call();
     setState(() {
       _phase = _Phase.starting;
       _error = null;
@@ -240,19 +249,12 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
     final listening = _phase == _Phase.listening;
     final result = _result;
     return BannerCard(
-      label: 'Microphone calibration',
+      label: 'Between clicks',
       color: AppColors.bannerGreen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            "Measures the delays without your own timing in them. Use speakers (the microphone "
-            "can't hear headphones), with the pad near the computer's microphone, and play it "
-            'with sticks. Press START, then hit the pad once between each pair of clicks, about '
-            'halfway, never on a click. It stops after $_hitsWanted hits.',
-            style: _style(),
-          ),
-          const SizedBox(height: 12),
+          if (widget.header case final header?) ...[header, const SizedBox(height: 12)],
           CandyButton(
             label: listening ? 'STOP' : 'START',
             icon: listening ? Icons.stop_rounded : Icons.mic_rounded,

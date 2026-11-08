@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:web/web.dart' as web;
 
+import '../model/timing.dart';
 import 'mic_recorder.dart';
 
 bool get isSupported =>
@@ -96,11 +97,21 @@ class _WebMicRecorder implements MicRecorder {
   final web.AudioContext _context;
   final web.MediaStream _stream;
   final web.AudioWorkletNode _node;
-  final _chunks = <Float32List>[];
+  // What's been recorded, in a buffer that's doubled in size whenever it fills.
+  var _buffer = Float32List(1 << 16);
   int _length = 0;
   int? _startFrame;
   double _level = 0;
   bool _closed = false;
+  // Its processing clock (in milliseconds) against performance.now(), as the processing clock
+  // only moves on a block at a time: so a time maps to the same frame whenever it's asked.
+  final _clock = ClockSync(window: 5000);
+  final _arrivals = <({double ms, double clockMs, int frame})>[];
+
+  @override
+  List<({double ms, double clockMs, int frame})> get arrivals => List.unmodifiable(_arrivals);
+
+  void _sampleClock() => _clock.sample(web.window.performance.now(), _context.currentTime * 1000);
 
   _WebMicRecorder(this._context, this._stream, this._node) {
     _node.port.onmessage = ((web.MessageEvent event) => _receive(event.data as JSObject)).toJS;
@@ -115,18 +126,24 @@ class _WebMicRecorder implements MicRecorder {
   @override
   double get level => _level;
 
+  // (A view of the buffer, not a copy, as it's read often while recording.)
   @override
-  Float32List get samples {
-    final all = Float32List(_length);
-    var at = 0;
-    for (final chunk in _chunks) {
-      all.setAll(at, chunk);
-      at += chunk.length;
+  Float32List get samples => Float32List.sublistView(_buffer, 0, _length);
+
+  void _append(Float32List chunk) {
+    if (_length + chunk.length > _buffer.length) {
+      var size = _buffer.length;
+      while (_length + chunk.length > size) {
+        size *= 2;
+      }
+      _buffer = Float32List(size)..setRange(0, _length, _buffer);
     }
-    return all;
+    _buffer.setRange(_length, _length + chunk.length, chunk);
+    _length += chunk.length;
   }
 
   void _receive(JSObject data) {
+    _sampleClock();
     final frame = (data.getProperty<JSNumber>('frame'.toJS)).toDartInt;
     final chunk = data.getProperty<JSFloat32Array>('samples'.toJS).toDart;
     _level = chunk.fold(0.0, (peak, s) => math.max(peak, s.abs()));
@@ -136,30 +153,33 @@ class _WebMicRecorder implements MicRecorder {
     // its frame.
     final gap = frame - (start + _length);
     if (gap > 0) {
-      _chunks.add(Float32List(gap));
-      _length += gap;
+      _append(Float32List(gap));
     } else if (gap < 0) {
       return;
     }
-    _chunks.add(chunk);
-    _length += chunk.length;
+    _append(chunk);
+    _arrivals.add((
+      ms: web.window.performance.now(),
+      clockMs: _context.currentTime * 1000,
+      frame: frame + chunk.length,
+    ));
   }
 
   @override
   void clear() {
-    _chunks.clear();
     _length = 0;
     _startFrame = null;
+    _arrivals.clear();
   }
 
   @override
   double frameAt(double ms) {
-    final stamp = _context.getOutputTimestamp();
-    // (Before it has output anything, it can't say.)
-    if (stamp.performanceTime == 0) {
-      return (_context.currentTime + (ms - web.window.performance.now()) / 1000) * sampleRate;
-    }
-    return (stamp.contextTime + (ms - stamp.performanceTime) / 1000) * sampleRate;
+    // By its processing clock, which numbers the frames recorded, read alongside
+    // performance.now(). (Not getOutputTimestamp(), which is about what it outputs, and as it
+    // outputs only silence, can report a stale position, mapping times to before the recording.)
+    // Smoothed (see _clock), as read directly it's off by up to a block, differently each time.
+    _sampleClock();
+    return _clock.toStepped(ms)! / 1000 * sampleRate;
   }
 
   @override

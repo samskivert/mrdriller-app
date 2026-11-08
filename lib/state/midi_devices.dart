@@ -26,19 +26,20 @@ enum PadRole {
 String midiDeviceKey(MidiPort port) =>
     port.manufacturer.isEmpty ? port.name : '${port.manufacturer} / ${port.name}';
 
-/// How a [Calibration] was measured.
+/// How a [Calibration] was measured: both ways with the microphone, so only the sound's and the
+/// hit's delays are measured, not the player's habit of hitting early or late.
 enum CalibrationSource {
-  /// By playing along with clicks (the timing test), which takes the player's own habit of hitting
-  /// early or late into it.
-  playing,
-
-  /// With the microphone, which measures only the sound's and the hit's delays.
+  /// By hitting between clicks (see mic_calibration.dart).
   microphone,
+
+  /// By playing along, comparing the hits' MIDI times with when they were heard against the
+  /// clicks (see ear_check.dart).
+  inTheAir,
 }
 
-/// How much later than the beat a player's hits on a pad land, on average, playing along with
-/// clicks from an audio output: the sound's delay in coming out, and the hit's in coming in, less
-/// the player's habit of hitting early. Hits are adjusted by it before they're judged.
+/// How much later than the beat a player's hits on a pad come in, playing along with clicks from
+/// an audio output, apart from their own timing: the sound's delay in coming out, and the hit's in
+/// coming in. Hits are adjusted by it before they're judged.
 class Calibration {
   /// The average offset of the hits measured, in milliseconds (negative if early).
   final double offsetMs;
@@ -57,7 +58,7 @@ class Calibration {
     required this.hits,
     required this.bpm,
     required this.measured,
-    this.source = CalibrationSource.playing,
+    required this.source,
   });
 
   Map<String, Object?> toJson() => {
@@ -73,7 +74,14 @@ class Calibration {
     if (json is! Map) return null;
     final (offset, spread, hits, bpm) = (json['offset'], json['spread'], json['hits'], json['bpm']);
     final measured = DateTime.tryParse('${json['measured']}');
-    if (offset is! num || spread is! num || hits is! int || bpm is! int || measured == null) {
+    // (Ones from the timing test, which took the player's own timing in, aren't kept.)
+    final source = CalibrationSource.values.asNameMap()[json['source']];
+    if (offset is! num ||
+        spread is! num ||
+        hits is! int ||
+        bpm is! int ||
+        measured == null ||
+        source == null) {
       return null;
     }
     return Calibration(
@@ -82,7 +90,7 @@ class Calibration {
       hits: hits,
       bpm: bpm,
       measured: measured,
-      source: CalibrationSource.values.asNameMap()[json['source']] ?? CalibrationSource.playing,
+      source: source,
     );
   }
 }

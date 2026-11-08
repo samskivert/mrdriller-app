@@ -11,8 +11,8 @@ import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
-import '../widgets/mic_calibration_card.dart';
 import '../widgets/midi_timing_test.dart';
+import 'calibration_screen.dart';
 
 /// Sets up a MIDI device (a drum pad): what it's called, which hand each of its pads is for, and
 /// a test of hitting in time with them.
@@ -27,8 +27,7 @@ class MidiDeviceScreen extends StatefulWidget {
 
 class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   StreamSubscription<MidiMessage>? _subscription;
-  // The device's pads' hits, and just its mapped pads', for the timing test.
-  late final Stream<MidiMessage> _notes;
+  // Just the device's mapped pads' hits, for the timing test.
   late final Stream<MidiMessage> _hits;
   // How many hits there have been, for what shows them to rebuild on.
   final _hitCount = ValueNotifier(0);
@@ -48,7 +47,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   @override
   void initState() {
     super.initState();
-    final notes = _notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
+    final notes = midi.messages.where((m) => m.isNoteOn && _isFromDevice(m));
     _subscription = notes.listen((message) {
       final seen = _seen.putIfAbsent(message.note, _Seen.new);
       seen.hits++;
@@ -117,14 +116,12 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                     builder: (context, _, _) => _padsCard(),
                   ),
                   const SizedBox(height: 16),
+                  _calibrationCard(),
+                  const SizedBox(height: 16),
                   ValueListenableBuilder(
                     valueListenable: _hitCount,
                     builder: (context, _, _) => _accentsCard(),
                   ),
-                  const SizedBox(height: 16),
-                  _calibrationCard(),
-                  const SizedBox(height: 16),
-                  _micCalibration(),
                   const SizedBox(height: 16),
                   _timingTest(),
                   if (midiDevices.byKey(_key) != null) ...[
@@ -170,29 +167,6 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
     );
   }
 
-  Widget _micCalibration() {
-    return MicCalibrationCard(
-      // Any of the device's pads will do, mapped or not.
-      hits: _notes,
-      now: midi.now,
-      onSave: (measurement) {
-        final stats = measurement.stats;
-        midiDevices.setCalibration(
-          _key,
-          audioOutputs.current.id,
-          Calibration(
-            offsetMs: stats.mean,
-            spreadMs: stats.spread,
-            hits: stats.count,
-            bpm: 60,
-            measured: DateTime.now(),
-            source: CalibrationSource.microphone,
-          ),
-        );
-      },
-    );
-  }
-
   Widget _timingTest() {
     final output = audioOutputs.current;
     return MidiTimingTest(
@@ -200,17 +174,6 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
       now: midi.now,
       calibrationMs: midiDevices.calibrationOf(_key, output.id)?.offsetMs,
       calibrationLabel: output.name,
-      onSave: (hits, bpm) => midiDevices.setCalibration(
-        _key,
-        output.id,
-        Calibration(
-          offsetMs: hits.mean,
-          spreadMs: hits.spread,
-          hits: hits.count,
-          bpm: bpm,
-          measured: DateTime.now(),
-        ),
-      ),
     );
   }
 
@@ -224,13 +187,34 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
         children: [
           Text(
             'Sound takes longer to reach you through some speakers and headphones than others, '
-            'so hits are adjusted by the calibration for the audio output in use. To calibrate '
-            'for it, play the timing test below and save the result. Tap an output to use it.',
+            'so hits are adjusted by the calibration for the audio output in use. Tap an output '
+            'to use it, then calibrate for it either way: Play along is easiest.',
             style: midiTextStyle(),
           ),
           const SizedBox(height: 4),
           for (final output in audioOutputs.all)
             _calibrationRow(output, inUse: output.id == current.id),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final (i, method) in CalibrationMethod.values.indexed) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(
+                  child: CandyButton(
+                    label: method.title.toUpperCase(),
+                    colors: i == 0 ? AppColors.candyGreen : AppColors.candyBlue,
+                    height: 44,
+                    fontSize: 15,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => CalibrationScreen(deviceKey: _key, method: method),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -611,18 +595,16 @@ const _months = [
   'Dec',
 ];
 
-/// A calibration in a line, e.g. "12.3ms late (spread 9.8ms, 40 hits at 120 bpm, 6 Nov)".
+/// A calibration in a line, e.g. "54.6ms delay ±1.2ms (via play along, 64 hits at 120 bpm,
+/// 7 Nov)", the ± being its spread.
 String describeCalibration(Calibration c) {
-  final offset = c.offsetMs < 0
-      ? '${(-c.offsetMs).toStringAsFixed(1)}ms early'
-      : '${c.offsetMs.toStringAsFixed(1)}ms late';
   final date = '${c.measured.day} ${_months[c.measured.month - 1]}';
   final how = switch (c.source) {
-    CalibrationSource.playing => 'by playing',
-    CalibrationSource.microphone => 'by microphone',
+    CalibrationSource.microphone => 'between clicks',
+    CalibrationSource.inTheAir => 'play along',
   };
-  return '$offset $how (spread ${c.spreadMs.toStringAsFixed(1)}ms, ${c.hits} hits at ${c.bpm} '
-      'bpm, $date)';
+  return '${c.offsetMs.toStringAsFixed(1)}ms delay ±${c.spreadMs.toStringAsFixed(1)}ms '
+      '(via $how, ${c.hits} hits at ${c.bpm} bpm, $date)';
 }
 
 const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

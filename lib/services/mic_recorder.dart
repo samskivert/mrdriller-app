@@ -26,7 +26,8 @@ abstract class MicRecorder {
   double get sampleRate;
 
   /// Everything recorded since it opened (or was last [clear]ed), up to a minute and a half, as
-  /// one channel. The first sample is the recorder's frame [startFrame].
+  /// one channel. The first sample is the recorder's frame [startFrame]. (A view onto what's
+  /// recorded, which may be replaced as recording goes on, so read it afresh each time.)
   Float32List get samples;
   int get startFrame;
 
@@ -34,6 +35,11 @@ abstract class MicRecorder {
   double get level;
 
   void clear();
+
+  /// For working out timing problems: each time a block of samples arrived since it was last
+  /// cleared, when ([performance.now()]'s time), the recorder's own clock then (in milliseconds),
+  /// and the frame after the block's last.
+  List<({double ms, double clockMs, int frame})> get arrivals;
 
   /// The recorder's frame at [ms] on `performance.now()`'s clock (the MIDI one), roughly: within
   /// a few tens of milliseconds, as it doesn't know its input's delay.
