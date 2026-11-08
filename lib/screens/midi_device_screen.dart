@@ -26,7 +26,6 @@ class MidiDeviceScreen extends StatefulWidget {
 
 class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   StreamSubscription<MidiMessage>? _subscription;
-  // Just the device's mapped pads' hits, for the timing test.
   // How many hits there have been, for what shows them to rebuild on.
   final _hitCount = ValueNotifier(0);
 
@@ -205,7 +204,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
       onTap: () => audioOutputs.select(output.id),
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
             Icon(
@@ -223,7 +222,9 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                     style: midiTextStyle(strong: true),
                   ),
                   Text(
-                    calibration == null ? 'Not calibrated' : describeCalibration(calibration),
+                    calibration == null
+                        ? 'Not calibrated'
+                        : describeCalibrationBriefly(calibration),
                     style: midiTextStyle(),
                   ),
                 ],
@@ -574,16 +575,24 @@ const _months = [
   'Dec',
 ];
 
+/// A calibration in brief, e.g. "54.6ms ±1.2ms · play along · 7 Nov".
+String describeCalibrationBriefly(Calibration c) {
+  final date = '${c.measured.day} ${_months[c.measured.month - 1]}';
+  return '${c.offsetMs.toStringAsFixed(1)}ms ±${c.spreadMs.toStringAsFixed(1)}ms · '
+      '${_methodName(c)} · $date';
+}
+
+String _methodName(Calibration c) => switch (c.source) {
+  CalibrationSource.microphone => 'between clicks',
+  CalibrationSource.inTheAir => 'play along',
+};
+
 /// A calibration in a line, e.g. "54.6ms delay ±1.2ms (via play along, 64 hits at 120 bpm,
 /// 7 Nov)", the ± being its spread.
 String describeCalibration(Calibration c) {
   final date = '${c.measured.day} ${_months[c.measured.month - 1]}';
-  final how = switch (c.source) {
-    CalibrationSource.microphone => 'between clicks',
-    CalibrationSource.inTheAir => 'play along',
-  };
   return '${c.offsetMs.toStringAsFixed(1)}ms delay ±${c.spreadMs.toStringAsFixed(1)}ms '
-      '(via $how, ${c.hits} hits at ${c.bpm} bpm, $date)';
+      '(via ${_methodName(c)}, ${c.hits} hits at ${c.bpm} bpm, $date)';
 }
 
 const _noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];

@@ -11,6 +11,7 @@ import '../services/metronome_sounds.dart';
 import '../services/mic_recorder.dart';
 import '../services/midi_input.dart';
 import '../util/colors.dart';
+import '../util/debug_tools.dart';
 import 'arcade.dart';
 import 'hud_controls.dart';
 
@@ -209,8 +210,10 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
   void _save() {
     final result = _result;
     if (result == null) return;
+    // (The messenger first, as saving may leave the page.)
+    final messenger = ScaffoldMessenger.of(context);
     widget.onSave(result);
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       const SnackBar(content: Text('Saved the calibration'), duration: Duration(seconds: 2)),
     );
   }
@@ -267,14 +270,26 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
             const SizedBox(height: 10),
             Text(error, style: _style(strong: true)),
           ],
-          if (listening) ...[
-            const SizedBox(height: 12),
-            Text(
-              _clicks.length < _countInClicks
-                  ? 'Get ready...'
-                  : 'Hits: ${_hits.length} of $_hitsWanted',
-              style: _style(strong: true),
+          const SizedBox(height: 16),
+          // What's happening, in big letters, as Play along has it.
+          SizedBox(
+            height: 40,
+            child: Center(
+              child: listening
+                  ? _readout(
+                      _clicks.length < _countInClicks
+                          ? 'Ready...'
+                          : 'Hits: ${_hits.length} of $_hitsWanted',
+                      AppColors.candyBlue,
+                    )
+                  : _phase == _Phase.done &&
+                        result != null &&
+                        result.agreeing.length >= _minAgreeing
+                  ? _readout('DONE', AppColors.candyGreen)
+                  : const SizedBox.shrink(),
             ),
+          ),
+          if (listening) ...[
             const SizedBox(height: 8),
             Row(
               children: [
@@ -311,25 +326,14 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
           'nearer the microphone, or the sound louder.',
           style: _style(strong: true),
         ),
-        const SizedBox(height: 8),
-        _copyButton(),
+        if (debugTools) ...[const SizedBox(height: 8), _copyButton()],
       ];
     }
     return [
-      Center(
-        child: OutlinedText(
-          'Delay: ${stats.mean.toStringAsFixed(1)}ms',
-          style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, height: 1.1),
-          color: AppColors.candyGreen.base,
-          outline: AppColors.candyGreen.outline,
-        ),
-      ),
-      const SizedBox(height: 6),
+      Text('Calibration over ${result.agreeing.length} hits:', style: _style(strong: true)),
       Text(
-        'Spread ${stats.spread.toStringAsFixed(1)}ms, from ${result.agreeing.length} of '
-        '${result.pairs.length} hits.',
+        'System delay: ${stats.mean.toStringAsFixed(1)}ms (±${stats.spread.toStringAsFixed(1)}ms)',
         style: _style(),
-        textAlign: TextAlign.center,
       ),
       const SizedBox(height: 10),
       CandyButton(
@@ -338,10 +342,16 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
         colors: AppColors.candyGreen,
         onPressed: _save,
       ),
-      const SizedBox(height: 8),
-      _copyButton(),
+      if (debugTools) ...[const SizedBox(height: 8), _copyButton()],
     ];
   }
+
+  static Widget _readout(String text, CandyColors colors) => OutlinedText(
+    text,
+    style: const TextStyle(fontFamily: AppFonts.display, fontSize: 26, height: 1.1),
+    color: colors.base,
+    outline: colors.outline,
+  );
 
   Widget _copyButton() => CandyButton(
     label: 'COPY RESULTS',

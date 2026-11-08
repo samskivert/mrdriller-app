@@ -76,7 +76,7 @@ the same recording, which involves none of the app's clocks at all. Equivalently
 ### Play along (the main one)
 
 Listen to a count-in of 8 clicks (4 beats, 2 clicks a beat, the beep on the beat and the boop
-between), then play every click, 64 hits, at 120bpm by default. It ends by itself 1.2s after the
+between), then play every click, 64 hits, always at 120bpm. It ends by itself 1.2s after the
 last click (time for that click to be recorded and checked) and shows the system delay and the
 player's lead, each ± its standard deviation. A grid shows every click, filled in live about one
 click behind the sound. Needs at least 16 usable clicks to save. All the sections below are about

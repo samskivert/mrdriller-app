@@ -43,15 +43,16 @@ void main() {
     expect(find.text('off'), findsOneWidget);
   });
 
-  testWidgets('has a timing test, without the controls for investigating timing', (tester) async {
+  testWidgets('has calibration, but no timing test (which the diagnostics page keeps)', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 3600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: MidiDeviceScreen(deviceKey: key)));
     await tester.pump();
-    expect(find.text('TIMING TEST'), findsOneWidget);
-    expect(find.text('Microphone open'), findsNothing);
-    expect(find.text('Play clicks now'), findsNothing);
+    expect(find.text('CALIBRATION'), findsOneWidget);
+    expect(find.text('TIMING TEST'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

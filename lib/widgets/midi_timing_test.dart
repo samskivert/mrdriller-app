@@ -210,8 +210,10 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   }
 
   void _save() {
+    // (The messenger first, as saving may leave the page.)
+    final messenger = ScaffoldMessenger.of(context);
     widget.onSave?.call(_systemDelay, _testedBpm);
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       const SnackBar(content: Text('Saved the calibration'), duration: Duration(seconds: 2)),
     );
   }
@@ -588,13 +590,6 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.header case final header?) ...[header, const SizedBox(height: 12)],
-          CandySegmented<int>(
-            options: [for (final bpm in _tempos) (bpm, '$bpm bpm')],
-            value: _bpm,
-            onChanged: _setBpm,
-            colors: AppColors.candyPink,
-          ),
-          const SizedBox(height: 12),
           CandyButton(
             label: _running ? 'STOP' : 'START',
             icon: _running ? Icons.stop_rounded : Icons.mic_rounded,
@@ -630,9 +625,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
           ),
           const SizedBox(height: 6),
           const _Text(
-            'Each click, checked off as it\'s heard: the first row to listen to, then your hits, '
-            'marked where they landed (the middle line is the click). Faded is a hit the '
-            'microphone missed, and a cross a click it missed, or one you did.',
+            'Top row: listen. Then each hit, marked where it landed against the click (middle). '
+            'Faded: not heard. A cross: missed.',
           ),
           const SizedBox(height: 10),
           RepaintBoundary(
@@ -644,7 +638,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             ),
           ),
           const SizedBox(height: 6),
-          const _Text('Blue is the click, orange your hit.'),
+          const _Text('Blue: the click. Orange: your hit.'),
           if (delay.count > 0 && heard && !_running) ...[
             const SizedBox(height: 12),
             _Text('Calibration over ${delay.count} hits:', strong: true),
@@ -666,7 +660,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
             else
               _Text('Play at least $_minCalibrationHits hits to save a calibration.'),
           ],
-          if ((heard || ear?.state == EarCheckState.cantHear) && !_running) ...[
+          if (debugTools && (heard || ear?.state == EarCheckState.cantHear) && !_running) ...[
             const SizedBox(height: 10),
             CandyButton(
               label: 'COPY RESULTS',

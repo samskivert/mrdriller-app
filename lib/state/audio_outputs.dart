@@ -36,10 +36,15 @@ class AudioOutput {
 
 class AudioOutputs extends ChangeNotifier {
   static const _key = 'audio.outputs';
-  static const _default = AudioOutput(id: 'default', name: 'This computer');
+  // (The built-in output, named for what it's built into: "This computer" on web, "This device" on
+  // a phone or tablet.)
+  static final _default = AudioOutput(
+    id: 'default',
+    name: kIsWeb ? 'This computer' : 'This device',
+  );
 
   SharedPreferences? _prefs;
-  List<AudioOutput> _all = const [_default];
+  List<AudioOutput> _all = [_default];
   String _currentId = _default.id;
 
   /// Every output, in the order they were added. Never empty.
@@ -62,7 +67,15 @@ class AudioOutputs extends ChangeNotifier {
       final json = jsonDecode(prefs.getString(_key) ?? '{}');
       if (json is Map) {
         final outputs = json['outputs'];
-        final all = outputs is List ? outputs.map(AudioOutput.fromJson).nonNulls.toList() : [];
+        final all = [
+          if (outputs is List)
+            for (final output in outputs.map(AudioOutput.fromJson).nonNulls)
+              // (Saved on a phone before the built-in output was called "This device" there,
+              // unless it's been renamed since.)
+              output.id == _default.id && output.name == 'This computer'
+                  ? AudioOutput(id: output.id, name: _default.name, kind: output.kind)
+                  : output,
+        ];
         if (all.isNotEmpty) _all = List.unmodifiable(all);
         final current = json['current'];
         if (current is String && byId(current) != null) _currentId = current;

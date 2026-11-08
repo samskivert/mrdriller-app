@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/midi_connection.dart';
@@ -37,6 +38,9 @@ class CalibrationScreen extends StatefulWidget {
   State<CalibrationScreen> createState() => _CalibrationScreenState();
 }
 
+// Whose microphone the instructions mean.
+const _whose = kIsWeb ? "computer's" : "device's";
+
 class _CalibrationScreenState extends State<CalibrationScreen> {
   // Hits on any of the device's pads, mapped or not.
   late final Stream<MidiMessage> _notes = midi.messages.where((m) {
@@ -71,6 +75,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
         source: source,
       ),
     );
+    // Back to the device, where the new calibration shows.
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -129,7 +135,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     final (steps, how) = switch (widget.method) {
       CalibrationMethod.playAlong => (
         [
-          "Use speakers, or headphones held right up to the computer's microphone, as it has to "
+          "Use speakers, or headphones held right up to the $_whose microphone, as it has to "
               'hear the clicks. Put the pad near the microphone, and play it with sticks.',
           'Press START, and listen to the first row of clicks (four beats) without playing.',
           'Then play every click, 64 hits (eight rows), checked off as they go. It stops by '
@@ -141,8 +147,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
       ),
       CalibrationMethod.betweenClicks => (
         [
-          "Use speakers, not headphones, as the computer's microphone has to hear the clicks. "
-              'Put the pad near the microphone, and play it with sticks.',
+          "Use speakers, or headphones held right up to the $_whose microphone, as it has to "
+              'hear the clicks. Put the pad near the microphone, and play it with sticks.',
           'Press START. A click plays every second.',
           'Hit the pad once between each pair of clicks, about halfway, never on a click. It '
               'stops after 12 hits. Then SAVE CALIBRATION.',
