@@ -65,17 +65,17 @@ class MenuScreen extends StatelessWidget {
               right: wide ? (right - RoundIconButton.defaultSize) / 2 : safe.right + 16,
               child: const HudSettingsButton(),
             ),
-            // In debug and profile builds, a way to the debug screen: left of the settings button, or below it
-            // in landscape, where it has a column of its own.
+            // In debug and profile builds, a way to the debug screen: in the top left corner,
+            // opposite the settings button, or below that in landscape, where the settings button
+            // has a column of its own.
             if (debugTools)
               Positioned(
                 top:
                     safe.top +
                     (wide && safe.right > 0 ? 30 : 14) +
                     (wide ? RoundIconButton.defaultSize + 12 : 0),
-                right: wide
-                    ? (right - RoundIconButton.defaultSize) / 2
-                    : safe.right + 16 + RoundIconButton.defaultSize + 10,
+                left: wide ? null : safe.left + 16,
+                right: wide ? (right - RoundIconButton.defaultSize) / 2 : null,
                 child: RoundIconButton(
                   icon: Icons.bug_report_rounded,
                   tooltip: 'Debug',
