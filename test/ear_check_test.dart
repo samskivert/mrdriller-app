@@ -263,6 +263,23 @@ void main() {
     expect(check.stats.mean, closeTo(-35, 2));
   });
 
+  test("works with only the high clicks heard, as through headphones held to the mic", () {
+    final session = _session(32, (_) => -40, boopLevel: 0);
+    final check = _check();
+    check.update(
+      samples: session.samples,
+      startFrame: 0,
+      clicks: session.clicks,
+      hits: session.hits,
+      frameAt: _frameAt,
+    );
+    expect(check.state, EarCheckState.checking);
+    expect(check.countInHeard, {0, 2, 4, 6});
+    expect(check.beats.where((b) => b.hitMs != null), hasLength(24));
+    expect(check.stats.mean, closeTo(-40, 1.5));
+    expect(check.diagnosis, contains('4 of 8 clicks lined up'));
+  });
+
   test("finds hits however far off the MIDI times map, and however long they ring", () {
     // The microphone records 150ms after the sounds are made, which the rough mapping doesn't know
     // about, and the hits ring on for a while, as a pad in a room does.

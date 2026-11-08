@@ -163,11 +163,13 @@ class EarCheck {
       final overlapped = onsets.any(
         (o) => o > predicted - _frames(20) && o < predicted + _frames(_templateMs + 10),
       );
-      final match = overlapped
+      // (A tone not heard in the count-in has no template, so isn't matched.)
+      final template = _templates[toneHz(_next)];
+      final match = overlapped || template == null
           ? null
           : _bestMatch(
               samples,
-              _templates[toneHz(_next)]!,
+              template,
               index(predicted) - _frames(15),
               index(predicted) + _frames(15),
             );
@@ -201,7 +203,8 @@ class EarCheck {
           clickMatched: matched,
           hitMs: hitMs,
           hitHeard: hitHeard,
-          tone: _shapes[toneHz(_next)]!,
+          // (Or, for a tone not heard in the count-in, the other's.)
+          tone: _shapes[toneHz(_next)] ?? _shapes.values.first,
           hit: _hitShape(samples, from, _frames(intervalMs)),
           halfMs: half,
         ),
@@ -226,6 +229,8 @@ class EarCheck {
   double? _hitDelay;
   final _hitDelays = <double>[];
   final _heardHits = <double, double?>{};
+  // Each hit waiting to be placed, the bursts around it (see _hearHits).
+  final _burstsByHit = <double, List<int>>{};
 
   static void _addDelay(List<double> delays, double delay) {
     delays.add(delay);
@@ -280,7 +285,13 @@ class EarCheck {
       for (final hit in pending) {
         final rough = frameAt(hit);
         final from = (rough - startFrame).round() - _frames(50);
-        final bursts = _bursts(samples, from, from + _frames(_maxDelayMs + 50));
+        // (Found once for each hit, as it's waited on: looking afresh at every update, for every
+        // hit waiting, stalled the app.)
+        final bursts = _burstsByHit[hit] ??= _bursts(
+          samples,
+          from,
+          from + _frames(_maxDelayMs + 50),
+        );
         candidates[hit] = bursts;
         final keys = <int>{};
         for (final b in bursts) {
@@ -381,15 +392,38 @@ class EarCheck {
     final levelNotes = <String>[];
     for (final hz in tones) {
       final levels = Float32List(count);
+      // Each window's content at the tone, |Σ x[n]·e^(−iωn)|, from running sums of x[n]·cos(ωn)
+      // and x[n]·sin(ωn): one window's is the difference of two, so each sample is multiplied once,
+      // not once for every window it's in. (The phase is measured from the stretch's start rather
+      // than each window's, which doesn't change the size.)
       final w = 2 * math.pi * hz / sampleRate;
-      for (var k = 0; k < count; k++) {
-        var re = 0.0, im = 0.0;
-        for (var j = 0; j < window; j++) {
-          final n = from + k * step + j;
-          re += samples[n] * math.cos(w * n);
-          im -= samples[n] * math.sin(w * n);
+      // (Keeping the running sums only where windows start and end.)
+      final length = (count - 1) * step + window;
+      final startRe = Float64List(count), startIm = Float64List(count);
+      final endRe = Float64List(count), endIm = Float64List(count);
+      // (Rotating by ω each sample, rather than calling cos and sin for each.)
+      final cw = math.cos(w), sw = math.sin(w);
+      var c = 1.0, sn = 0.0, re = 0.0, im = 0.0;
+      for (var j = 0; j <= length; j++) {
+        if (j % step == 0 && j ~/ step < count) {
+          startRe[j ~/ step] = re;
+          startIm[j ~/ step] = im;
         }
-        levels[k] = math.sqrt(re * re + im * im) / window;
+        if (j >= window && (j - window) % step == 0) {
+          endRe[(j - window) ~/ step] = re;
+          endIm[(j - window) ~/ step] = im;
+        }
+        if (j == length) break;
+        final x = samples[from + j];
+        re += x * c;
+        im -= x * sn;
+        final next = c * cw - sn * sw;
+        sn = sn * cw + c * sw;
+        c = next;
+      }
+      for (var k = 0; k < count; k++) {
+        final dr = endRe[k] - startRe[k], di = endIm[k] - startIm[k];
+        levels[k] = math.sqrt(dr * dr + di * di) / window;
       }
       final sorted = Float32List.fromList(levels)..sort();
       // (The quietest stretches', so the clicks themselves don't count as background.)
@@ -481,12 +515,11 @@ class EarCheck {
         'recorded ${(samples.length / sampleRate).toStringAsFixed(2)}s from frame $startFrame, '
         'the count-in looked for from ${(rough.first / sampleRate).toStringAsFixed(2)}s to '
         '${(rough.last / sampleRate).toStringAsFixed(2)}s into it';
-    // Enough of the count-in to fit, and to have a clean copy of each kind of click.
-    final heardTones = {
-      for (var i = 0; i < countIn; i++)
-        if (onsets.any((o) => o.$1 == clicks[i])) toneHz(i),
-    };
-    if (onsets.length < countIn ~/ 2 || heardTones.length < tones.length) {
+    // Enough of the count-in to go by. Not necessarily every tone: through headphones held to the
+    // microphone, say, the low one may not come through at all. (With one tone, lining a click up
+    // with a later click's sound means one two clicks on, at the edge of the delays allowed, and
+    // the shortest delay wins a tie.)
+    if (onsets.length < math.min(3, countIn)) {
       _state = EarCheckState.cantHear;
       return;
     }
@@ -611,9 +644,12 @@ class EarCheck {
     from = math.max(2, from);
     final highs = _highs(samples, from, to);
     if (highs.length < 64) return const [];
-    final sorted = Float32List.fromList(highs)..sort();
+    // (The background from every eighth value, which is plenty to tell it by: sorting them all,
+    // for each of a dozen hits at once, stalled the app.)
+    final sorted = Float32List.fromList([for (var i = 0; i < highs.length; i += 8) highs[i]])
+      ..sort();
     final background = sorted[sorted.length ~/ 5];
-    final peak = sorted.last;
+    final peak = highs.fold(0.0, (m, v) => math.max(m, v));
     if (peak < background * 15 || peak < 1e-4) return const [];
     final threshold = math.max(peak * 0.15, background * 8);
     final quiet = _frames(5);
@@ -655,14 +691,21 @@ class EarCheck {
     final out = Float32List(bins);
     final window = _frames(5);
     final w = 2 * math.pi * hz / sampleRate;
+    // (Rotating by ω each sample rather than calling cos and sin for each; the phase each window
+    // starts at doesn't change the size.)
+    final cw = math.cos(w), sw = math.sin(w);
     for (var b = 0; b < bins; b++) {
       final center = from + (b + 0.5) * length ~/ bins;
-      var re = 0.0, im = 0.0;
+      var re = 0.0, im = 0.0, c = 1.0, sn = 0.0;
       for (var j = -window ~/ 2; j < window ~/ 2; j++) {
         final n = center + j;
-        if (n < 0 || n >= samples.length) continue;
-        re += samples[n] * math.cos(w * n);
-        im -= samples[n] * math.sin(w * n);
+        if (n >= 0 && n < samples.length) {
+          re += samples[n] * c;
+          im -= samples[n] * sn;
+        }
+        final next = c * cw - sn * sw;
+        sn = sn * cw + c * sw;
+        c = next;
       }
       out[b] = math.sqrt(re * re + im * im);
     }

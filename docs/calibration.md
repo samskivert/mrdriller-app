@@ -118,8 +118,10 @@ step, for each tone, take a 5ms window and compute one bin of a Fourier transfor
 level(t) = | Σₙ x[n] · e^(−iωn) | / N,   ω = 2π·f / sampleRate,   over the window's N samples
 ```
 
-(the Goertzel algorithm's quantity, evaluated directly). About a million multiply-adds per tone
-for a whole count-in.
+(the Goertzel algorithm's quantity). It's evaluated from running sums of x[n]·cos(ωn) and
+x[n]·sin(ωn), each window's being the difference of two, with the cos and sin advanced by a
+rotation each sample rather than computed: so one multiply per sample per tone, not one per
+sample per window it's in (five times as many) plus two trig calls.
 
 - A 5ms window resolves about 1/5ms = 200Hz, so each tone only picks up noise in a narrow band;
   room noise is spread over everything. A typical count-in: 800Hz clicks at 0.014, background
@@ -166,8 +168,12 @@ above max(0.2 × peak, 6 × noise).
 The window is lopsided on purpose. A symmetric one held enough of the click to raise the "noise",
 and starts came out 3ms late.
 
-Give up ("can't hear the clicks") unless at least half the clicks were found and both tones were
-heard. Otherwise **K_c = the median of (start − rough position)**. It stays fixed for the run.
+Give up ("can't hear the clicks") unless at least 3 clicks were found. They needn't include both
+tones: through headphones held to the microphone, only the 800Hz beep may come through (headphones
+in open air lose their bass), and with one tone the voting is still safe, as the only alias is two
+clicks (500ms) on, at the edge of the allowed range, and the shortest delay wins a tie. A tone
+not heard has no template (so its clicks are never "matched") and borrows the other's shape for
+drawing. Otherwise **K_c = the median of (start − rough position)**. It stays fixed for the run.
 
 **Precision.** |x| peaks only twice per cycle (every 0.625ms at 800Hz, 1.25ms at 400Hz), so the
 first sample over 20% wobbles by a fraction of a millisecond with the tone's phase; the median
@@ -325,7 +331,12 @@ calibration saved, "54.6ms ± 1.2ms". (`EarCheck.systemDelayMs` gives K_c − K_
    0.6ms that looked perfect, but 26 of 65 hits had silently fallen back to where they were
    expected, which agrees with the prediction exactly: the spread was measuring how often it
    *didn't* hear the hits.
-8. **Test on real data, the way it runs live.** Every simulated test passed while real recordings
+8. **Mind the main thread.** The analysis runs on the UI thread every 100ms during the run. The
+   clicks are scheduled 400ms ahead so a stall can't make them late, but a stall of 300ms (in a
+   debug build) was seen when hits were first placed: every waiting hit's 550ms of audio was being
+   re-scanned, and fully sorted for its background, on every update. Now each hit's bursts are
+   found once, and backgrounds come from every eighth value.
+9. **Test on real data, the way it runs live.** Every simulated test passed while real recordings
    failed three ways nobody had modelled (the 9th sound, evenly spaced hits, matches slipping).
    The replay test feeds recordings in 100ms at a time, as live, which is what exposed the
    bookkeeping bug.
