@@ -97,6 +97,10 @@ flutter:
     - assets/images/mrdriller.png
     - assets/sounds/beep.wav
     - assets/sounds/boop.wav
+    - assets/sounds/woodblock_high.wav
+    - assets/sounds/woodblock_low.wav
+    - assets/sounds/cowbell_high.wav
+    - assets/sounds/cowbell_low.wav
     - assets/sounds/don.mp3
 
   # Subsets of M PLUS Rounded 1c (the app's UI font) and Mochiy Pop One (its puffy display font),

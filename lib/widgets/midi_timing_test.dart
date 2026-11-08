@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
+import '../model/click_sound.dart';
 import '../model/ear_check.dart';
 import '../model/timing.dart';
 import '../model/wav.dart';
@@ -241,7 +242,8 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
         return;
       }
     }
-    final sounds = _sounds ??= MetronomeSounds();
+    // (Always the classic tones, which the In the air check listens for.)
+    final sounds = _sounds ??= MetronomeSounds(sound: ClickSound.classic);
     await sounds.start();
     if (!mounted || !_starting) return;
     setState(() {

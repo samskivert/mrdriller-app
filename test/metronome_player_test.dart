@@ -3,6 +3,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/metronome_player.dart';
+import 'package:mrdriller/model/click_sound.dart';
 import 'package:mrdriller/services/metronome_sounds.dart';
 import 'package:mrdriller/state/drill_config.dart';
 import 'package:mrdriller/state/metronome_settings.dart';
@@ -17,6 +18,9 @@ const _second = Duration(seconds: 1);
 // Ready at once, and keeps track of what it played.
 class _FakeSounds implements MetronomeSounds {
   final played = <String>[];
+
+  @override
+  ClickSound get sound => ClickSound.classic;
 
   // (Not final: the real one's is set once it starts loading.)
   @override

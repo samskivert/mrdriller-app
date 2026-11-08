@@ -3,6 +3,7 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mrdriller/services/click_scheduler.dart';
 import 'package:mrdriller/services/metronome.dart';
+import 'package:mrdriller/model/click_sound.dart';
 import 'package:mrdriller/services/metronome_sounds.dart';
 
 // An audio engine whose clock runs 5000ms ahead of the metronome's (so that a click due at t is
@@ -15,6 +16,9 @@ class _FakeSounds implements MetronomeSounds {
   final played = <Click>[];
   final cancelled = <SoundHandle>[];
   var _handles = 0;
+
+  @override
+  ClickSound get sound => ClickSound.classic;
 
   _FakeSounds(this.metronome);
 

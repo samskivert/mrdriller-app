@@ -12,12 +12,16 @@
 
 import 'package:flutter_soloud/flutter_soloud.dart';
 
+import '../model/click_sound.dart';
+import '../state/settings.dart';
 import 'sound_engine.dart';
 
-const _beep = 'assets/sounds/beep.wav';
-const _boop = 'assets/sounds/boop.wav';
-
 class MetronomeSounds {
+  /// What it clicks with: the "beep" is its high sound and the "boop" its low one.
+  final ClickSound sound;
+  String get _beep => sound.high;
+  String get _boop => sound.low;
+
   // The engine and the two tones are loaded once, and shared (see sound_engine.dart): each
   // MetronomeSounds instance is just a cheap handle onto them, so constructing one for every
   // practice session is fine, and dispose() intentionally tears nothing down.
@@ -27,7 +31,8 @@ class MetronomeSounds {
   /// constructs this class. Callers should await [start] rather than this, though.
   late final Future<void> ready;
 
-  MetronomeSounds() {
+  /// Clicks with [sound], or the one chosen in the settings.
+  MetronomeSounds({ClickSound? sound}) : sound = sound ?? settings.clickSound {
     ready = _load();
   }
 

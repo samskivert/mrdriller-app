@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../model/click_sound.dart';
 import '../model/grading.dart';
 import '../services/cloud_store.dart';
 import 'sync.dart';
@@ -14,6 +15,7 @@ class Settings extends ChangeNotifier {
 
   bool _showBouncingDot = true;
   GradingDifficulty _gradingDifficulty = GradingDifficulty.normal;
+  ClickSound _clickSound = ClickSound.classic;
   SharedPreferences? _prefs;
   bool _listening = false;
 
@@ -21,6 +23,9 @@ class Settings extends ChangeNotifier {
 
   /// How strictly hits on a drum pad are judged.
   GradingDifficulty get gradingDifficulty => _gradingDifficulty;
+
+  /// What the metronome clicks with.
+  ClickSound get clickSound => _clickSound;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -44,6 +49,11 @@ class Settings extends ChangeNotifier {
     _save();
   }
 
+  void setClickSound(ClickSound value) {
+    _clickSound = value;
+    _save();
+  }
+
   // (All of them together, as they're stamped and synced as one.)
   void _save() {
     final prefs = _prefs;
@@ -51,6 +61,7 @@ class Settings extends ChangeNotifier {
       saveLatest(prefs, _key, {
         'showBouncingDot': _showBouncingDot,
         'gradingDifficulty': _gradingDifficulty.name,
+        'clickSound': _clickSound.name,
       });
     }
     notifyListeners();
@@ -69,6 +80,8 @@ class Settings extends ChangeNotifier {
     final difficulty = values is Map ? values['gradingDifficulty'] : null;
     _gradingDifficulty =
         GradingDifficulty.values.asNameMap()[difficulty] ?? GradingDifficulty.normal;
+    final clickSound = values is Map ? values['clickSound'] : null;
+    _clickSound = ClickSound.values.asNameMap()[clickSound] ?? ClickSound.classic;
     notifyListeners();
   }
 }

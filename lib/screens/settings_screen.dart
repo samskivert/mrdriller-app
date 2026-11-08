@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../model/click_sound.dart';
 import '../model/model.dart';
 import '../state/app_info.dart';
+import '../services/metronome_sounds.dart';
 import '../services/midi_connection.dart';
 import '../model/grading.dart';
 import '../state/app_name.dart';
@@ -46,6 +48,8 @@ class SettingsScreen extends StatelessWidget {
                     onChanged: settings.setShowBouncingDot,
                     preview: _HighlightPreview(on: settings.showBouncingDot),
                   ),
+                  const SizedBox(height: 16),
+                  const _ClickSoundCard(),
                   const SizedBox(height: 16),
                   const _DifficultyCard(),
                   const SizedBox(height: 16),
@@ -150,6 +154,91 @@ class _SettingCard extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What the metronome clicks with, played as it's picked (or again from its button).
+class _ClickSoundCard extends StatefulWidget {
+  const _ClickSoundCard();
+
+  @override
+  State<_ClickSoundCard> createState() => _ClickSoundCardState();
+}
+
+class _ClickSoundCardState extends State<_ClickSoundCard> {
+  MetronomeSounds? _preview;
+
+  @override
+  void dispose() {
+    _preview?.dispose();
+    super.dispose();
+  }
+
+  // Plays a measure of it: high, low, high, low, as the metronome does at 120bpm.
+  Future<void> _play(ClickSound sound) async {
+    _preview?.dispose();
+    final preview = _preview = MetronomeSounds(sound: sound);
+    await preview.start();
+    if (!mounted || _preview != preview) return;
+    final now = preview.engineTime(running: true);
+    if (now == null) return;
+    for (var i = 0; i < 4; i++) {
+      final at = now + Duration(milliseconds: 100 + i * 250);
+      if (i.isEven) {
+        preview.scheduleBeep(at);
+      } else {
+        preview.scheduleBoop(at);
+      }
+    }
+    // (Letting the device stop again once it's played.)
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      if (_preview == preview) preview.pause();
+    });
+  }
+
+  void _pick(ClickSound sound) {
+    settings.setClickSound(sound);
+    _play(sound);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) => BannerCard(
+        label: 'Click sound',
+        color: AppColors.bannerGreen,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "What the metronome clicks with. Woodblock and Cowbell are brighter, so they're "
+              'easier to hear over drums. (Calibration always uses Classic.)',
+              style: midiTextStyle(),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: CandySegmented<ClickSound>(
+                    options: [for (final s in ClickSound.values) (s, s.label)],
+                    value: settings.clickSound,
+                    onChanged: _pick,
+                    colors: AppColors.candyGreen,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                RoundIconButton(
+                  icon: Icons.volume_up_rounded,
+                  tooltip: 'Play it',
+                  onPressed: () => _play(settings.clickSound),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

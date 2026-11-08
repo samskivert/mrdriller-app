@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../model/click_sound.dart';
 import '../model/mic_calibration.dart';
 import '../services/click_scheduler.dart';
 import '../services/metronome.dart';
@@ -109,7 +110,8 @@ class _MicCalibrationCardState extends State<MicCalibrationCard> {
       }
       return;
     }
-    final sounds = _sounds ??= MetronomeSounds();
+    // (Always the classic tones, whatever the metronome's set to.)
+    final sounds = _sounds ??= MetronomeSounds(sound: ClickSound.classic);
     _scheduler ??= ClickScheduler(
       metronome: _metronome,
       sounds: sounds,

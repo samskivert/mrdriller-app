@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mrdriller/model/click_sound.dart';
 import 'package:mrdriller/model/grading.dart';
 import 'package:mrdriller/screens/settings_screen.dart';
 import 'package:mrdriller/state/settings.dart';
@@ -35,6 +36,15 @@ void main() {
       expect(settings.gradingDifficulty, GradingDifficulty.hard);
       expect(find.text('Perfect within ±15ms, good within ±30ms.'), findsOneWidget);
       settings.setGradingDifficulty(GradingDifficulty.normal);
+
+      // Picking a click sound.
+      final cowbell = find.text('Cowbell').first;
+      await tester.ensureVisible(cowbell);
+      await tester.tap(cowbell);
+      await tester.pump(const Duration(seconds: 2));
+      expect(settings.clickSound, ClickSound.cowbell);
+      settings.setClickSound(ClickSound.classic);
+      expect(tester.takeException(), isNull);
 
       // Stop the highlight preview's timer.
       await tester.pumpWidget(const SizedBox());
