@@ -22,6 +22,10 @@ import '../widgets/stroke_view.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
+  // Whether there's a drum pad: plugged in now, or set up before (as the MIDI devices card lists).
+  static bool get _hasMidiDevice =>
+      midiDevices.all.isNotEmpty || midi.ports.any((port) => port.connected);
+
   @override
   Widget build(BuildContext context) {
     final safe = MediaQuery.paddingOf(context);
@@ -29,7 +33,7 @@ class SettingsScreen extends StatelessWidget {
       title: 'Settings',
       showSettings: false,
       child: ListenableBuilder(
-        listenable: Listenable.merge([settings, mrDrillerUnlocked]),
+        listenable: Listenable.merge([settings, mrDrillerUnlocked, midi, midiDevices]),
         builder: (context, _) => SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(safe.left + 16, 8, safe.right + 16, safe.bottom + 24),
           child: Center(
@@ -51,11 +55,15 @@ class SettingsScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   const _ClickSoundCard(),
                   const SizedBox(height: 16),
-                  const _DifficultyCard(),
-                  const SizedBox(height: 16),
-                  const _AudioOutputsCard(),
-                  const SizedBox(height: 16),
                   const _MidiDevicesCard(),
+                  // Which output's calibration to use, and how strictly hits are judged, only
+                  // matter with a drum pad.
+                  if (_hasMidiDevice) ...[
+                    const SizedBox(height: 16),
+                    const _AudioOutputsCard(),
+                    const SizedBox(height: 16),
+                    const _DifficultyCard(),
+                  ],
                   const SizedBox(height: 28),
                   Text(
                     '${appName()} v$appVersion',
@@ -257,7 +265,7 @@ class _DifficultyCard extends StatelessWidget {
     String ms(double ms) => '±${ms.round()}ms';
     return BannerCard(
       label: 'Grading difficulty',
-      color: AppColors.bannerMagenta,
+      color: AppColors.bannerGreen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -408,7 +416,7 @@ class _MidiDevicesCardState extends State<_MidiDevicesCard> {
         final keys = {...connected, ...midiDevices.all.map((d) => d.key)};
         return BannerCard(
           label: 'MIDI devices',
-          color: AppColors.bannerGreen,
+          color: AppColors.bannerMagenta,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

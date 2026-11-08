@@ -525,7 +525,7 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
     required bool isHighlighted,
     required bool isDone,
   }) {
-    if (_grades.isEmpty || !(isHighlighted || isDone)) return const {};
+    if (_grades.isEmpty || !(isHighlighted || isDone) || !_marking) return const {};
     final flat = _allSections[index];
     final repeat = isHighlighted ? _state.repeat : flat.section.repeat - 1;
     return {
@@ -538,6 +538,17 @@ class _DrillPracticeViewState extends State<DrillPracticeView> with TickerProvid
 
   // Whether the player hit anything on a drum pad, so it's worth showing how it went.
   bool get _graded => _grades.values.any((g) => g.judgement != Judgement.miss);
+
+  // Whether to mark the strokes with their grades: once the player's hit something on a pad, or
+  // while one that's set up (with pads for a hand) is plugged in, but not otherwise, when every
+  // stroke would be marked missed.
+  bool get _marking =>
+      _graded ||
+      midi.ports.any((port) {
+        if (!port.connected) return false;
+        final pads = midiDevices.byKey(midiDeviceKey(port))?.pads.values ?? const [];
+        return pads.any((role) => role == PadRole.right || role == PadRole.left);
+      });
 
   void _addGrades(Iterable<Grade> grades) {
     for (final grade in grades) {

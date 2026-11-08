@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mrdriller/model/click_sound.dart';
 import 'package:mrdriller/model/grading.dart';
 import 'package:mrdriller/screens/settings_screen.dart';
+import 'package:mrdriller/state/midi_devices.dart';
 import 'package:mrdriller/state/settings.dart';
 import 'package:mrdriller/widgets/hud_controls.dart';
 
@@ -14,6 +16,11 @@ void main() {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
+      // (With a drum pad set up, so that every card shows.)
+      SharedPreferences.setMockInitialValues({});
+      await tester.runAsync(midiDevices.load);
+      midiDevices.setRole('Test pad', 60, PadRole.right);
+      addTearDown(() => midiDevices.forget('Test pad'));
       await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
@@ -50,4 +57,24 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+
+  testWidgets('shows audio outputs and grading difficulty only with a drum pad', (tester) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    await tester.runAsync(midiDevices.load);
+    await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('MIDI DEVICES'), findsOneWidget);
+    expect(find.text('AUDIO OUTPUT'), findsNothing);
+    expect(find.text('GRADING DIFFICULTY'), findsNothing);
+
+    midiDevices.setRole('Test pad', 60, PadRole.right);
+    addTearDown(() => midiDevices.forget('Test pad'));
+    await tester.pump();
+    expect(find.text('AUDIO OUTPUT'), findsOneWidget);
+    expect(find.text('GRADING DIFFICULTY'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }
