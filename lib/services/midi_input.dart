@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'midi_input_stub.dart' if (dart.library.js_interop) 'midi_input_web.dart' as impl;
+import 'midi_input_stub.dart'
+    if (dart.library.js_interop) 'midi_input_web.dart'
+    if (dart.library.io) 'midi_input_native.dart'
+    as impl;
 
 /// A MIDI input device (e.g. a USB-MIDI cable, or a pad plugged in over USB).
 class MidiPort {
@@ -64,8 +67,9 @@ class MidiUnavailable implements Exception {
   String toString() => message;
 }
 
-/// Access to the device's MIDI inputs, delivering the messages from all of them. Currently only
-/// implemented on web (through Web MIDI); elsewhere [isSupported] is false.
+/// Access to the device's MIDI inputs, delivering the messages from all of them: on web through
+/// Web MIDI (midi_input_web.dart), on iOS and Android through flutter_midi_command
+/// (midi_input_native.dart); elsewhere [isSupported] is false.
 abstract class MidiInput {
   /// Whether this platform can do MIDI input at all.
   static bool get isSupported => impl.isSupported;

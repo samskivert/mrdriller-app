@@ -1,11 +1,12 @@
 import 'dart:js_interop';
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
 
 import 'package:web/web.dart' as web;
 
 bool get canDownloadFiles => true;
 
-void downloadFile(String name, Uint8List bytes, String mimeType) {
+void downloadFile(String name, Uint8List bytes, String mimeType, {Rect? origin}) {
   final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: mimeType));
   final url = web.URL.createObjectURL(blob);
   final anchor = web.HTMLAnchorElement()

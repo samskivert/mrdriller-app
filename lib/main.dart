@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -31,6 +30,7 @@ import 'state/playlists.dart';
 import 'state/reminders.dart';
 import 'state/settings.dart';
 import 'util/colors.dart';
+import 'util/debug_tools.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -174,8 +174,8 @@ Route<dynamic>? _onGenerateRoute(RouteSettings routeSettings) {
       );
     }
   }
-  // For working on how things look, in debug builds only.
-  if (segments[0] == 'debug' && kDebugMode) {
+  // For working on how things look, in debug and profile builds only (see debugTools).
+  if (segments[0] == 'debug' && debugTools) {
     final Widget? screen = switch (segments.length > 1 ? segments[1] : null) {
       null => const DebugMenuScreen(),
       'drill-results' => const DrillResultsDebugScreen(),

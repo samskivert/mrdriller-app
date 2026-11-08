@@ -246,11 +246,15 @@ broadband), which is why a hit on top of a click can still be found.
 
 #### 3b. Placing hits the first time: voting
 
-K_h is unknown at first (−50 to 500ms). For each hit waiting to be placed (the latest 12, at least
-4), recorded far enough past it:
+K_h is unknown at first, but is allowed −60 to +250ms: in practice it's about +44ms on a MacBook
+and −6ms on an iPhone (where the recorder's host times leave E near 0, so K_h is about −d_midi),
+and slower MIDI (Bluetooth) makes it more negative. The range is kept narrow because hits are only
+placed once that much past the first few is recorded (it was −50 to +500ms, and the wait was
+noticeable), but its lower end mustn't reach back to the previous hit's sound, a click earlier
+(200ms at 150bpm), given the shortest-delay rule below. For each hit waiting to be placed (the
+latest 12, at least 4), recorded far enough past it:
 
-1. Find **bursts** in the high-frequency envelope from 50ms before its rough position to 550ms
-   after: background = the 20th percentile, threshold = max(15% of the loudest, 8 × background),
+1. Find **bursts** in the high-frequency envelope over that range around its rough position: background = the 20th percentile, threshold = max(15% of the loudest, 8 × background),
    and a burst starts at a crossing after at least 5ms below threshold (so a hit's ringing isn't
    more hits).
 2. Each burst votes for its delay (burst − rough position) in a 2ms bucket and the two neighbours
@@ -372,7 +376,11 @@ started).
 - **COPY RESULTS** (after a run) copies the summary, every hit's MIDI offset, every click's in-air
   offset (`*` where the click was predicted rather than matched), and the count-in's diagnosis:
   how many sounds were heard, how many clicks lined up, each tone's loudest level and background.
-- **SAVE RECORDING** (debug builds, web) downloads the run as a WAV (32-bit float, `model/wav.dart`)
+- **SAVE RECORDING** (debug and profile builds) downloads the run on web, or offers it to share
+  (AirDrop, Files) on a phone, as a WAV named for the platform it was recorded on, with markers
+  (a `cue ` chunk and `LIST`/`adtl` labels, shown by Audacity and other editors) at each click
+  ("listen N" for the count-in's, "click N") and hit ("hit N -41.2ms", "(not heard)" where it
+  was only taken to be there), (32-bit float, `model/wav.dart`)
   with a `json` chunk after the samples (players skip it) holding:
   - `startFrame`, `bpm`, `intervalMs`, `countIn`, `clicksPerBeat`
   - `clicks`: index, scheduled time, rough frame (by the mapping at the end of the run), tone
@@ -400,6 +408,8 @@ started).
 | | |
 |---|---|
 | System delay, laptop speakers (three recordings) | 55.5, 56.1, 57.2ms; ±1.0–1.6ms per click |
+| System delay, wired headphones held to the mic | 39.5–42ms |
+| System delay, iPhone's own speaker and mic | 51.8ms ±1.2; the hit's sound about 6ms before its MIDI time, so (with E near 0) MIDI over the USB adapter takes about 6ms and the speaker about 46ms |
 | Between clicks, laptop speakers | about 55ms |
 | Browser's own estimate (`outputLatency` + `baseLatency`), plus SoLoud's ~12ms buffer and ~2ms MIDI | about 48ms |
 | Hit's sound vs. where its MIDI time predicts | within 0.7ms (standard deviation) |

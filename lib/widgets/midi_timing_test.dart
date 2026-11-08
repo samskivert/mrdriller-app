@@ -20,6 +20,7 @@ import 'arcade.dart';
 import 'calibration_grid.dart';
 import 'ear_raster.dart';
 import 'hud_controls.dart';
+import '../util/debug_tools.dart';
 
 /// A test of hitting in time with a click: plays a steady click and measures how early or late
 /// each hit on the MIDI pad is.
@@ -149,9 +150,11 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
   Timer? _earTimer;
   final _hitTimes = <double>[];
   String? _micError;
-  // In debug builds, the In the air check's last recording, kept from when it stopped (as the
-  // microphone closes), with what it was of, to save for working on it (see _saveRecording).
-  ({Float32List samples, int sampleRate, Map<String, Object?> notes})? _recording;
+  // In debug and profile builds, the In the air check's last recording, kept from when it stopped
+  // (as the microphone closes), with markers at its clicks and hits and what it was of, to save
+  // for working on it (see _saveRecording).
+  ({Float32List samples, int sampleRate, List<WavMarker> markers, Map<String, Object?> notes})?
+  _recording;
   String? _recordingProblem;
   AudioLatency? _latency;
   var _checkedLatency = false;
@@ -255,7 +258,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
 
   void _stop() {
     // (Keeping what it heard, before the grid it was timed by goes.)
-    if (widget.listen && kDebugMode) {
+    if (widget.listen && debugTools) {
       try {
         _recordingProblem = null;
         _keepRecording();
@@ -352,6 +355,7 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     _recording = (
       samples: Float32List.fromList(mic.samples),
       sampleRate: mic.sampleRate.round(),
+      markers: _markers(mic, grid, ear),
       notes: {
         'bpm': _testedBpm,
         'clicksPerBeat': _clicksPerBeat,
@@ -393,14 +397,54 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
     );
   }
 
+  // Markers for audio editors (see encodeWav): each click where it was taken to be ("listen" for
+  // the count-in's), and each hit heard (or not, where it was taken to be), with how far from its
+  // click it was.
+  List<WavMarker> _markers(MicRecorder mic, BeatGrid grid, EarCheck? ear) {
+    final beats = ear?.beats ?? const <EarBeat>[];
+    if (beats.isEmpty) return const [];
+    final rate = mic.sampleRate;
+    int at(double frame) => (frame - mic.startFrame).round();
+    // (The count-in's clicks the same time after they were scheduled as the first one after.)
+    final first = beats.first;
+    final delay = first.clickFrame - mic.frameAt(grid.timeOf(first.index));
+    final markers = <WavMarker>[
+      for (var i = 0; i < first.index; i++)
+        (frame: at(mic.frameAt(grid.timeOf(i)) + delay), label: 'listen ${i + 1}'),
+      for (final beat in beats) ...[
+        (frame: at(beat.clickFrame), label: 'click ${beat.index}'),
+        if (beat.hitMs case final ms?)
+          (
+            frame: at(beat.clickFrame + ms * rate / 1000),
+            label:
+                'hit ${beat.index} ${ms >= 0 ? '+' : ''}${ms.toStringAsFixed(1)}ms'
+                '${beat.hitHeard ? '' : ' (not heard)'}',
+          ),
+      ],
+    ];
+    return [
+      for (final m in markers)
+        if (m.frame >= 0 && m.frame < mic.samples.length) m,
+    ]..sort((a, b) => a.frame.compareTo(b.frame));
+  }
+
   void _saveRecording() {
     final recording = _recording;
     if (recording == null) return;
     final stamp = DateTime.now().toIso8601String().substring(0, 19).replaceAll(':', '-');
+    // (Named for where it was recorded, as phones and computers hear differently.)
+    final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+    final box = context.findRenderObject() as RenderBox?;
     downloadFile(
-      'in-the-air-$_testedBpm-bpm-$stamp.wav',
-      encodeWav(recording.samples, recording.sampleRate, notes: recording.notes),
+      'in-the-air-$platform-$_testedBpm-bpm-$stamp.wav',
+      encodeWav(
+        recording.samples,
+        recording.sampleRate,
+        markers: recording.markers,
+        notes: recording.notes,
+      ),
       'audio/wav',
+      origin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
     );
   }
 
@@ -631,15 +675,15 @@ class _MidiTimingTestState extends State<MidiTimingTest> {
               onPressed: _copyResults,
             ),
           ],
-          if (kDebugMode && _recordingProblem != null && !_running) ...[
+          if (debugTools && _recordingProblem != null && !_running) ...[
             const SizedBox(height: 10),
             _Text(_recordingProblem!),
           ],
-          if (kDebugMode && !canDownloadFiles && !_running) ...[
+          if (debugTools && !canDownloadFiles && !_running) ...[
             const SizedBox(height: 10),
             const _Text("Can't save recordings here (only on web)."),
           ],
-          if (kDebugMode && canDownloadFiles && _recording != null && !_running) ...[
+          if (debugTools && canDownloadFiles && _recording != null && !_running) ...[
             const SizedBox(height: 10),
             CandyButton(
               label: 'SAVE RECORDING',

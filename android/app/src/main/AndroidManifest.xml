@@ -1,4 +1,9 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- MIDI (drum pads; see lib/services/midi_input_native.dart) is optional: flutter_midi_command
+         declares it required, which would hide the app on Google Play from devices without it. -->
+    <uses-feature android:name="android.software.midi" android:required="false"
+        tools:replace="android:required"/>
     <!-- For scheduled practice reminders (see lib/services/reminder_scheduler.dart): showing a
          notification at all requires this on Android 13+, and the boot receiver below re-arms
          reminders that were scheduled before the device rebooted. -->

@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 
-import 'mic_recorder_stub.dart' if (dart.library.js_interop) 'mic_recorder_web.dart' as impl;
+import 'mic_recorder_stub.dart'
+    if (dart.library.js_interop) 'mic_recorder_web.dart'
+    if (dart.library.io) 'mic_recorder_native.dart'
+    as impl;
 
 /// Thrown by [MicRecorder.open] when the microphone isn't available: unsupported, or permission
 /// refused.
@@ -14,8 +17,8 @@ class MicUnavailable implements Exception {
 }
 
 /// Records the microphone, raw (no echo cancellation, noise suppression or gain control, which
-/// would take out or smear the sounds being timed), from when it's opened until it's closed.
-/// Currently only implemented on web.
+/// would take out or smear the sounds being timed), from when it's opened until it's closed. On web
+/// (mic_recorder_web.dart) and iOS (mic_recorder_native.dart).
 abstract class MicRecorder {
   static bool get isSupported => impl.isSupported;
 

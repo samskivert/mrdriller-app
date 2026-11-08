@@ -1,56 +1,89 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-/// [samples] (one channel, from -1 to 1) as a WAV file of 32-bit floats, at [sampleRate], with
-/// [notes], if given, as JSON in a chunk of its own ("json", after the samples), which players
-/// skip over.
-Uint8List encodeWav(Float32List samples, int sampleRate, {Object? notes}) {
-  final json = notes == null ? null : utf8.encode(jsonEncode(notes));
-  final jsonChunk = json == null ? 0 : 8 + json.length + json.length % 2;
-  final dataBytes = samples.length * 4;
-  final out = ByteData(12 + 26 + 8 + dataBytes + jsonChunk);
-  var at = 0;
-  void tag(String id) {
-    for (final c in id.codeUnits) {
-      out.setUint8(at++, c);
-    }
+/// A point in a recording, as a marker that audio editors show on the waveform: at [frame] (from
+/// the start of the samples), labelled [label].
+typedef WavMarker = ({int frame, String label});
+
+/// [samples] (one channel, from -1 to 1) as a WAV file of 32-bit floats, at [sampleRate].
+///
+/// A WAV file is a RIFF container: a series of chunks, each a four-character ID, its length, and
+/// its data, which readers skip if they don't know them. Besides the format ("fmt ") and the
+/// samples ("data"), it has:
+/// - with [markers], a "cue " chunk of their positions and a "LIST" chunk of type "adtl" holding a
+///   "labl" (label) for each, which editors like Audacity and Logic show as markers;
+/// - with [notes], those as JSON in a chunk of its own ("json"), which nothing shows, but is where
+///   everything else about the recording goes.
+Uint8List encodeWav(
+  Float32List samples,
+  int sampleRate, {
+  List<WavMarker> markers = const [],
+  Object? notes,
+}) {
+  final body = BytesBuilder(copy: false);
+  void chunk(String id, Uint8List data) {
+    body
+      ..add(ascii.encode(id))
+      ..add(_u32(data.length))
+      ..add(data);
+    // (Each chunk starts on an even byte.)
+    if (data.length.isOdd) body.addByte(0);
   }
 
-  void u32(int v) {
-    out.setUint32(at, v, Endian.little);
-    at += 4;
-  }
-
-  void u16(int v) {
-    out.setUint16(at, v, Endian.little);
-    at += 2;
-  }
-
-  tag('RIFF');
-  u32(out.lengthInBytes - 8);
-  tag('WAVE');
   // The format: IEEE floats (3), one channel, 32 bits.
-  tag('fmt ');
-  u32(18);
-  u16(3);
-  u16(1);
-  u32(sampleRate);
-  u32(sampleRate * 4);
-  u16(4);
-  u16(32);
-  u16(0);
-  tag('data');
-  u32(dataBytes);
-  for (final s in samples) {
-    out.setFloat32(at, s, Endian.little);
-    at += 4;
+  chunk(
+    'fmt ',
+    Uint8List.fromList([
+      ..._u16(3),
+      ..._u16(1),
+      ..._u32(sampleRate),
+      ..._u32(sampleRate * 4),
+      ..._u16(4),
+      ..._u16(32),
+      ..._u16(0),
+    ]),
+  );
+  final data = ByteData(samples.length * 4);
+  for (final (i, s) in samples.indexed) {
+    data.setFloat32(i * 4, s, Endian.little);
   }
-  if (json != null) {
-    tag('json');
-    u32(json.length);
-    for (final b in json) {
-      out.setUint8(at++, b);
+  chunk('data', data.buffer.asUint8List());
+  if (markers.isNotEmpty) {
+    // Each cue point: its id, its position, the chunk it's in ("data"), that chunk's start and
+    // block start (both 0 for a plain WAV), and its offset in samples.
+    final cues = BytesBuilder()..add(_u32(markers.length));
+    final labels = BytesBuilder()..add(ascii.encode('adtl'));
+    for (final (i, marker) in markers.indexed) {
+      final id = i + 1;
+      cues
+        ..add(_u32(id))
+        ..add(_u32(marker.frame))
+        ..add(ascii.encode('data'))
+        ..add(_u32(0))
+        ..add(_u32(0))
+        ..add(_u32(marker.frame));
+      final text = [...utf8.encode(marker.label), 0];
+      labels
+        ..add(ascii.encode('labl'))
+        ..add(_u32(4 + text.length))
+        ..add(_u32(id))
+        ..add(text);
+      if (text.length.isOdd) labels.addByte(0);
     }
+    chunk('cue ', cues.takeBytes());
+    chunk('LIST', labels.takeBytes());
   }
-  return out.buffer.asUint8List();
+  if (notes != null) chunk('json', Uint8List.fromList(utf8.encode(jsonEncode(notes))));
+
+  final bytes = body.takeBytes();
+  return (BytesBuilder(copy: false)
+        ..add(ascii.encode('RIFF'))
+        ..add(_u32(4 + bytes.length))
+        ..add(ascii.encode('WAVE'))
+        ..add(bytes))
+      .takeBytes();
 }
+
+Uint8List _u16(int v) => Uint8List(2)..buffer.asByteData().setUint16(0, v, Endian.little);
+
+Uint8List _u32(int v) => Uint8List(4)..buffer.asByteData().setUint32(0, v, Endian.little);

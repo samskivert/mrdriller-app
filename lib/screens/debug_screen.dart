@@ -16,7 +16,7 @@ import '../widgets/hud_layout.dart';
 import '../widgets/results_popup.dart';
 import '../widgets/section_view.dart';
 
-/// For working on how things look (in debug builds only): a menu of screens to look at, filled in
+/// For working on the app (in debug and profile builds only, see debugTools): a menu of screens to look at, filled in
 /// with made-up data.
 class DebugMenuScreen extends StatelessWidget {
   const DebugMenuScreen({super.key});
@@ -49,6 +49,14 @@ class DebugMenuScreen extends StatelessWidget {
                   icon: Icons.emoji_events_rounded,
                   colors: AppColors.candyOrange,
                   onPressed: () => go('/debug/playlist-results'),
+                ),
+                const SizedBox(height: 16),
+                CandyMenuButton(
+                  title: 'MIDI diagnostics',
+                  subtitle: 'Inputs, hits, and how late messages reach the app',
+                  icon: Icons.piano_rounded,
+                  colors: AppColors.candyBlue,
+                  onPressed: () => go('/tool/midi-diagnostics'),
                 ),
               ],
             ),

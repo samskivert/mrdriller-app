@@ -57,9 +57,12 @@ drill has to be added to the `drills` list to appear in the app and to be reacha
 **Routing** (`lib/main.dart`): path URLs (`usePathUrlStrategy`) parsed in `_onGenerateRoute`:
 `/`, `/settings`, `/drills`, `/drills/<id>`, `/playlists`, `/playlists/<id>`, `/daily-practice`,
 `/metronome`, `/metronome/<presetId>`, `/tool/pattern-trainer`, `/tool/midi-diagnostics` (not on
-the menu), and in debug builds only, `/debug` (`screens/debug_screen.dart`, behind a bug icon on
-the menu): a menu of screens filled in with made-up data, for working on how they look
-(`/debug/drill-results`, `/debug/playlist-results`). Unknown routes return null on purpose so deep links skip prefixes that aren't routes
+the menu), and in debug and profile builds only (`debugTools`, `util/debug_tools.dart`),
+`/debug` (`screens/debug_screen.dart`, behind a bug icon on the menu): a menu of screens filled in
+with made-up data, for working on how they look (`/debug/drill-results`,
+`/debug/playlist-results`), and a way to the MIDI diagnostics on a phone. Profile builds are
+included because on iOS only they run without a debugger attached, which trying a drum pad needs:
+the phone's one port can't be plugged into both the Mac and the pad. Unknown routes return null on purpose so deep links skip prefixes that aren't routes
 when the back stack is built. A reminder linked to a playlist carries its route as
 the notification's payload: a tap that launches the app becomes `MaterialApp`'s initial route (see
 `notificationLaunchRoute()`), and one while it's running rebuilds the back stack via
@@ -94,9 +97,14 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   measure as beep (high), boop (low) or nothing, speeding up every so many measures. It's the
   other thing that writes to `practiceLog`: a minute or more of playing, logged (under
   `metronomeId`) on leaving the screen or the app going to the background.
-- `services/midi_input.dart`: MIDI input (for a drum pad), web-only for now via Web MIDI
-  (`midi_input_web.dart`, picked by conditional import; a stub elsewhere). Each message carries the
-  browser's arrival timestamp and the time Dart got it, both on `performance.now()`'s clock.
+- `services/midi_input.dart`: MIDI input (for a drum pad), picked by conditional import: on web
+  via Web MIDI (`midi_input_web.dart`), on iOS and Android via `flutter_midi_command`
+  (`midi_input_native.dart`, USB devices only so far). Each message carries the platform's own
+  arrival timestamp and the time Dart got it, on the same clock as `MidiInput.now()`: on web
+  `performance.now()`; on iOS CoreMIDI's host clock (`CLOCK_UPTIME_RAW`, read by FFI, as Dart's own
+  monotonic clock keeps counting through sleep and CoreMIDI's doesn't); on Android
+  `CLOCK_MONOTONIC` (`System.nanoTime()`, which Dart's `Timeline.now` reads). Never time hits by
+  when Dart got them: that's late by however long the main thread was busy.
   Screens share one connection, `midi` (`services/midi_connection.dart`): opening a second
   `MidiInput` closes the first. Settings lists MIDI devices, each opening
   `screens/midi_device_screen.dart` to rename it, map its pads (notes) to a hand, and calibrate
@@ -110,7 +118,8 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   opened from the device screen's Calibration card, in one of two ways, both with the microphone so the player's own habit of
   hitting early or late stays out of it (the timing test, which would take it in, can't save one,
   and calibrations it saved before aren't loaded). "Between clicks" is measured with the microphone (`model/mic_calibration.dart`,
-  `services/mic_recorder.dart`, web-only for now): it hears both the click and the stick, and
+  `services/mic_recorder.dart`: on web, and on iOS through the app's own recorder in
+  `ios/Runner/AppDelegate.swift`, which stamps every buffer with its host time, the MIDI clock): it hears both the click and the stick, and
   (click sound - stick sound) + (MIDI hit - click scheduled) is the delay, with the mic's own
   delay cancelling out. "Play along" is the timing test with the mic open, hearing the player's
   hits against the clicks in the air (`model/ear_check.dart`, drawn by `widgets/ear_raster.dart`): it learns
@@ -119,7 +128,7 @@ the notification's payload: a tap that launches the app becomes `MaterialApp`'s 
   recording), then finds each hit's burst just there, so the player's lead or lag is measured by
   ear. Its hits' MIDI offsets less their in-air ones (`systemDelay`) are the delay alone, with the
   player's lead cancelled out, so it can save a calibration too, from natural playing. In debug
-  builds on web, SAVE RECORDING downloads its last recording (`services/file_download.dart`) as a
+  and profile builds, SAVE RECORDING downloads (on web) or shares (on a phone) its last recording (`services/file_download.dart`) as a
   float WAV (`model/wav.dart`) with the clicks, hits and results as JSON in a `json` chunk, for
   working on the detection offline; `test/ear_check_recording_test.dart` replays the ones in
   `test/recordings/` (real runs through a MacBook's speakers and microphone), checking the delay

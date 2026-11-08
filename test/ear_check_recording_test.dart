@@ -16,6 +16,8 @@ const _recordings = {
   'test/recordings/in-the-air-120-bpm-2026-11-07T17-12-51.wav': 56.5,
   // One where matching clicks to their templates went wrong, which they used to be placed by.
   'test/recordings/in-the-air-120-bpm-2026-11-07T17-56-50.wav': 56.5,
+  // An iPhone's own speaker and microphone (with the iOS recorder's exact sample times).
+  'test/recordings/in-the-air-iOS-120-bpm-2026-11-07T22-52-19.wav': 51.8,
 };
 
 ({Float32List samples, int rate, Map<String, dynamic> notes}) _load(String path) {

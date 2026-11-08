@@ -26,6 +26,10 @@ class EarBeat {
   /// Which click it was (counting the count-in's).
   final int index;
 
+  /// Where in the recording the click is taken to be (the recorder's frame, see
+  /// [EarCheck.update]).
+  final double clickFrame;
+
   /// Whether the click was found in the recording by matching its template (or else, with a hit
   /// right on top of it, or too faint to match, where it was predicted to be is used).
   final bool clickMatched;
@@ -48,6 +52,7 @@ class EarBeat {
 
   const EarBeat({
     required this.index,
+    required this.clickFrame,
     required this.clickMatched,
     required this.hitMs,
     this.hitHeard = true,
@@ -200,6 +205,7 @@ class EarCheck {
       _beats.add(
         EarBeat(
           index: _next,
+          clickFrame: clickFrame,
           clickMatched: matched,
           hitMs: hitMs,
           hitHeard: hitHeard,
@@ -266,7 +272,7 @@ class EarCheck {
     // (Recorded far enough after it to find its burst: anywhere it might be, until where is
     // known.)
     final after = _hitDelay == null
-        ? _frames(_maxDelayMs + 30)
+        ? _frames(_maxHitDelayMs + 30)
         : _hitDelay! + _frames(_hitSearchMs + 25);
     final ready = [
       for (final hit in hits)
@@ -284,13 +290,13 @@ class EarCheck {
       final candidates = <double, List<int>>{};
       for (final hit in pending) {
         final rough = frameAt(hit);
-        final from = (rough - startFrame).round() - _frames(50);
+        final from = (rough - startFrame).round() - _frames(_minHitDelayMs);
         // (Found once for each hit, as it's waited on: looking afresh at every update, for every
         // hit waiting, stalled the app.)
         final bursts = _burstsByHit[hit] ??= _bursts(
           samples,
           from,
-          from + _frames(_maxDelayMs + 50),
+          from + _frames(_minHitDelayMs + _maxHitDelayMs),
         );
         candidates[hit] = bursts;
         final keys = <int>{};
@@ -369,6 +375,15 @@ class EarCheck {
 
   // The longest a click may take to come out and be recorded, after its rough position.
   static const _maxDelayMs = 500.0;
+
+  // How far before and after its rough position a hit's sound may be heard: in practice, about
+  // 45ms after on a MacBook and 6ms before on an iPhone (slower MIDI, by Bluetooth say, puts it
+  // earlier). Hits are placed once this much after the first few is recorded, so the narrower,
+  // the sooner. But not reaching back far enough to take in the hit before's sound: that would be
+  // a click earlier (200ms at 150bpm, two clicks a beat), and the shortest delay wins (see
+  // _hearHits), so a sound up to 140ms after its MIDI time is placed safely even at that tempo.
+  static const _minHitDelayMs = 60.0;
+  static const _maxHitDelayMs = 250.0;
 
   /// How the count-in went, in a line, for working out what went wrong if it couldn't hear it.
   String? diagnosis;

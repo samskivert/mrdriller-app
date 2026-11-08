@@ -11,7 +11,6 @@ import '../util/colors.dart';
 import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
-import '../widgets/midi_timing_test.dart';
 import 'calibration_screen.dart';
 
 /// Sets up a MIDI device (a drum pad): what it's called, which hand each of its pads is for, and
@@ -28,7 +27,6 @@ class MidiDeviceScreen extends StatefulWidget {
 class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
   StreamSubscription<MidiMessage>? _subscription;
   // Just the device's mapped pads' hits, for the timing test.
-  late final Stream<MidiMessage> _hits;
   // How many hits there have been, for what shows them to rebuild on.
   final _hitCount = ValueNotifier(0);
 
@@ -54,13 +52,8 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
       seen.velocity = message.velocity;
       _velocities.add(message.velocity);
       if (_velocities.length > _velocitiesKept) _velocities.removeAt(0);
-      // (Rebuilding just what shows them: rebuilding the whole screen on every hit stalled it
-      // long enough to make the timing test's clicks late.)
+      // (Rebuilding just what shows them, not the whole screen on every hit, which stalled it.)
       _hitCount.value++;
-    });
-    _hits = notes.where((m) {
-      final role = midiDevices.roleOf(_key, m.note);
-      return role == PadRole.right || role == PadRole.left;
     });
     midi.connect();
   }
@@ -122,8 +115,6 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
                     valueListenable: _hitCount,
                     builder: (context, _, _) => _accentsCard(),
                   ),
-                  const SizedBox(height: 16),
-                  _timingTest(),
                   if (midiDevices.byKey(_key) != null) ...[
                     const SizedBox(height: 24),
                     CandyButton(
@@ -167,16 +158,6 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
     );
   }
 
-  Widget _timingTest() {
-    final output = audioOutputs.current;
-    return MidiTimingTest(
-      hits: _hits,
-      now: midi.now,
-      calibrationMs: midiDevices.calibrationOf(_key, output.id)?.offsetMs,
-      calibrationLabel: output.name,
-    );
-  }
-
   Widget _calibrationCard() {
     final current = audioOutputs.current;
     return BannerCard(
@@ -186,9 +167,7 @@ class _MidiDeviceScreenState extends State<MidiDeviceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Sound takes longer to reach you through some speakers and headphones than others, '
-            'so hits are adjusted by the calibration for the audio output in use. Tap an output '
-            'to use it, then calibrate for it either way: Play along is easiest.',
+            'Hits are adjusted by the calibration for the output in use (tap one to use it).',
             style: midiTextStyle(),
           ),
           const SizedBox(height: 4),

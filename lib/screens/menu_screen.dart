@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -17,6 +16,7 @@ import '../widgets/arcade.dart';
 import '../widgets/drill_practice_view.dart';
 import '../widgets/hud_layout.dart';
 import '../widgets/taiko_drum_head.dart';
+import '../util/debug_tools.dart';
 
 final List<Tool> tools = [const Tool(id: 'pattern-trainer', title: 'Pattern Trainer')];
 
@@ -65,9 +65,9 @@ class MenuScreen extends StatelessWidget {
               right: wide ? (right - RoundIconButton.defaultSize) / 2 : safe.right + 16,
               child: const HudSettingsButton(),
             ),
-            // In debug builds, a way to the debug screen: left of the settings button, or below it
+            // In debug and profile builds, a way to the debug screen: left of the settings button, or below it
             // in landscape, where it has a column of its own.
-            if (kDebugMode)
+            if (debugTools)
               Positioned(
                 top:
                     safe.top +
