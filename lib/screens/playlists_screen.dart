@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../model/model.dart';
@@ -7,8 +10,9 @@ import '../widgets/arcade.dart';
 import '../widgets/hud_controls.dart';
 import '../widgets/hud_layout.dart';
 
-/// The user's playlists, as cards (tap one to open it -- see [PlaylistScreen]), and a button to
-/// create another, which asks for its name and then opens it.
+/// The user's playlists, as cards (tap one to open it -- see [PlaylistScreen]), and buttons to
+/// create another, which asks for its name and then opens it, or import one exported from another
+/// copy of the app (see [encodePlaylistExport]), which then opens it.
 class PlaylistsScreen extends StatelessWidget {
   const PlaylistsScreen({super.key});
 
@@ -17,6 +21,68 @@ class PlaylistsScreen extends StatelessWidget {
     if (name == null || !context.mounted) return;
     final playlist = playlists.create(name);
     Navigator.of(context).pushNamed('/playlists/${playlist.id}');
+  }
+
+  Future<void> _import(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String message) => messenger.showSnackBar(SnackBar(content: Text(message)));
+    final PlaylistImport imported;
+    try {
+      final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
+      if (file == null) return;
+      imported = decodePlaylistExport(utf8.decode(await file.readAsBytes()));
+    } on FormatException {
+      say("That file isn't an exported playlist.");
+      return;
+    } catch (e) {
+      say("Couldn't read that file: $e");
+      return;
+    }
+    final playlist = playlists.create(imported.name, entries: imported.entries);
+    final missing = imported.missing;
+    if (missing > 0) {
+      say(
+        missing == 1
+            ? "Left out 1 drill that this version of the app doesn't have."
+            : "Left out $missing drills that this version of the app doesn't have.",
+      );
+    }
+    if (context.mounted) Navigator.of(context).pushNamed('/playlists/${playlist.id}');
+  }
+
+  /// NEW PLAYLIST and IMPORT PLAYLIST side by side, or one above the other where they'd be
+  /// squeezed (on a phone held upright).
+  Widget _buttons(BuildContext context) {
+    final create = CandyButton(
+      label: 'NEW PLAYLIST',
+      icon: Icons.add_rounded,
+      colors: AppColors.candyOrange,
+      height: 50,
+      fontSize: 17,
+      onPressed: () => _create(context),
+    );
+    final import = CandyButton(
+      label: 'IMPORT PLAYLIST',
+      icon: Icons.file_open_rounded,
+      colors: AppColors.candyGreen,
+      height: 50,
+      fontSize: 17,
+      onPressed: () => _import(context),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth >= 440
+          ? Row(
+              children: [
+                Expanded(child: create),
+                const SizedBox(width: 10),
+                Expanded(child: import),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [create, const SizedBox(height: 12), import],
+            ),
+    );
   }
 
   @override
@@ -48,14 +114,7 @@ class PlaylistsScreen extends StatelessWidget {
                         ),
                       ],
                     const SizedBox(height: 14),
-                    CandyButton(
-                      label: 'NEW PLAYLIST',
-                      icon: Icons.add_rounded,
-                      colors: AppColors.candyOrange,
-                      height: 50,
-                      fontSize: 17,
-                      onPressed: () => _create(context),
-                    ),
+                    _buttons(context),
                   ],
                 ),
               ),

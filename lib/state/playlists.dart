@@ -61,6 +61,64 @@ double playlistSeconds(List<PlaylistEntry> entries) {
   return total;
 }
 
+// Exporting a playlist to a file, to import into another copy of the app: its name and drills,
+// but not its id (an import is given a new one).
+
+const _exportFormat = 'mrdriller-playlist';
+const _exportVersion = 1;
+
+/// A file name for [playlist]'s export: its name, less characters file systems don't allow.
+String playlistExportFileName(Playlist playlist) {
+  final name = playlist.name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '').trim();
+  return '${name.isEmpty ? 'playlist' : name}.json';
+}
+
+/// [playlist] as the JSON of an export file.
+String encodePlaylistExport(Playlist playlist) => const JsonEncoder.withIndent('  ').convert({
+  'format': _exportFormat,
+  'version': _exportVersion,
+  'name': playlist.name,
+  'entries': [for (final e in playlist.entries) e.toJson()],
+});
+
+/// A playlist read from an export file: its name, the drills in it that this copy of the app has,
+/// and how many it left out because it doesn't have them (exported from a newer version, say).
+typedef PlaylistImport = ({String name, List<PlaylistEntry> entries, int missing});
+
+/// Reads an export file's [text] (see [encodePlaylistExport]), throwing a [FormatException] if
+/// it isn't one.
+PlaylistImport decodePlaylistExport(String text) {
+  try {
+    final json = jsonDecode(text);
+    if (json is! Map<String, dynamic> || json['format'] != _exportFormat) {
+      throw const FormatException('Not a playlist export');
+    }
+    final version = json['version'];
+    if (version is! int || version > _exportVersion) {
+      throw const FormatException('Exported by a newer version of the app');
+    }
+    final name = (json['name'] as String).trim();
+    final all = [
+      for (final item in json['entries'] as List<dynamic>)
+        PlaylistEntry.fromJson(item as Map<String, dynamic>),
+    ];
+    final entries = [
+      for (final e in all)
+        if (data.findDrillById(e.drillId) != null) e,
+    ];
+    return (
+      name: name.isEmpty ? 'Imported playlist' : name,
+      entries: entries,
+      missing: all.length - entries.length,
+    );
+  } on FormatException {
+    rethrow;
+  } catch (e) {
+    // (A field of the wrong type, say.)
+    throw FormatException('Malformed playlist export: $e');
+  }
+}
+
 /// The user's playlists, synced item by item (see [SyncedList]).
 class PlaylistList extends SyncedList<Playlist> {
   // Where playlists were kept before they synced: a list of them.
@@ -93,9 +151,9 @@ class PlaylistList extends SyncedList<Playlist> {
     }
   }
 
-  /// Creates a new, empty playlist called [name], at the end of the list.
-  Playlist create(String name) {
-    final playlist = Playlist(id: newId(), name: name);
+  /// Creates a new playlist called [name] (empty, unless given [entries]), at the end of the list.
+  Playlist create(String name, {List<PlaylistEntry> entries = const []}) {
+    final playlist = Playlist(id: newId(), name: name, entries: entries);
     add(playlist);
     return playlist;
   }

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../data/drills.dart' as data;
 import '../model/model.dart';
+import '../services/file_download.dart';
 import '../services/reminder_scheduler.dart';
 import '../state/playlists.dart';
 import '../state/reminders.dart';
@@ -21,7 +23,7 @@ import 'select_drill_for_playlist_screen.dart';
 /// SHUFFLE buttons to run through its drills in order or in a random one (see
 /// [PlaylistRunScreen]), the drills as cards (drag the handle to reorder, tap to edit -- deleting
 /// a drill happens from the edit screen, not here), a button to add another drill, and buttons to
-/// rename or delete the playlist.
+/// rename, delete or export the playlist (to import into another copy of the app).
 class PlaylistScreen extends StatelessWidget {
   final String playlistId;
 
@@ -60,6 +62,18 @@ class PlaylistScreen extends StatelessWidget {
       reminders.unlinkPlaylist(playlist.id);
       unawaited(refreshScheduledReminders());
     }
+  }
+
+  /// Saves [playlist] as a file (see [encodePlaylistExport]): downloading it on web, or offering
+  /// it through the share sheet (pointed at the button, [context]'s, as iPads need) on a phone.
+  void _export(BuildContext context, Playlist playlist) {
+    final box = context.findRenderObject() as RenderBox?;
+    downloadFile(
+      playlistExportFileName(playlist),
+      utf8.encode(encodePlaylistExport(playlist)),
+      'application/json',
+      origin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+    );
   }
 
   Widget _playButton(BuildContext context, Playlist playlist) => StartButton(
@@ -101,6 +115,24 @@ class PlaylistScreen extends StatelessWidget {
     onPressed: () => _delete(context, playlist),
   );
 
+  /// The DELETE button and, where files can be saved, EXPORT below it.
+  List<Widget> _fileButtons(BuildContext context, Playlist playlist) => [
+    _deleteButton(context, playlist),
+    if (canDownloadFiles) ...[
+      const SizedBox(height: 14),
+      Builder(
+        builder: (context) => CandyButton(
+          label: 'EXPORT PLAYLIST',
+          icon: Icons.ios_share_rounded,
+          colors: AppColors.candyGreen,
+          height: 50,
+          fontSize: 17,
+          onPressed: () => _export(context, playlist),
+        ),
+      ),
+    ],
+  ];
+
   static const _emptyMessage = 'No drills in this playlist yet. Add one to get started!';
 
   /// Everything in one scrolling column: PLAY and SHUFFLE, the drills, then ADD DRILL and DELETE.
@@ -141,7 +173,7 @@ class PlaylistScreen extends StatelessWidget {
               const SizedBox(height: 14),
               _addButton(context, playlist),
               const SizedBox(height: 30),
-              _deleteButton(context, playlist),
+              ..._fileButtons(context, playlist),
             ],
           ),
         ),
@@ -200,7 +232,7 @@ class PlaylistScreen extends StatelessWidget {
                       ],
                       _addButton(context, playlist),
                       const SizedBox(height: 30),
-                      _deleteButton(context, playlist),
+                      ..._fileButtons(context, playlist),
                     ],
                   ),
                 ),
